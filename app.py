@@ -33,7 +33,7 @@ app.add_middleware(
 )
 
 
-app.add_middleware(SessionMiddleware, secret_key="some-secret-key", https_only=True)
+app.add_middleware(SessionMiddleware, settings.API_SECRET_KEY, https_only=True)
 app.include_router(transcriber_router, prefix=settings.API_PREFIX, tags=["transcriber"])
 app.include_router(static_router, prefix="", tags=["static"])
 

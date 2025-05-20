@@ -1,7 +1,6 @@
 from db.models import Job, JobStatusEnum, Jobs
 from typing import Optional
 from sqlmodel import Session
-from db.session import get_session
 from datetime import datetime, timedelta
 
 

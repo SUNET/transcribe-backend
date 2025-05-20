@@ -15,7 +15,7 @@ def init() -> sessionmaker:
     This function creates a new SQLAlchemy engine and sessionmaker.
     It uses the database URL from the settings.
     """
-    db_url = settings.DATABASE_URL
+    db_url = settings.API_DATABASE_URL
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
