@@ -26,7 +26,6 @@ class Settings(BaseSettings):
     API_DEBUG: bool = True
     API_DESCRIPTION: str = "A REST API for the Whisper ASR model"
     API_FILE_STORAGE_DIR: str = ""
-    API_FILE_UPLOAD_DIR: str = ""
     API_PREFIX: str = "/api/v1"
     API_SECRET_KEY: str = ""
     API_TITLE: str = "Whisper REST backend"
@@ -37,15 +36,13 @@ class Settings(BaseSettings):
     OIDC_SCOPE: list[str] = []
     OIDC_CLIENT_SECRET: str = ""
     OIDC_METADATA_URL: str = ""
-
+    OIDC_REDIRECT_URI: str = ""
 
 @lru_cache
 def get_settings() -> Settings:
     """
     Get the settings for the application.
     """
-    if not os.path.exists(Settings().API_FILE_UPLOAD_DIR):
-        os.makedirs(Settings().API_FILE_UPLOAD_DIR)
     if not os.path.exists(Settings().API_FILE_STORAGE_DIR):
         os.makedirs(Settings().API_FILE_STORAGE_DIR)
 

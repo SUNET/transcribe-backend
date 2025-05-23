@@ -1,11 +1,13 @@
-from datetime import datetime
-from fastapi import HTTPException, Request
+from fastapi import Request
 from authlib.jose import jwt
-from authlib.integrations.starlette_client import OAuth
-from typing import Optional
+from fastapi import HTTPException
+from datetime import datetime
 from utils.settings import get_settings
+from authlib.integrations.starlette_client import OAuth
+from pydantic import BaseModel
 
 settings = get_settings()
+
 
 oauth = OAuth()
 oauth.register(
@@ -13,80 +15,57 @@ oauth.register(
     server_metadata_url=settings.OIDC_METADATA_URL,
     client_id=settings.OIDC_CLIENT_ID,
     client_secret=settings.OIDC_CLIENT_SECRET,
-    client_scope=settings.OIDC_SCOPE,
+    client_kwargs={"scope": "openid profile email"},
+    redirect_uri=settings.OIDC_REDIRECT_URI,
 )
 
 
 class UnauthenticatedError(HTTPException):
-    """
-    Custom exception for unauthenticated users.
-    Inherits from HTTPException.
-    """
+    def __init__(self) -> None:
+        super().__init__(status_code=401, detail="You are not authenticated.")
 
-    def __init__(self, message: Optional[str] = "") -> None:
-        """
-        Initialize the UnauthenticatedError.
-        Args:
-            message (Optional[str]): Custom error message.
-        """
-        super().__init__(
-            status_code=401, detail=f"You are not authenticated. {message}"
-        )
+
+class RefreshToken(BaseModel):
+    token: str
 
 
 async def verify_token(id_token: str):
-    """
-    Verify the JWT token.
-    Args:
-        id_token (str): The JWT token to verify.
-    Returns:
-        dict: The decoded JWT token.
-    Raises:
-        UnauthenticatedError: If the token is invalid or expired.
-    """
-
     jwks = await oauth.auth0.fetch_jwk_set()
-
     try:
         decoded_jwt = jwt.decode(s=id_token, key=jwks)
-    except Exception:
-        raise UnauthenticatedError("Invalid token.")
-
+    except Exception as e:
+        print(f"Error decoding JWT: {e}")
+        raise UnauthenticatedError(e)
     metadata = await oauth.auth0.load_server_metadata()
-
     if decoded_jwt["iss"] != metadata["issuer"]:
-        raise UnauthenticatedError(f"Invalid issuer, was {decoded_jwt['iss']}")
-
-    # XXX: Check audience?
-    # if decoded_jwt["aud"] != "nac":
-    #     raise UnauthenticatedError("Invalid audience: ")
-
+        print(f"Invalid issuer: {decoded_jwt['iss']}")
+        raise UnauthenticatedError()
     exp = datetime.fromtimestamp(decoded_jwt["exp"])
-
     if exp < datetime.now():
-        raise UnauthenticatedError(f"Token expired at {exp}")
+        print(f"JWT expired: {exp}")
+        raise UnauthenticatedError()
     return decoded_jwt
 
 
 async def verify_user(request: Request):
-    """
-    Verify the user by checking the JWT token in the request headers.
-    Args:
-        request (Request): The request object.
-    Returns:
-        str: The user ID from the decoded JWT token.
-    Raises:
-        UnauthenticatedError: If the token is invalid or expired.
-    """
+    auth_header = request.headers.get("Authorization")
 
-    id_token = request.headers["authorization"].replace("Bearer ", "")
+    if auth_header is None:
+        print("No Authorization header found.")
+        raise UnauthenticatedError()
+
+    if not auth_header.startswith("Bearer "):
+        print("Invalid Authorization header format.")
+        raise UnauthenticatedError()
+
+    id_token = auth_header.split(" ")[1]
 
     if id_token is None:
-        raise UnauthenticatedError("No token provided.")
+        print("No ID token found in session.")
+        raise UnauthenticatedError()
 
     decoded_jwt = await verify_token(id_token=id_token)
-
     user_id = decoded_jwt["sub"]
+    print(f"User ID: {user_id}")
 
-    # XXX: Should eventually anonymize the user_id and return a UUID.
     return user_id

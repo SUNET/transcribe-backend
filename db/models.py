@@ -58,6 +58,11 @@ class Job(SQLModel, table=True):
         unique=True,
         description="UUID of the job",
     )
+    user_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="User ID associated with the job",
+    )
     status: JobStatusEnum = Field(
         default=None,
         sa_column=Field(sa_column=SQLAlchemyEnum(JobStatusEnum)),
@@ -96,6 +101,7 @@ class Job(SQLModel, table=True):
         return {
             "id": self.id,
             "uuid": self.uuid,
+            "user_id": self.user_id,
             "status": self.status,
             "job_type": self.job_type,
             "created_at": str(self.created_at),

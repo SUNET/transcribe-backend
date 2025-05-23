@@ -9,20 +9,17 @@ router = APIRouter(tags=["transcriber"])
 settings = get_settings()
 db_session = get_session()
 
-api_file_upload_dir = settings.API_FILE_UPLOAD_DIR
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 
-@router.get("/static/{job_id}")
-async def get_static_file(request: Request, job_id: str) -> FileResponse:
+@router.get("/static/{user_id}/{job_id}")
+async def get_static_file(request: Request, user_id: str, job_id: str) -> FileResponse:
     """
     Get the static file.
     """
 
-    await verify_user(request)
-
-    file_path = Path(api_file_upload_dir) / job_id
-
+    file_path = Path(api_file_storage_dir) / user_id / job_id
+    print(file_path)
     if not file_path.exists():
         return JSONResponse(
             content={"detail": {"error": "File not found"}},

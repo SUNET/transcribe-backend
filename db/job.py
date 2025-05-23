@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 def job_create(
     session: Session,
+    user_id: Optional[str] = None,
     job_type: Optional[JobStatusEnum] = None,
     language: Optional[str] = "",
     model_type: Optional[str] = "",
@@ -16,6 +17,7 @@ def job_create(
     Create a new job in the database.
     """
     job = Job(
+        user_id=user_id,
         job_type=job_type,
         language=language,
         model_type=model_type,
@@ -81,6 +83,7 @@ def job_get_status(session: Session) -> dict:
 def job_update(
     session: Session,
     uuid: str,
+    user_id: Optional[str] = None,
     status: Optional[JobStatusEnum] = None,
     language: Optional[str] = None,
     model_type: Optional[str] = None,
@@ -95,6 +98,8 @@ def job_update(
     if not job:
         return None
 
+    if user_id:
+        job.user_id = user_id
     if status:
         job.status = status
     if error:

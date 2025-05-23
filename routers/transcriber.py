@@ -5,7 +5,6 @@ from fastapi import (
     UploadFile,
     Request,
 )
-from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
 from db.session import get_session
 from db.job import (
@@ -13,7 +12,6 @@ from db.job import (
     job_get,
     job_get_all,
     job_update,
-    job_get_next,
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
 from typing import Optional
@@ -25,7 +23,6 @@ router = APIRouter(tags=["transcriber"])
 settings = get_settings()
 db_session = get_session()
 
-api_file_upload_dir = settings.API_FILE_UPLOAD_DIR
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 
@@ -35,6 +32,8 @@ async def transcribe(
 ) -> JSONResponse:
     """
     Transcribe audio file.
+
+    Used by the frontend to get the status of a transcription job.
     """
 
     await verify_user(request)
@@ -54,28 +53,35 @@ async def transcribe_file(
 ) -> JSONResponse:
     """
     Transcribe audio file.
+
+    Used by the frontend to upload an audio file for transcription.
     """
 
-    await verify_user(request)
+    user_id = await verify_user(request)
 
     # Create a job for the transcription
     job = job_create(
         db_session,
+        user_id=user_id,
         job_type=JobType.TRANSCRIPTION,
         filename=file.filename,
         output_format=OutputFormatEnum.SRT,
     )
 
     try:
-        file_path = Path(api_file_upload_dir) / job["uuid"]
-        async with aiofiles.open(file_path, "wb") as out_file:
+        file_path = Path(api_file_storage_dir + "/" + user_id)
+        if not file_path.exists():
+            file_path.mkdir(parents=True, exist_ok=True)
+        async with aiofiles.open(file_path / job["uuid"], "wb") as out_file:
             while True:
                 chunk = await file.read(1024)
                 if not chunk:
                     break
                 await out_file.write(chunk)
     except Exception as e:
-        job = job_update(db_session, job["uuid"], status=JobStatus.FAILED, error=str(e))
+        job = job_update(
+            db_session, job["uuid"], user_id, status=JobStatus.FAILED, error=str(e)
+        )
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     job = job_update(db_session, job["uuid"], status=JobStatusEnum.UPLOADED)
@@ -84,6 +90,7 @@ async def transcribe_file(
         content={
             "result": {
                 "uuid": job["uuid"],
+                "user_id": user_id,
                 "status": job["status"],
                 "job_type": job["job_type"],
                 "filename": file.filename,
@@ -99,10 +106,11 @@ async def update_transcription_status(
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
+
+    Used by the frontend and worker to update the status of a transcription job.
     """
 
-    await verify_user(request)
-
+    user_id = await verify_user(request)
     data = await request.json()
     language = data.get("language")
     model = data.get("model")
@@ -111,6 +119,7 @@ async def update_transcription_status(
     error = data.get("error")
 
     print(f"Job ID: {job_id}")
+    print(f"User ID: {user_id}")
     print(f"Language: {language}")
     print(f"Model: {model}")
     print(f"Status: {status}")
@@ -119,6 +128,7 @@ async def update_transcription_status(
     job = job_update(
         db_session,
         job_id,
+        user_id=user_id,
         language=language,
         model_type=model,
         status=status,
@@ -135,6 +145,7 @@ async def update_transcription_status(
         content={
             "result": {
                 "uuid": job["uuid"],
+                "user_id": user_id,
                 "status": job["status"],
                 "job_type": job["job_type"],
                 "filename": job["filename"],
@@ -143,57 +154,14 @@ async def update_transcription_status(
     )
 
 
-@router.get("/transcriber/{job_id}")
-async def get_transcription_job(request: Request, job_id: str) -> JSONResponse:
-    """
-    Get the status of a transcription job.
-    """
-    await verify_user(request)
-
-    if job_id == "next":
-        job = job_get_next(db_session)
-        return JSONResponse(content={"result": jsonable_encoder(job)})
-
-    job = job_get(db_session, job_id)
-
-    if not job:
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
-
-    return JSONResponse(content={"result": {"jobs": [jsonable_encoder(job)]}})
-
-
-@router.get("/transcriber/{job_id}/file")
-async def get_transcription_file(request: Request, job_id: str) -> FileResponse:
-    """
-    Get the transcription file.
-    """
-    await verify_user(request)
-
-    job = job_get(db_session, job_id)
-
-    if not job:
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
-
-    file_path = Path(api_file_upload_dir) / job["filename"]
-
-    if not file_path.exists():
-        return {"result": {"error": "File not found"}}
-
-    return FileResponse(file_path)
-
-
 @router.put("/transcriber/{job_id}/result")
 async def put_transcription_result(
-    request: Request, job_id: str, file: UploadFile
+    request: Request, user_id: str, job_id: str, file: UploadFile
 ) -> JSONResponse:
     """
     Upload the transcription result.
     """
-    await verify_user(request)
+    user_id = await verify_user(request)
 
     if not job_get(db_session, job_id):
         return JSONResponse(
@@ -201,7 +169,8 @@ async def put_transcription_result(
         )
 
     try:
-        file_path = Path(api_file_storage_dir) / file.filename
+        file_path = Path(api_file_storage_dir) / user_id / file.filename
+        print(file_path)
         async with aiofiles.open(file_path, "wb") as out_file:
             while True:
                 chunk = await file.read(1024)
@@ -235,8 +204,8 @@ async def get_transcription_result(request: Request, job_id: str) -> FileRespons
     """
     Get the transcription result.
     """
-    await verify_user(request)
 
+    user_id = await verify_user(request)
     job = job_get(db_session, job_id)
 
     if not job:
@@ -246,11 +215,11 @@ async def get_transcription_result(request: Request, job_id: str) -> FileRespons
 
     match job["output_format"]:
         case OutputFormatEnum.TXT:
-            file_path = Path(api_file_storage_dir) / f"{job['uuid']}.txt"
+            file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.txt"
         case OutputFormatEnum.SRT:
-            file_path = Path(api_file_storage_dir) / f"{job['uuid']}.srt"
+            file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.srt"
         case OutputFormatEnum.CSV:
-            file_path = Path(api_file_storage_dir) / f"{job['uuid']}.csv"
+            file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.csv"
         case _:
             return JSONResponse(
                 content={"result": {"error": "Unsupported output format"}},
@@ -258,6 +227,7 @@ async def get_transcription_result(request: Request, job_id: str) -> FileRespons
             )
 
     if not file_path.exists():
-        return {"result": {"error": "File not found"}}
+        print(f"File not found: {file_path}")
+        return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
 
     return FileResponse(file_path)
