@@ -34,16 +34,16 @@ async def verify_token(id_token: str):
     try:
         decoded_jwt = jwt.decode(s=id_token, key=jwks)
     except Exception as e:
-        print(f"Error decoding JWT: {e}")
-        raise UnauthenticatedError(e)
+        raise UnauthenticatedError("Invalid token.") from e
+
     metadata = await oauth.auth0.load_server_metadata()
+
     if decoded_jwt["iss"] != metadata["issuer"]:
-        print(f"Invalid issuer: {decoded_jwt['iss']}")
-        raise UnauthenticatedError()
+        raise UnauthenticatedError("Invalid issuer.")
+
     exp = datetime.fromtimestamp(decoded_jwt["exp"])
     if exp < datetime.now():
-        print(f"JWT expired: {exp}")
-        raise UnauthenticatedError()
+        raise UnauthenticatedError("Token expired.")
     return decoded_jwt
 
 
@@ -51,21 +51,17 @@ async def verify_user(request: Request):
     auth_header = request.headers.get("Authorization")
 
     if auth_header is None:
-        print("No Authorization header found.")
-        raise UnauthenticatedError()
+        raise UnauthenticatedError("No authorization header found.")
 
     if not auth_header.startswith("Bearer "):
-        print("Invalid Authorization header format.")
-        raise UnauthenticatedError()
+        raise UnauthenticatedError("Invalid authorization header format.")
 
     id_token = auth_header.split(" ")[1]
 
     if id_token is None:
-        print("No ID token found in session.")
-        raise UnauthenticatedError()
+        raise UnauthenticatedError("No id_token found.")
 
     decoded_jwt = await verify_token(id_token=id_token)
     user_id = decoded_jwt["sub"]
-    print(f"User ID: {user_id}")
 
     return user_id
