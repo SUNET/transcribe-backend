@@ -36,12 +36,12 @@ async def transcribe(
     Used by the frontend to get the status of a transcription job.
     """
 
-    await verify_user(request)
+    user_id = await verify_user(request)
 
     if job_id:
-        res = job_get(db_session, job_id)
+        res = job_get(db_session, job_id, user_id)
     else:
-        res = job_get_all(db_session)
+        res = job_get_all(db_session, user_id)
 
     return JSONResponse(content={"result": res})
 

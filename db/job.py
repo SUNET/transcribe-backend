@@ -32,12 +32,17 @@ def job_create(
     return job.as_dict()
 
 
-def job_get(session: Session, uuid: str) -> Optional[Job]:
+def job_get(session: Session, uuid: str, user_id: str) -> Optional[Job]:
     """
     Get a job by UUID.
     """
 
-    job = session.query(Job).filter(Job.uuid == uuid).first()
+    job = (
+        session.query(Job)
+        .filter(Job.uuid == uuid)
+        .filter(Job.user_id == user_id)
+        .first()
+    )
 
     return job.as_dict() if job else {}
 
@@ -56,21 +61,21 @@ def job_get_next(session: Session) -> dict:
     return job.as_dict() if job else {}
 
 
-def job_get_all(session: Session) -> list[Job]:
+def job_get_all(session: Session, user_id: str) -> list[Job]:
     """
     Get all jobs from the database.
     """
-    jobs = session.query(Job).all()
+    jobs = session.query(Job).filter(Job.user_id == user_id).all()
 
     return {"jobs": [job.as_dict() for job in jobs]}
 
 
-def job_get_status(session: Session) -> dict:
+def job_get_status(session: Session, user_id: str) -> dict:
     """
     Get all job UUIDs together with statuses from the database.
     """
     columns = [Job.uuid, Job.status, Job.job_type, Job.created_at, Job.updated_at]
-    query = session.query(*columns)
+    query = session.query(*columns).filter(Job.user_id == user_id).all()
 
     if not query:
         return {}
