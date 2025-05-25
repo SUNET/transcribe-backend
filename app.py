@@ -56,7 +56,7 @@ async def auth(request: Request):
     if "refresh_token" in token:
         request.session["refresh_token"] = token["refresh_token"]
 
-    url = f"http://localhost:8888/?token={token['id_token']}"
+    url = f"{settings.OIDC_REDIRECT_URI}/?token={token['id_token']}"
 
     if "refresh_token" in token:
         url += f"&refresh_token={token['refresh_token']}"
@@ -64,18 +64,18 @@ async def auth(request: Request):
     return RedirectResponse(url=url)
 
 
-@app.get("/auth/login")
+@app.get("/api/login")
 async def login(request: Request):
     redirect_uri = request.url_for("auth")
     return await oauth.auth0.authorize_redirect(request, redirect_uri)
 
 
-@app.get("/auth/logout")
+@app.get("/api/logout")
 async def logout(request: Request):
-    return RedirectResponse(url="http://localhost:8888")
+    return RedirectResponse(url=settings.OIDC_REDIRECT_URI)
 
 
-@app.post("/auth/refresh")
+@app.post("/api/refresh")
 async def refresh(request: Request, refresh_token: RefreshToken):
     data = {
         "client_id": "nac",
