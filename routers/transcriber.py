@@ -163,7 +163,7 @@ async def put_transcription_result(
     """
     user_id = await verify_user(request)
 
-    if not job_get(db_session, job_id):
+    if not job_get(db_session, job_id, user_id):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -206,7 +206,7 @@ async def get_transcription_result(request: Request, job_id: str) -> FileRespons
     """
 
     user_id = await verify_user(request)
-    job = job_get(db_session, job_id)
+    job = job_get(db_session, job_id, user_id)
 
     if not job:
         return JSONResponse(

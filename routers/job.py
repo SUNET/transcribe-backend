@@ -70,7 +70,7 @@ async def get_transcription_file(
     """
     Get the data to transcribe.
     """
-    job = job_get(db_session, job_id)
+    job = job_get(db_session, job_id, user_id)
 
     if not job:
         return JSONResponse(
@@ -96,7 +96,7 @@ async def put_transcription_result(
     """
     filename = file.filename
 
-    if not job_get(db_session, job_id):
+    if not job_get(db_session, job_id, user_id):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
