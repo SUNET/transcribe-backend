@@ -149,6 +149,8 @@ async def update_transcription_status(
                 "status": job["status"],
                 "job_type": job["job_type"],
                 "filename": job["filename"],
+                "language": job["language"],
+                "model_type": job["model_type"],
             }
         }
     )
