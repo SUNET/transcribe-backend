@@ -1,11 +1,7 @@
 import aiofiles
 
-from fastapi import (
-    APIRouter,
-    UploadFile,
-    Request,
-)
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, UploadFile, Request, Header
+from fastapi.responses import FileResponse, JSONResponse, Response
 from db.session import get_session
 from db.job import (
     job_create,
@@ -233,3 +229,46 @@ async def get_transcription_result(request: Request, job_id: str) -> FileRespons
         return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
 
     return FileResponse(file_path)
+
+
+@router.get("/transcriber/{job_id}/videostream")
+async def get_video_stream(
+    request: Request, job_id: str, range: str = Header(None)
+) -> FileResponse:
+    """
+    Get the video stream for a transcription job.
+    """
+
+    user_id = await verify_user(request)
+
+    job = job_get(db_session, job_id, user_id)
+
+    if not job:
+        return JSONResponse(
+            content={"result": {"error": "Job not found"}}, status_code=404
+        )
+
+    file_path = Path(api_file_storage_dir) / user_id / job_id
+
+    if not file_path.exists():
+        return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
+
+    if not range or not range.startswith("bytes="):
+        return JSONResponse(
+            {"result": {"error": "Invalid or missing Range header"}}, status_code=416
+        )
+
+    start, end = range.replace("bytes=", "").split("-")
+    start = int(start)
+    end = int(end) if end else start + (1024 * 1024)
+
+    with open(file_path, "rb") as video:
+        video.seek(start)
+        data = video.read(end - start)
+        filesize = str(file_path.stat().st_size)
+        headers = {
+            "Content-Range": f"bytes {str(start)}-{str(end)}/{filesize}",
+            "Accept-Ranges": "bytes",
+        }
+
+        return Response(data, status_code=206, headers=headers, media_type="video/mp4")
