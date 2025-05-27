@@ -248,7 +248,7 @@ async def get_video_stream(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    file_path = Path(api_file_storage_dir) / user_id / job_id
+    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
 
     if not file_path.exists():
         return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
