@@ -15,6 +15,7 @@ from utils.settings import get_settings
 from pathlib import Path
 from auth.oidc import verify_user
 
+
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
 db_session = get_session()
@@ -258,14 +259,14 @@ async def get_video_stream(
             {"result": {"error": "Invalid or missing Range header"}}, status_code=416
         )
 
+    filesize = int(file_path.stat().st_size)
     start, end = range.replace("bytes=", "").split("-")
     start = int(start)
-    end = int(end) if end else start + (1024 * 1024)
+    end = int(end) if end else filesize
 
     with open(file_path, "rb") as video:
         video.seek(start)
         data = video.read(end - start)
-        filesize = str(file_path.stat().st_size)
         headers = {
             "Content-Range": f"bytes {str(start)}-{str(end)}/{filesize}",
             "Accept-Ranges": "bytes",
