@@ -62,7 +62,6 @@ async def transcribe_file(
         user_id=user_id,
         job_type=JobType.TRANSCRIPTION,
         filename=file.filename,
-        output_format=OutputFormatEnum.SRT,
     )
 
     try:
@@ -112,15 +111,7 @@ async def update_transcription_status(
     language = data.get("language")
     model = data.get("model")
     status = data.get("status")
-    output_format = data.get("output_format")
     error = data.get("error")
-
-    print(f"Job ID: {job_id}")
-    print(f"User ID: {user_id}")
-    print(f"Language: {language}")
-    print(f"Model: {model}")
-    print(f"Status: {status}")
-    print(f"Output Format: {output_format}")
 
     job = job_update(
         db_session,
@@ -129,7 +120,6 @@ async def update_transcription_status(
         language=language,
         model_type=model,
         status=status,
-        output_format=output_format,
         error=error,
     )
 
@@ -169,7 +159,7 @@ async def put_transcription_result(
 
     try:
         file_path = Path(api_file_storage_dir) / user_id / file.filename
-        print(file_path)
+
         async with aiofiles.open(file_path, "wb") as out_file:
             while True:
                 chunk = await file.read(1024)
@@ -198,8 +188,10 @@ async def put_transcription_result(
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
 
-@router.get("/transcriber/{job_id}/result")
-async def get_transcription_result(request: Request, job_id: str) -> FileResponse:
+@router.get("/transcriber/{job_id}/result/{output_format}")
+async def get_transcription_result(
+    request: Request, job_id: str, output_format: OutputFormatEnum
+) -> FileResponse:
     """
     Get the transcription result.
     """
@@ -212,9 +204,9 @@ async def get_transcription_result(request: Request, job_id: str) -> FileRespons
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    match job["output_format"]:
+    match output_format:
         case OutputFormatEnum.TXT:
-            file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.txt"
+            file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.json"
         case OutputFormatEnum.SRT:
             file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.srt"
         case OutputFormatEnum.CSV:
@@ -226,7 +218,6 @@ async def get_transcription_result(request: Request, job_id: str) -> FileRespons
             )
 
     if not file_path.exists():
-        print(f"File not found: {file_path}")
         return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
 
     return FileResponse(file_path)

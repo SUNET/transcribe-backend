@@ -37,8 +37,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
 app.add_middleware(SessionMiddleware, settings.API_SECRET_KEY, https_only=False)
 app.include_router(transcriber_router, prefix=settings.API_PREFIX, tags=["transcriber"])
 app.include_router(job_router, prefix=settings.API_PREFIX, tags=["job"])
@@ -92,7 +90,7 @@ async def refresh(request: Request, refresh_token: RefreshToken):
             data=data,
         )
         response.raise_for_status()
-    except Exception as e:
+    except Exception:
         return JSONResponse({"error": "Failed to refresh token"}, status_code=400)
 
     return JSONResponse({"access_token": response.json()["access_token"]})
