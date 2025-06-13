@@ -86,7 +86,7 @@ async def refresh(request: Request, refresh_token: RefreshToken):
 
     try:
         response = requests.post(
-            "https://norpan-keycloak1.cnaas.sunet.se/realms/norpan/protocol/openid-connect/token",
+            settings.OIDC_REFRESH_URI,
             data=data,
         )
         response.raise_for_status()
