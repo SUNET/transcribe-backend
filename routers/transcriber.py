@@ -112,6 +112,7 @@ async def update_transcription_status(
     data = await request.json()
     language = data.get("language")
     model = data.get("model")
+    speakers = data.get("speakers", 0)
     status = data.get("status")
     error = data.get("error")
 
@@ -121,6 +122,7 @@ async def update_transcription_status(
         user_id=user_id,
         language=language,
         model_type=model,
+        speakers=speakers,
         status=status,
         error=error,
     )
