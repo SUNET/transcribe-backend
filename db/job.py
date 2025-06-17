@@ -1,7 +1,12 @@
-from db.models import Job, JobStatusEnum, Jobs
-from typing import Optional
+from datetime import datetime
+from datetime import timedelta
+from db.models import Job
+from db.models import JobResult
+from db.models import JobStatusEnum
+from db.models import Jobs
 from sqlmodel import Session
-from datetime import datetime, timedelta
+from typing import Optional
+import json
 
 
 def job_create(
@@ -91,6 +96,7 @@ def job_update(
     language: Optional[str] = None,
     model_type: Optional[str] = None,
     error: Optional[str] = None,
+    transcribed_seconds: Optional[int] = None,
 ) -> Optional[Job]:
     """
     Update a job by UUID.
@@ -134,3 +140,67 @@ def job_cleanup(session: Session) -> None:
             continue
         session.delete(job)
     session.commit()
+
+
+def job_result_get(
+    session: Session,
+    user_id: str,
+    job_id: str,
+) -> Optional[JobResult]:
+    """
+    Get the transcription result for a job by UUID.
+    """
+    print(f"Fetching job result for job_id: {job_id}, user_id: {user_id}")
+    res = (
+        session.query(JobResult)
+        .filter(
+            JobResult.job_id == job_id,
+            JobResult.user_id == user_id,
+        )
+        .first()
+    )
+
+    return res.as_dict() if res else {}
+
+
+def job_result_save(
+    session: Session,
+    uuid: str,
+    user_id: str,
+    result_srt: Optional[str] = {},
+    result: Optional[str] = "",
+) -> JobResult:
+    """
+    Save the transcription result for a job.
+    """
+    job = session.query(Job).filter(Job.uuid == uuid).first()
+
+    if not job:
+        raise ValueError("Job not found")
+
+    job_result = (
+        session.query(JobResult)
+        .filter(
+            JobResult.job_id == uuid,
+            JobResult.user_id == user_id,
+        )
+        .first()
+    )
+
+    if job_result:
+        if result:
+            job_result.result = json.dumps(result)
+        if result_srt:
+            job_result.result_srt = result_srt
+    else:
+        job_result = JobResult(
+            job_id=uuid,
+            user_id=user_id,
+            result=json.dumps(result) if result else None,
+            result_srt=result_srt if result_srt else None,
+        )
+
+    session.add(job_result)
+    session.commit()
+
+    return job_result.as_dict()

@@ -8,6 +8,8 @@ from db.job import (
     job_get,
     job_get_all,
     job_update,
+    job_result_get,
+    job_result_save,
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
 from typing import Optional
@@ -144,48 +146,41 @@ async def update_transcription_status(
 
 
 @router.put("/transcriber/{job_id}/result")
-async def put_transcription_result(
-    request: Request, user_id: str, job_id: str, file: UploadFile
-) -> JSONResponse:
+async def put_transcription_result(request: Request, job_id: str) -> JSONResponse:
     """
     Upload the transcription result.
     """
     user_id = await verify_user(request)
-
-    if not job_get(db_session, job_id, user_id):
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
+    json_data = await request.json()
 
     try:
-        file_path = Path(api_file_storage_dir) / user_id / file.filename
+        if not job_get(db_session, job_id, user_id):
+            print(f"Job with ID {job_id} not found for user {user_id}.")
+            return JSONResponse(
+                content={"result": {"error": "Job not found"}}, status_code=404
+            )
 
-        async with aiofiles.open(file_path, "wb") as out_file:
-            while True:
-                chunk = await file.read(1024)
-                if not chunk:
-                    break
-                await out_file.write(chunk)
-
-        job = job_update(
-            db_session,
-            job_id,
-            status=JobStatusEnum.COMPLETED,
-            error=None,
-        )
-
-        return JSONResponse(
-            content={
-                "result": {
-                    "uuid": job["uuid"],
-                    "status": job["status"],
-                    "job_type": job["job_type"],
-                    "filename": file.filename,
-                }
-            }
-        )
+        if json_data["format"] == "srt":
+            print(f"Saving SRT result for job {job_id} for user {user_id}.")
+            job_result_save(
+                db_session,
+                job_id,
+                user_id,
+                result_srt=json_data["data"],
+            )
+        elif json_data["format"] == "json":
+            print(f"Saving JSON result for job {job_id} for user {user_id}.")
+            job_result_save(
+                db_session,
+                job_id,
+                user_id,
+                result=json_data,
+            )
     except Exception as e:
+        print(e)
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
+
+    return JSONResponse(content={"result": {"status": "OK"}}, status_code=200)
 
 
 @router.get("/transcriber/{job_id}/result/{output_format}")
@@ -204,23 +199,30 @@ async def get_transcription_result(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
+    job_result = job_result_get(db_session, user_id, job_id)
+
+    if not job_result:
+        return JSONResponse(
+            content={"result": {"error": "Job result not found"}}, status_code=404
+        )
+
     match output_format:
         case OutputFormatEnum.TXT:
-            file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.json"
+            content = job_result.get("result", "")
         case OutputFormatEnum.SRT:
-            file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.srt"
+            content = job_result.get("result_srt", "")
         case OutputFormatEnum.CSV:
-            file_path = Path(api_file_storage_dir) / user_id / f"{job['uuid']}.csv"
+            pass
         case _:
             return JSONResponse(
                 content={"result": {"error": "Unsupported output format"}},
                 status_code=400,
             )
 
-    if not file_path.exists():
-        return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
-
-    return FileResponse(file_path)
+    return JSONResponse(
+        content={"result": content},
+        media_type="text/plain",
+    )
 
 
 @router.get("/transcriber/{job_id}/videostream")

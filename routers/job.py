@@ -9,17 +9,15 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
 from db.session import get_session
 from db.job import (
-    job_create,
     job_get,
-    job_get_all,
     job_update,
     job_get_next,
+    job_result_save,
 )
-from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
-from typing import Optional
+from db.user import user_get_from_job, user_update
+from db.models import JobStatusEnum
 from utils.settings import get_settings
 from pathlib import Path
-from auth.oidc import verify_user
 
 router = APIRouter(tags=["job"])
 settings = get_settings()
@@ -50,6 +48,10 @@ async def update_transcription_status(
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
+
+    if job["status"] == JobStatusEnum.COMPLETED:
+        user_id = user_get_from_job(db_session, job_id)
+        user_update(db_session, user_id, data["transcribed_seconds"])
 
     return JSONResponse(content={"result": job})
 
@@ -87,13 +89,14 @@ async def get_transcription_file(
     return FileResponse(file_path)
 
 
-@router.put("/job/{user_id}/{job_id}/result")
-async def put_transcription_result(
+@router.put("/job/{user_id}/{job_id}/file")
+async def put_video_file(
     request: Request, user_id: str, job_id: str, file: UploadFile
 ) -> JSONResponse:
     """
-    Upload the transcription result.
+    Upload the video file to transcribe.
     """
+
     filename = file.filename
 
     if not job_get(db_session, job_id, user_id):
@@ -102,14 +105,64 @@ async def put_transcription_result(
         )
 
     file_path = Path(api_file_storage_dir + "/" + user_id)
+
     if not file_path.exists():
         file_path.mkdir(parents=True, exist_ok=True)
+
     async with aiofiles.open(file_path / filename, "wb") as out_file:
         while True:
             chunk = await file.read(1024)
             if not chunk:
                 break
             await out_file.write(chunk)
+
+    return JSONResponse(
+        content={
+            "result": {
+                "uuid": job_id,
+                "user_id": user_id,
+                "filename": filename,
+            }
+        },
+        status_code=200,
+    )
+
+
+@router.put("/job/{user_id}/{job_id}/result")
+async def put_transcription_result(
+    request: Request, user_id: str, job_id: str
+) -> JSONResponse:
+    """
+    Upload the transcription result.
+    """
+
+    if not job_get(db_session, job_id, user_id):
+        return JSONResponse(
+            content={"result": {"error": "Job not found"}}, status_code=404
+        )
+
+    data = await request.json()
+
+    match data["format"]:
+        case "srt":
+            job_result_save(
+                db_session,
+                job_id,
+                user_id,
+                result_srt=data["result"],
+            )
+        case "json":
+            job_result_save(
+                db_session,
+                job_id,
+                user_id,
+                result=data["result"],
+            )
+        case "mp4":
+            data = await request.body()
+            file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+            async with aiofiles.open(file_path, "wb") as out_file:
+                await out_file.write(data)
 
     job = job_update(
         db_session,
@@ -124,7 +177,6 @@ async def put_transcription_result(
                 "uuid": job["uuid"],
                 "status": job["status"],
                 "job_type": job["job_type"],
-                "filename": file.filename,
             }
         }
     )

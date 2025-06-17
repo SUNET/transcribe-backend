@@ -6,6 +6,7 @@ from sqlalchemy.types import Enum as SQLAlchemyEnum
 from sqlmodel import Field
 from enum import Enum
 from sqlmodel import SQLModel
+import json
 
 
 class JobStatusEnum(str, Enum):
@@ -42,6 +43,47 @@ class JobType(str, Enum):
     """
 
     TRANSCRIPTION = "transcription"
+
+
+class JobResult(SQLModel, table=True):
+    """
+    Model representing the result of a job.
+    """
+
+    __tablename__ = "job_results"
+
+    id: Optional[int] = Field(default=None, primary_key=True, description="Primary key")
+    job_id: str = Field(
+        index=True,
+        unique=True,
+        description="UUID of the job",
+    )
+    user_id: str = Field(
+        index=True,
+        description="User ID associated with the job",
+    )
+    result: Optional[str] = Field(
+        default=None,
+        description="JSON formatted transcription result",
+    )
+    result_srt: Optional[str] = Field(
+        default=None,
+        description="SRT formatted transcription result",
+    )
+
+    def as_dict(self) -> dict:
+        """
+        Convert the job result object to a dictionary.
+        Returns:
+            dict: The job result object as a dictionary.
+        """
+        return {
+            "id": self.id,
+            "job_id": self.job_id,
+            "user_id": self.user_id,
+            "result": self.result,
+            "result_srt": self.result_srt,
+        }
 
 
 class Job(SQLModel, table=True):
@@ -120,3 +162,64 @@ class Jobs(BaseModel):
     """
 
     jobs: List[Job]
+
+
+class User(SQLModel, table=True):
+    """
+    Model representing a user in the system.
+    """
+
+    __tablename__ = "users"
+
+    id: Optional[int] = Field(default=None, primary_key=True, description="Primary key")
+    user_id: str = Field(
+        default=None,
+        index=True,
+        description="User ID",
+    )
+    username: str = Field(
+        default=None,
+        index=True,
+        description="Username of the user",
+    )
+    realm: str = Field(
+        default=None,
+        index=True,
+        description="User realm",
+    )
+    admin: bool = Field(
+        default=False,
+        description="Indicates if the user is an admin",
+    )
+    transcribed_seconds: int = Field(
+        default=None,
+        description="Transcribed seconds",
+    )
+    last_login: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Last login timestamp",
+    )
+
+    def as_dict(self) -> dict:
+        """
+        Convert the user object to a dictionary.
+        Returns:
+            dict: The user object as a dictionary.
+        """
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "username": self.username,
+            "realm": self.realm,
+            "admin": self.admin,
+            "transcribed_seconds": self.transcribed_seconds,
+            "last_login": str(self.last_login),
+        }
+
+
+class Users(BaseModel):
+    """
+    Model representing a list of users.
+    """
+
+    users: List[User]

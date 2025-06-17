@@ -5,9 +5,12 @@ from datetime import datetime
 from utils.settings import get_settings
 from authlib.integrations.starlette_client import OAuth
 from pydantic import BaseModel
+from db.user import user_create
+from db.session import get_session
+
 
 settings = get_settings()
-
+db_session = get_session()
 
 oauth = OAuth()
 oauth.register(
@@ -62,6 +65,16 @@ async def verify_user(request: Request):
         raise UnauthenticatedError("No id_token found.")
 
     decoded_jwt = await verify_token(id_token=id_token)
+
     user_id = decoded_jwt["sub"]
+    username = decoded_jwt.get("preferred_username")
+    realm = decoded_jwt.get("realm", username.split("@")[-1])
+
+    user_create(
+        session=db_session,
+        username=username,
+        realm=realm,
+        user_id=user_id,
+    )
 
     return user_id
