@@ -126,6 +126,9 @@ class Job(SQLModel, table=True):
     )
     language: str = Field(default="Swedish", description="Language used for the job")
     model_type: str = Field(default="base", description="Model type used for the job")
+    speakers: Optional[str] = Field(
+        default=None, description="Number of speakers in the audio"
+    )
     error: Optional[str] = Field(default=None, description="Error message if any")
     filename: str = Field(default="", description="Filename of the audio file")
     output_format: OutputFormatEnum = Field(
@@ -151,6 +154,7 @@ class Job(SQLModel, table=True):
             "language": self.language,
             "model_type": self.model_type,
             "filename": self.filename,
+            "speakers": self.speakers,
             "output_format": self.output_format,
             "error": self.error,
         }

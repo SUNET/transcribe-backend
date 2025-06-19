@@ -95,8 +95,8 @@ def job_update(
     status: Optional[JobStatusEnum] = None,
     language: Optional[str] = None,
     model_type: Optional[str] = None,
+    speakers: Optional[int] = None,
     error: Optional[str] = None,
-    transcribed_seconds: Optional[int] = None,
 ) -> Optional[Job]:
     """
     Update a job by UUID.
@@ -116,6 +116,8 @@ def job_update(
         job.language = language
     if model_type:
         job.model_type = model_type
+    if speakers:
+        job.speakers = speakers
 
     session.commit()
 
