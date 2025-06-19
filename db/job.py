@@ -124,6 +124,21 @@ def job_update(
     return job.as_dict()
 
 
+def job_delete(session: Session, uuid: str) -> bool:
+    """
+    Delete a job by UUID.
+    """
+    job = session.query(Job).filter(Job.uuid == uuid).first()
+
+    if not job:
+        return False
+
+    session.delete(job)
+    session.commit()
+
+    return True
+
+
 def job_cleanup(session: Session) -> None:
     """
     Remove all jobs from the database.

@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from db.session import get_session
 from db.job import (
     job_create,
+    job_delete,
     job_get,
     job_get_all,
     job_update,
@@ -95,6 +96,37 @@ async def transcribe_file(
             }
         }
     )
+
+
+@router.delete("/transcriber/{job_id}")
+async def delete_transcription_job(
+    request: Request,
+    job_id: str,
+) -> JSONResponse:
+    """
+    Delete a transcription job.
+
+    Used by the frontend to delete a transcription job.
+    """
+
+    user_id = await verify_user(request)
+
+    job = job_get(db_session, job_id, user_id)
+
+    if not job:
+        return JSONResponse(
+            content={"result": {"error": "Job not found"}}, status_code=404
+        )
+
+    # Delete the job from the database
+    job_delete(db_session, job_id)
+
+    # Remove the video file if it exists
+    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+    if file_path.exists():
+        file_path.unlink()
+
+    return JSONResponse(content={"result": {"status": "OK"}})
 
 
 @router.put("/transcriber/{job_id}")
