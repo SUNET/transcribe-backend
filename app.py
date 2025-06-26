@@ -70,8 +70,7 @@ async def auth(request: Request):
 
 @app.get("/api/login")
 async def login(request: Request):
-    redirect_uri = request.url_for("auth")
-    return await oauth.auth0.authorize_redirect(request, redirect_uri)
+    return await oauth.auth0.authorize_redirect(request, settings.OIDC_REDIRECT_URI)
 
 
 @app.get("/api/logout")
@@ -90,7 +89,7 @@ async def refresh(request: Request, refresh_token: RefreshToken):
 
     try:
         response = requests.post(
-            "https://norpan-keycloak1.cnaas.sunet.se/realms/norpan/protocol/openid-connect/token",
+            settings.OIDC_REFRESH_URI,
             data=data,
         )
         response.raise_for_status()
