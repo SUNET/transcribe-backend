@@ -1,16 +1,18 @@
 from auth.oidc import RefreshToken
 from auth.oidc import oauth
 from auth.oidc import verify_user
+from db.job import job_cleanup
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
+from fastapi_utils.tasks import repeat_every
 from routers.job import router as job_router
 from routers.static import router as static_router
 from routers.transcriber import router as transcriber_router
-from routers.video import router as video_router
 from routers.user import router as user_router
+from routers.video import router as video_router
 from starlette.middleware.sessions import SessionMiddleware
 from utils.settings import get_settings
 
@@ -103,3 +105,9 @@ async def docs(request: Request) -> RedirectResponse:
     await verify_user(request)
 
     return RedirectResponse(url="/docs")
+
+
+@app.on_event("startup")
+@repeat_every(seconds=60 * 60)
+def remove_old_jobs() -> None:
+    job_cleanup()

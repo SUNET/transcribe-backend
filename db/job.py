@@ -1,12 +1,18 @@
+import json
+
 from datetime import datetime
 from datetime import timedelta
 from db.models import Job
 from db.models import JobResult
 from db.models import JobStatusEnum
 from db.models import Jobs
+from db.session import get_session
+from pathlib import Path
 from sqlmodel import Session
 from typing import Optional
-import json
+from utils.settings import get_settings
+
+settings = get_settings()
 
 
 def job_create(
@@ -133,30 +139,36 @@ def job_delete(session: Session, uuid: str) -> bool:
     if not job:
         return False
 
+    file_path = Path(settings.API_FILE_STORAGE_DIR) / job.user_id / job.uuid
+    file_path_mp4 = (
+        Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.mp4"
+    )
+
+    if file_path.exists():
+        file_path.unlink()
+
+    if file_path_mp4.exists():
+        file_path_mp4.unlink()
+
     session.delete(job)
     session.commit()
 
     return True
 
 
-def job_cleanup(session: Session) -> None:
+def job_cleanup() -> None:
     """
     Remove all jobs from the database.
     """
 
-    # Get all jobs that have been in progress for more than 1 hour
+    session = get_session()
+
     jobs_to_delete = (
-        session.query(Job)
-        .filter(Job.updated_at < datetime.utcnow() - timedelta(hours=1))
-        .all()
+        session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
     )
 
-    # Delete the jobs
     for job in jobs_to_delete:
-        if job.status == JobStatusEnum.COMPLETED:
-            continue
-        session.delete(job)
-    session.commit()
+        job_delete(session, job.uuid)
 
 
 def job_result_get(

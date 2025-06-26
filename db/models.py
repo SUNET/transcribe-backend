@@ -6,7 +6,7 @@ from sqlalchemy.types import Enum as SQLAlchemyEnum
 from sqlmodel import Field
 from enum import Enum
 from sqlmodel import SQLModel
-import json
+from datetime import timedelta
 
 
 class JobStatusEnum(str, Enum):
@@ -124,6 +124,10 @@ class Job(SQLModel, table=True):
         default_factory=datetime.utcnow,
         description="Last updated timestamp",
     )
+    deletion_date: datetime = Field(
+        default_factory=lambda: datetime.utcnow() + timedelta(days=7),
+        description="Date when the job will be deleted",
+    )
     language: str = Field(default="Swedish", description="Language used for the job")
     model_type: str = Field(default="base", description="Model type used for the job")
     speakers: Optional[str] = Field(
@@ -151,6 +155,7 @@ class Job(SQLModel, table=True):
             "job_type": self.job_type,
             "created_at": str(self.created_at),
             "updated_at": str(self.updated_at),
+            "deletion_date": str(self.deletion_date),
             "language": self.language,
             "model_type": self.model_type,
             "filename": self.filename,
