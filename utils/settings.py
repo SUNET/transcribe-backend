@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     OIDC_METADATA_URL: str = ""
     OIDC_REDIRECT_URI: str = ""
     OIDC_REFRESH_URI: str = ""
+    OIDC_FRONTEND_URI: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
