@@ -75,13 +75,13 @@ async def login(request: Request):
 
 @app.get("/api/logout")
 async def logout(request: Request):
-    return RedirectResponse(url=settings.OIDC_REDIRECT_URI)
+    return RedirectResponse(url=settings.OIDC_FRONTEND_URI)
 
 
 @app.post("/api/refresh")
 async def refresh(request: Request, refresh_token: RefreshToken):
     data = {
-        "client_id": "nac",
+        "client_id": settings.OIDC_CLIENT_ID,
         "client_secret": settings.OIDC_CLIENT_SECRET,
         "refresh_token": refresh_token.token,
         "grant_type": "refresh_token",
