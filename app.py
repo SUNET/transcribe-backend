@@ -60,7 +60,7 @@ async def auth(request: Request):
     if "refresh_token" in token:
         request.session["refresh_token"] = token["refresh_token"]
 
-    url = f"{settings.OIDC_REDIRECT_URI}/?token={token['id_token']}"
+    url = f"{settings.OIDC_FRONTEND_URI}/?token={token['id_token']}"
 
     if "refresh_token" in token:
         url += f"&refresh_token={token['refresh_token']}"
