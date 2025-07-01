@@ -1,4 +1,5 @@
 from db.models import User, Job
+from db.job import job_get_all
 from typing import Optional
 from sqlmodel import Session
 from datetime import datetime, timedelta
@@ -56,7 +57,12 @@ def user_get(session: Session, user_id: str) -> Optional[User]:
     """
     user = session.query(User).filter(User.user_id == user_id).first()
 
-    return user.as_dict() if user else {}
+    result = {
+        "user": user.as_dict(),
+        "jobs": job_get_all(session, user_id) if user else [],
+    }
+
+    return result
 
 
 def user_update(session: Session, user_id: str, transcribed_seconds: str) -> dict:

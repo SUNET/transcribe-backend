@@ -76,6 +76,9 @@ def job_get_all(session: Session, user_id: str) -> list[Job]:
     """
     jobs = session.query(Job).filter(Job.user_id == user_id).all()
 
+    if not jobs:
+        return {"jobs": []}
+
     return {"jobs": [job.as_dict() for job in jobs]}
 
 
