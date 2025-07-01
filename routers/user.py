@@ -58,7 +58,7 @@ async def statistics(
             status_code=401,
         )
 
-    user = user_get(db_session, user_id)
+    user = user_get(db_session, user_id)["user"]
 
     if not user["admin"]:
         return JSONResponse(
