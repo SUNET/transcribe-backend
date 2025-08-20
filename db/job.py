@@ -106,6 +106,7 @@ def job_update(
     model_type: Optional[str] = None,
     speakers: Optional[int] = None,
     error: Optional[str] = None,
+    output_format: Optional[str] = None,
 ) -> Optional[Job]:
     """
     Update a job by UUID.
@@ -127,6 +128,8 @@ def job_update(
         job.model_type = model_type
     if speakers:
         job.speakers = speakers
+    if output_format:
+        job.output_format = output_format
 
     session.commit()
 

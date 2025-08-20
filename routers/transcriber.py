@@ -73,7 +73,7 @@ async def transcribe_file(
             file_path.mkdir(parents=True, exist_ok=True)
         async with aiofiles.open(file_path / job["uuid"], "wb") as out_file:
             while True:
-                chunk = await file.read(1024)
+                chunk = await file.read(4096)
                 if not chunk:
                     break
                 await out_file.write(chunk)
@@ -147,6 +147,7 @@ async def update_transcription_status(
     speakers = data.get("speakers", 0)
     status = data.get("status")
     error = data.get("error")
+    output_format = data.get("output_format")
 
     job = job_update(
         db_session,
@@ -156,6 +157,7 @@ async def update_transcription_status(
         model_type=model,
         speakers=speakers,
         status=status,
+        output_format=output_format,
         error=error,
     )
 
@@ -174,6 +176,7 @@ async def update_transcription_status(
                 "filename": job["filename"],
                 "language": job["language"],
                 "model_type": job["model_type"],
+                "output_format": job["output_format"],
             }
         }
     )
