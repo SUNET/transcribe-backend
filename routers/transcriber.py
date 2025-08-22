@@ -292,7 +292,7 @@ async def get_video_stream(
     filesize = int(file_path.stat().st_size)
     start, end = range.replace("bytes=", "").split("-")
     start = int(start)
-    end = int(end) if end else filesize
+    end = int(end) if end else filesize - 1
 
     with open(file_path, "rb") as video:
         video.seek(start)
