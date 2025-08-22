@@ -211,7 +211,7 @@ async def put_transcription_result(request: Request, job_id: str) -> JSONRespons
                 db_session,
                 job_id,
                 user_id,
-                result=json_data,
+                result=json_data["data"],
             )
     except Exception as e:
         print(e)
