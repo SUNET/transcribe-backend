@@ -36,6 +36,8 @@ async def update_transcription_status(
     """
 
     data = await request.json()
+    user_id = user_get_from_job(db_session, job_id)
+    file_path = Path(api_file_storage_dir) / user_id / job_id
 
     job = job_update(
         db_session,
@@ -50,13 +52,14 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
-        user_id = user_get_from_job(db_session, job_id)
         user_update(db_session, user_id, data["transcribed_seconds"])
 
-    file_path = Path(api_file_storage_dir) / user_id / job_id
-
-    if file_path.exists():
-        file_path.unlink()
+    if (
+        job["status"] == JobStatusEnum.FAILED
+        or job["status"] == JobStatusEnum.COMPLETED
+    ):
+        if file_path.exists():
+            file_path.unlink()
 
     return JSONResponse(content={"result": job})
 
