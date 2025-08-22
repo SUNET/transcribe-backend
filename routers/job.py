@@ -53,6 +53,11 @@ async def update_transcription_status(
         user_id = user_get_from_job(db_session, job_id)
         user_update(db_session, user_id, data["transcribed_seconds"])
 
+    file_path = Path(api_file_storage_dir) / user_id / job_id
+
+    if file_path.exists():
+        file_path.unlink()
+
     return JSONResponse(content={"result": job})
 
 
