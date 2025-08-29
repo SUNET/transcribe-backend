@@ -7,7 +7,7 @@ from authlib.integrations.starlette_client import OAuth
 from pydantic import BaseModel
 from db.user import user_create
 from db.session import get_session
-
+from typing import Optional
 
 settings = get_settings()
 db_session = get_session()
@@ -24,8 +24,8 @@ oauth.register(
 
 
 class UnauthenticatedError(HTTPException):
-    def __init__(self) -> None:
-        super().__init__(status_code=401, detail="You are not authenticated.")
+    def __init__(self, error: Optional[str] = "") -> None:
+        super().__init__(status_code=401, detail="You are not authenticated " + error)
 
 
 class RefreshToken(BaseModel):
