@@ -32,9 +32,9 @@ def verify_client_dn(request: Request) -> Optional[str]:
     if os.environ.get("WORKER_NO_SECURITY") == "1":
         return "TranscriberWorker"
 
-    client_dn = request.headers.get("X-Client-DN")
+    client_dn = request.headers.get("x-client-dn")
 
-    if not client_dn or client_dn.strip() == "TranscriberWorker":
+    if not client_dn or client_dn.strip() != settings.API_WORKER_CLIENT_DN:
         raise HTTPException(status_code=403, detail="Invalid request")
 
     return client_dn
