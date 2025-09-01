@@ -192,13 +192,11 @@ async def put_transcription_result(request: Request, job_id: str) -> JSONRespons
 
     try:
         if not job_get(db_session, job_id, user_id):
-            print(f"Job with ID {job_id} not found for user {user_id}.")
             return JSONResponse(
                 content={"result": {"error": "Job not found"}}, status_code=404
             )
 
         if json_data["format"] == "srt":
-            print(f"Saving SRT result for job {job_id} for user {user_id}.")
             job_result_save(
                 db_session,
                 job_id,
@@ -206,7 +204,6 @@ async def put_transcription_result(request: Request, job_id: str) -> JSONRespons
                 result_srt=json_data["data"],
             )
         elif json_data["format"] == "json":
-            print(f"Saving JSON result for job {job_id} for user {user_id}.")
             job_result_save(
                 db_session,
                 job_id,
@@ -214,7 +211,6 @@ async def put_transcription_result(request: Request, job_id: str) -> JSONRespons
                 result=json_data["data"],
             )
     except Exception as e:
-        print(e)
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     return JSONResponse(content={"result": {"status": "OK"}}, status_code=200)

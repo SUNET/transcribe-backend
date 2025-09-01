@@ -18,6 +18,7 @@ def init() -> sessionmaker:
     db_url = settings.API_DATABASE_URL
     engine = create_engine(db_url, connect_args={"check_same_thread": False})
     SQLModel.metadata.create_all(engine)
+
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

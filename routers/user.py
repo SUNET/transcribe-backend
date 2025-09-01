@@ -5,8 +5,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from utils.settings import get_settings
 
-from db.user import user_get
-from db.user import users_statistics
+from db.user import user_get, users_statistics, user_update
 
 router = APIRouter(tags=["user"])
 settings = get_settings()
@@ -42,7 +41,7 @@ async def get_user_info(
     return JSONResponse(content={"result": user})
 
 
-@router.get("/statistics")
+@router.get("/admin")
 async def statistics(
     request: Request,
 ) -> JSONResponse:
@@ -69,3 +68,49 @@ async def statistics(
     stats = users_statistics(db_session, user["realm"])
 
     return JSONResponse(content={"result": stats})
+
+
+@router.put("/admin/{username}")
+async def modify_user(
+    request: Request,
+    username: str,
+) -> JSONResponse:
+    """
+    Modify a user's active status.
+    Used by the frontend to modify a user's active status.
+    """
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"},
+            status_code=401,
+        )
+
+    admin_user = user_get(db_session, admin_user_id)["user"]
+
+    if not admin_user["admin"]:
+        return JSONResponse(
+            content={"error": "User not authorized"},
+            status_code=403,
+        )
+
+    data = await request.json()
+    active = data.get("active", None)
+    admin = data.get("admin", None)
+
+    if active is not None:
+        user_update(
+            db_session,
+            username,
+            active=active,
+        )
+
+    if admin is not None:
+        user_update(
+            db_session,
+            username,
+            admin=admin,
+        )
+
+    return JSONResponse(content={"result": {"status": "OK"}})

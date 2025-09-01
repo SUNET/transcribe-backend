@@ -44,6 +44,7 @@ async def update_transcription_status(
         job_id,
         status=data["status"],
         error=data["error"],
+        transcribed_seconds=data["transcribed_seconds"],
     )
 
     if not job:
@@ -52,7 +53,12 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
-        user_update(db_session, user_id, data["transcribed_seconds"])
+        user_update(
+            db_session,
+            user_id,
+            transcribed_seconds=data["transcribed_seconds"],
+            active=None,
+        )
 
     if (
         job["status"] == JobStatusEnum.FAILED

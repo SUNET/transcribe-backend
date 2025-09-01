@@ -1,11 +1,7 @@
 import json
 
 from datetime import datetime
-from datetime import timedelta
-from db.models import Job
-from db.models import JobResult
-from db.models import JobStatusEnum
-from db.models import Jobs
+from db.models import Job, JobResult, JobStatusEnum, Jobs
 from db.session import get_session
 from pathlib import Path
 from sqlmodel import Session
@@ -107,6 +103,7 @@ def job_update(
     speakers: Optional[int] = None,
     error: Optional[str] = None,
     output_format: Optional[str] = None,
+    transcribed_seconds: Optional[int] = 0,
 ) -> Optional[Job]:
     """
     Update a job by UUID.
@@ -130,6 +127,8 @@ def job_update(
         job.speakers = speakers
     if output_format:
         job.output_format = output_format
+    if transcribed_seconds:
+        job.transcribed_seconds = transcribed_seconds
 
     session.commit()
 
@@ -185,7 +184,6 @@ def job_result_get(
     """
     Get the transcription result for a job by UUID.
     """
-    print(f"Fetching job result for job_id: {job_id}, user_id: {user_id}")
     res = (
         session.query(JobResult)
         .filter(

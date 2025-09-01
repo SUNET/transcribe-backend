@@ -1,11 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.types import Enum as SQLAlchemyEnum
-from sqlmodel import Field
+from sqlmodel import Field, SQLModel, JSON, Column
 from enum import Enum
-from sqlmodel import SQLModel
 from datetime import timedelta
 
 
@@ -69,6 +68,10 @@ class JobResult(SQLModel, table=True):
     result_srt: Optional[str] = Field(
         default=None,
         description="SRT formatted transcription result",
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Creation timestamp",
     )
 
     def as_dict(self) -> dict:
@@ -140,6 +143,7 @@ class Job(SQLModel, table=True):
         sa_column=Field(sa_column=SQLAlchemyEnum(OutputFormatEnum)),
         description="Output format of the transcription",
     )
+    transcribed_seconds: int = Field(default=0, description="Transcribed seconds")
 
     def as_dict(self) -> dict:
         """
@@ -162,6 +166,7 @@ class Job(SQLModel, table=True):
             "speakers": self.speakers,
             "output_format": self.output_format,
             "error": self.error,
+            "transcribed_seconds": self.transcribed_seconds,
         }
 
 
@@ -208,6 +213,10 @@ class User(SQLModel, table=True):
         default_factory=datetime.utcnow,
         description="Last login timestamp",
     )
+    active: bool = Field(
+        default=False,
+        description="Indicates if the user is active",
+    )
 
     def as_dict(self) -> dict:
         """
@@ -223,6 +232,7 @@ class User(SQLModel, table=True):
             "admin": self.admin,
             "transcribed_seconds": self.transcribed_seconds,
             "last_login": str(self.last_login),
+            "active": self.active,
         }
 
 
