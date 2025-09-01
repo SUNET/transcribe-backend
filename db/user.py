@@ -3,6 +3,7 @@ from db.job import job_get_all
 from typing import Optional
 from sqlmodel import Session
 from datetime import datetime, timedelta
+import calendar
 
 
 def user_create(
@@ -114,13 +115,7 @@ def users_statistics(
     """
     Get user statistics for the last 'days' days.
     """
-    start_date = datetime.utcnow() - timedelta(days=days)
-    users = (
-        session.query(User)
-        .filter(User.realm == realm)
-        .filter(User.last_login >= start_date)
-        .all()
-    )
+    users = session.query(User).filter(User.realm == realm).all()
 
     total_transcribed_seconds = sum(
         int(user.transcribed_seconds) for user in users if user.transcribed_seconds
@@ -139,6 +134,10 @@ def users_statistics(
                 transcribed_seconds_per_user_and_day[username] = {}
 
             dt = datetime.strptime(job["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+
+            if dt < datetime.utcnow() - timedelta(days=datetime.today().day):
+                continue
+
             job_date = dt.date().isoformat()
 
             if job_date not in transcribed_seconds_per_user_and_day[username]:
