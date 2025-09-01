@@ -97,6 +97,15 @@ def user_update(
     return user.as_dict() if user else {}
 
 
+def get_username_from_id(session: Session, user_id: str) -> Optional[str]:
+    """
+    Get a username by user_id.
+    """
+    user = session.query(User).filter(User.user_id == user_id).first()
+
+    return user.username if user else None
+
+
 def users_statistics(
     session: Session,
     realm: str,
@@ -125,16 +134,17 @@ def users_statistics(
         transcribed_seconds_per_user[user.user_id] = user.transcribed_seconds or 0
 
         for job in job_get_all(session, user.user_id)["jobs"]:
-            if job["user_id"] not in transcribed_seconds_per_user_and_day:
-                transcribed_seconds_per_user_and_day[job["user_id"]] = {}
+            username = get_username_from_id(session, user.user_id)
+            if username not in transcribed_seconds_per_user_and_day:
+                transcribed_seconds_per_user_and_day[username] = {}
 
             dt = datetime.strptime(job["created_at"], "%Y-%m-%d %H:%M:%S.%f")
             job_date = dt.date().isoformat()
 
-            if job_date not in transcribed_seconds_per_user_and_day[job["user_id"]]:
-                transcribed_seconds_per_user_and_day[job["user_id"]][job_date] = 0
+            if job_date not in transcribed_seconds_per_user_and_day[username]:
+                transcribed_seconds_per_user_and_day[username][job_date] = 0
 
-            transcribed_seconds_per_user_and_day[job["user_id"]][job_date] += (
+            transcribed_seconds_per_user_and_day[username][job_date] += (
                 job["transcribed_seconds"] or 0
             )
 
