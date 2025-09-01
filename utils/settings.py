@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     API_SECRET_KEY: str = ""
     API_TITLE: str = "Whisper REST backend"
     API_VERSION: str = "0.1.0"
-    API_WORKER_CLIENT_DN = "CN=TranscriberWorker,O=SUNET,ST=Stockholm,C=SE"
+    API_WORKER_CLIENT_DN: str = "CN=TranscriberWorker,O=SUNET,ST=Stockholm,C=SE"
 
     # OIDC configuration.
     OIDC_CLIENT_ID: str = ""
