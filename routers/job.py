@@ -1,10 +1,7 @@
+import os
 import aiofiles
 
-from fastapi import (
-    APIRouter,
-    UploadFile,
-    Request,
-)
+from fastapi import APIRouter, UploadFile, Request, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
 from db.session import get_session
@@ -18,12 +15,29 @@ from db.user import user_get_from_job, user_update
 from db.models import JobStatusEnum
 from utils.settings import get_settings
 from pathlib import Path
+from typing import Optional
 
 router = APIRouter(tags=["job"])
 settings = get_settings()
 db_session = get_session()
 
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
+
+
+def verify_client_dn(request: Request) -> Optional[str]:
+    """
+    Verify the client DN from the request headers.
+    """
+
+    if os.environ.get("WORKER_NO_SECURITY") == "1":
+        return "TranscriberWorker"
+
+    client_dn = request.headers.get("X-Client-DN")
+
+    if not client_dn or client_dn.strip() == "TranscriberWorker":
+        raise HTTPException(status_code=403, detail="Invalid request")
+
+    return client_dn
 
 
 @router.put("/job/{job_id}")
@@ -35,6 +49,7 @@ async def update_transcription_status(
     Update the status of a transcription job.
     """
 
+    verify_client_dn(request)
     data = await request.json()
     user_id = user_get_from_job(db_session, job_id)
     file_path = Path(api_file_storage_dir) / user_id / job_id
@@ -75,6 +90,7 @@ async def get_transcription_job(request: Request) -> JSONResponse:
     """
     Get the next available job.
     """
+    verify_client_dn(request)
     job = job_get_next(db_session)
     return JSONResponse(content={"result": jsonable_encoder(job)})
 
@@ -86,6 +102,7 @@ async def get_transcription_file(
     """
     Get the data to transcribe.
     """
+    verify_client_dn(request)
     job = job_get(db_session, job_id, user_id)
 
     if not job:
@@ -111,6 +128,7 @@ async def put_video_file(
     Upload the video file to transcribe.
     """
 
+    verify_client_dn(request)
     filename = file.filename
 
     if not job_get(db_session, job_id, user_id):
@@ -149,6 +167,8 @@ async def put_transcription_result(
     """
     Upload the transcription result.
     """
+
+    verify_client_dn(request)
 
     if not job_get(db_session, job_id, user_id):
         return JSONResponse(

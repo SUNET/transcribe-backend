@@ -3,7 +3,6 @@ from db.job import job_get_all
 from typing import Optional
 from sqlmodel import Session
 from datetime import datetime, timedelta
-import calendar
 
 
 def user_create(
