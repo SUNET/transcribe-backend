@@ -1,3 +1,5 @@
+import calendar
+
 from db.models import User, Job
 from db.job import job_get_all
 from typing import Optional
@@ -122,33 +124,36 @@ def users_statistics(
 
     transcribed_seconds_per_day = {}
     transcribed_seconds_per_user = {}
-    transcribed_seconds_per_user_and_day = {}
+
+    today = datetime.utcnow().date()
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    last_date_string = f"{today.year}-{today.month:02d}-{last_day}"
+    last_date = datetime.fromisoformat(last_date_string).date()
+    start_date = today.replace(day=1)
+
+    date_range = [
+        (start_date + timedelta(days=i)).isoformat()
+        for i in range((last_date - start_date).days + 1)
+    ]
+
+    transcribed_seconds_per_day = {d: 0 for d in date_range}
 
     for user in users:
-        transcribed_seconds_per_user[user.user_id] = user.transcribed_seconds or 0
+        jobs = job_get_all(session, user.user_id)["jobs"]
 
-        for job in job_get_all(session, user.user_id)["jobs"]:
-            username = get_username_from_id(session, user.user_id)
-            if username not in transcribed_seconds_per_user_and_day:
-                transcribed_seconds_per_user_and_day[username] = {}
+        if not jobs:
+            continue
 
+        for job in jobs:
             dt = datetime.strptime(job["created_at"], "%Y-%m-%d %H:%M:%S.%f")
-
-            if dt < datetime.utcnow() - timedelta(days=datetime.today().day):
+            if dt.date() < start_date:
                 continue
 
             job_date = dt.date().isoformat()
 
-            if job_date not in transcribed_seconds_per_user_and_day[username]:
-                transcribed_seconds_per_user_and_day[username][job_date] = 0
-
-            transcribed_seconds_per_user_and_day[username][job_date] += (
-                job["transcribed_seconds"] or 0
-            )
-
             transcribed_seconds_per_day[job_date] = transcribed_seconds_per_day.get(
                 job_date, 0
-            ) + (job["transcribed_seconds"] or 0)
+            ) + job.get("transcribed_seconds", 0)
 
     return {
         "total_users": len(users),
@@ -156,5 +161,4 @@ def users_statistics(
         "total_transcribed_seconds": total_transcribed_seconds,
         "transcribed_seconds_per_day": transcribed_seconds_per_day,
         "transcribed_seconds_per_user": transcribed_seconds_per_user,
-        "transcribed_seconds_per_day_and_user": transcribed_seconds_per_user_and_day,
     }
