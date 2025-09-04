@@ -1,4 +1,4 @@
-import aiofiles
+import shutil
 
 from fastapi import APIRouter, UploadFile, Request, Header
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -17,6 +17,7 @@ from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
 from auth.oidc import verify_user
+from fastapi.concurrency import run_in_threadpool
 
 
 router = APIRouter(tags=["transcriber"])
@@ -69,14 +70,13 @@ async def transcribe_file(
 
     try:
         file_path = Path(api_file_storage_dir + "/" + user_id)
+        dest_path = file_path / job["uuid"]
+
         if not file_path.exists():
             file_path.mkdir(parents=True, exist_ok=True)
-        async with aiofiles.open(file_path / job["uuid"], "wb") as out_file:
-            while True:
-                chunk = await file.read(4096)
-                if not chunk:
-                    break
-                await out_file.write(chunk)
+
+        with open(dest_path, "wb") as f:
+            await run_in_threadpool(shutil.copyfileobj, file.file, f, 1024 * 1024)
     except Exception as e:
         job = job_update(
             db_session, job["uuid"], user_id, status=JobStatus.FAILED, error=str(e)
