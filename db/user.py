@@ -116,7 +116,10 @@ def users_statistics(
     """
     Get user statistics for the last 'days' days.
     """
-    users = session.query(User).filter(User.realm == realm).all()
+    if realm == "*":
+        users = session.query(User).all()
+    else:
+        users = session.query(User).filter(User.realm == realm).all()
 
     total_transcribed_seconds = sum(
         int(user.transcribed_seconds) for user in users if user.transcribed_seconds

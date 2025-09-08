@@ -65,7 +65,12 @@ async def statistics(
             status_code=403,
         )
 
-    stats = users_statistics(db_session, user["realm"])
+    if user["bofh"]:
+        realm = "*"
+    else:
+        realm = user["realm"]
+
+    stats = users_statistics(db_session, realm)
 
     return JSONResponse(content={"result": stats})
 

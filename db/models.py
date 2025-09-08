@@ -205,6 +205,10 @@ class User(SQLModel, table=True):
         default=False,
         description="Indicates if the user is an admin",
     )
+    bofh: bool = Field(
+        default=False,
+        description="Indicates if the user is a BOFH",
+    )
     transcribed_seconds: int = Field(
         default=None,
         description="Transcribed seconds",
@@ -233,6 +237,7 @@ class User(SQLModel, table=True):
             "transcribed_seconds": self.transcribed_seconds,
             "last_login": str(self.last_login),
             "active": self.active,
+            "bofh": self.bofh,
         }
 
 
