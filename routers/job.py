@@ -1,4 +1,3 @@
-import os
 import aiofiles
 
 from fastapi import APIRouter, UploadFile, Request, HTTPException
@@ -29,7 +28,7 @@ def verify_client_dn(request: Request) -> Optional[str]:
     Verify the client DN from the request headers.
     """
 
-    if os.environ.get("WORKER_NO_SECURITY") == "1":
+    if settings.API_WORKER_CLIENT_DN == "":
         return "TranscriberWorker"
 
     client_dn = request.headers.get("x-client-dn")
