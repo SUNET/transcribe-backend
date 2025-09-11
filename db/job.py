@@ -57,7 +57,12 @@ def job_get_next(session: Session) -> dict:
     Get the next available job from the database.
     """
 
-    job = session.query(Job).filter(Job.status == JobStatusEnum.PENDING).first()
+    job = (
+        session.query(Job)
+        .filter(Job.status == JobStatusEnum.PENDING)
+        .with_for_update()
+        .first()
+    )
 
     if job:
         job.status = JobStatusEnum.IN_PROGRESS
@@ -108,7 +113,7 @@ def job_update(
     """
     Update a job by UUID.
     """
-    job = session.query(Job).filter(Job.uuid == uuid).first()
+    job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
 
     if not job:
         return None
@@ -169,7 +174,10 @@ def job_cleanup() -> None:
     session = get_session()
 
     jobs_to_delete = (
-        session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
+        session.query(Job)
+        .filter(Job.deletion_date <= datetime.now())
+        .with_for_update()
+        .all()
     )
 
     for job in jobs_to_delete:
@@ -206,7 +214,7 @@ def job_result_save(
     """
     Save the transcription result for a job.
     """
-    job = session.query(Job).filter(Job.uuid == uuid).first()
+    job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
 
     if not job:
         raise ValueError("Job not found")

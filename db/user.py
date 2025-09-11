@@ -77,7 +77,9 @@ def user_update(
     """
     Update a user's transcribed seconds.
     """
-    user = session.query(User).filter(User.username == username).first()
+    user = (
+        session.query(User).filter(User.username == username).with_for_update().first()
+    )
 
     if not user:
         return {}
