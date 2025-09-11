@@ -1,6 +1,6 @@
 import aiofiles
 
-from fastapi import APIRouter, UploadFile, Request, HTTPException
+from fastapi import APIRouter, UploadFile, Request, HTTPException, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
 from db.session import get_session
@@ -15,15 +15,18 @@ from db.models import JobStatusEnum
 from utils.settings import get_settings
 from pathlib import Path
 from typing import Optional
+from sqlalchemy.orm import sessionmaker
 
 router = APIRouter(tags=["job"])
 settings = get_settings()
-db_session = get_session()
 
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 
-def verify_client_dn(request: Request) -> Optional[str]:
+def verify_client_dn(
+    request: Request,
+    db_session: sessionmaker = Depends(get_session),
+) -> Optional[str]:
     """
     Verify the client DN from the request headers.
     """
@@ -43,6 +46,7 @@ def verify_client_dn(request: Request) -> Optional[str]:
 async def update_transcription_status(
     request: Request,
     job_id: str,
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
@@ -85,7 +89,10 @@ async def update_transcription_status(
 
 
 @router.get("/job/next")
-async def get_transcription_job(request: Request) -> JSONResponse:
+async def get_transcription_job(
+    request: Request,
+    db_session: sessionmaker = Depends(get_session),
+) -> JSONResponse:
     """
     Get the next available job.
     """
@@ -96,7 +103,10 @@ async def get_transcription_job(request: Request) -> JSONResponse:
 
 @router.get("/job/{user_id}/{job_id}/file")
 async def get_transcription_file(
-    request: Request, user_id: str, job_id: str
+    request: Request,
+    user_id: str,
+    job_id: str,
+    db_session: sessionmaker = Depends(get_session),
 ) -> FileResponse:
     """
     Get the data to transcribe.
@@ -121,7 +131,11 @@ async def get_transcription_file(
 
 @router.put("/job/{user_id}/{job_id}/file")
 async def put_video_file(
-    request: Request, user_id: str, job_id: str, file: UploadFile
+    request: Request,
+    user_id: str,
+    job_id: str,
+    file: UploadFile,
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Upload the video file to transcribe.
@@ -161,7 +175,10 @@ async def put_video_file(
 
 @router.put("/job/{user_id}/{job_id}/result")
 async def put_transcription_result(
-    request: Request, user_id: str, job_id: str
+    request: Request,
+    user_id: str,
+    job_id: str,
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Upload the transcription result.

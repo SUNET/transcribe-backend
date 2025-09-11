@@ -1,16 +1,16 @@
 from authlib.integrations.starlette_client import OAuth
 from authlib.jose import jwt
 from datetime import datetime
-from db.session import get_session
 from typing import Optional
 from db.user import user_create
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
 from fastapi import Request
 from pydantic import BaseModel
 from utils.settings import get_settings
+from sqlalchemy.orm import sessionmaker
+from db.session import get_session
 
 settings = get_settings()
-db_session = get_session()
 
 oauth = OAuth()
 oauth.register(
@@ -54,7 +54,10 @@ async def verify_token(id_token: str):
     return decoded_jwt
 
 
-async def verify_user(request: Request):
+async def verify_user(
+    request: Request,
+):
+    db_session = get_session()
     auth_header = request.headers.get("Authorization")
 
     if auth_header is None:

@@ -5,10 +5,10 @@ from fastapi.responses import JSONResponse
 from utils.settings import get_settings
 from auth.oidc import get_current_user_id
 from db.user import user_get, users_statistics, user_update
+from sqlalchemy.orm import sessionmaker
 
 router = APIRouter(tags=["user"])
 settings = get_settings()
-db_session = get_session()
 
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
@@ -17,6 +17,7 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 async def get_user_info(
     request: Request,
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Get user information.
@@ -44,6 +45,7 @@ async def get_user_info(
 async def statistics(
     request: Request,
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Get user statistics.
@@ -79,6 +81,7 @@ async def modify_user(
     request: Request,
     username: str,
     admin_user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Modify a user's active status.

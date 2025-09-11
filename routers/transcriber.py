@@ -18,10 +18,10 @@ from utils.settings import get_settings
 from pathlib import Path
 from fastapi.concurrency import run_in_threadpool
 from auth.oidc import get_current_user_id
+from sqlalchemy.orm import sessionmaker
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
-db_session = get_session()
 
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
@@ -32,6 +32,7 @@ async def transcribe(
     job_id: str = "",
     status: Optional[JobStatus] = None,
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Transcribe audio file.
@@ -52,6 +53,7 @@ async def transcribe_file(
     request: Request,
     file: UploadFile,
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Transcribe audio file.
@@ -102,6 +104,7 @@ async def delete_transcription_job(
     request: Request,
     job_id: str,
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Delete a transcription job.
@@ -132,6 +135,7 @@ async def update_transcription_status(
     request: Request,
     job_id: str,
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
@@ -185,6 +189,7 @@ async def put_transcription_result(
     request: Request,
     job_id: str,
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Upload the transcription result.
@@ -223,6 +228,7 @@ async def get_transcription_result(
     job_id: str,
     output_format: OutputFormatEnum,
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> FileResponse:
     """
     Get the transcription result.
@@ -267,6 +273,7 @@ async def get_video_stream(
     job_id: str,
     range: str = Header(None),
     user_id: str = Depends(get_current_user_id),
+    db_session: sessionmaker = Depends(get_session),
 ) -> FileResponse:
     """
     Get the video stream for a transcription job.
