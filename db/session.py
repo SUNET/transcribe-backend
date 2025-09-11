@@ -5,32 +5,43 @@ from functools import wraps
 from sqlmodel import SQLModel
 from utils.settings import get_settings
 from contextlib import contextmanager
+from sqlalchemy.orm import Session
+from typing import Generator
 
 settings = get_settings()
 
 
 @lru_cache
-def init() -> sessionmaker:
+def get_sessionmaker() -> sessionmaker:
     """
-    Initialize the database session.
-    This function creates a new SQLAlchemy engine and sessionmaker.
-    It uses the database URL from the settings.
+    Get a SQLAlchemy sessionmaker.
+    Uses lru_cache to ensure only one instance is created.
     """
-    db_url = settings.API_DATABASE_URL
-    engine = create_engine(db_url, connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(engine)
 
+    engine = create_engine(
+        settings.API_DATABASE_URL,
+        connect_args={"check_same_thread": False},  # for SQLite only
+    )
+    SQLModel.metadata.create_all(engine)
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def get_session() -> sessionmaker:
+@contextmanager
+def get_session() -> Generator[Session, None, None]:
     """
-    Get a new database session.
-    This function creates a new session using the sessionmaker.
-    It is used to interact with the database.
+    Provide a transactional scope around a series of operations.
     """
-    instance = init()
-    return instance()
+
+    db_session_factory = get_sessionmaker()
+    session: Session = db_session_factory()
+    try:
+        yield session
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.commit()
+        session.close()
 
 
 def handle_database_errors(func) -> callable:

@@ -1,11 +1,9 @@
 from auth.oidc import verify_user
-from db.session import get_session
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from utils.settings import get_settings
 from auth.oidc import get_current_user_id
 from db.user import user_get, users_statistics, user_update
-from sqlalchemy.orm import sessionmaker
 
 router = APIRouter(tags=["user"])
 settings = get_settings()
@@ -17,7 +15,6 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 async def get_user_info(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Get user information.
@@ -30,7 +27,7 @@ async def get_user_info(
             status_code=401,
         )
 
-    user = user_get(db_session, user_id)
+    user = user_get(user_id)
 
     if not user:
         return JSONResponse(
@@ -45,7 +42,6 @@ async def get_user_info(
 async def statistics(
     request: Request,
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Get user statistics.
@@ -58,7 +54,7 @@ async def statistics(
             status_code=401,
         )
 
-    user = user_get(db_session, user_id)["user"]
+    user = user_get(user_id)["user"]
 
     if not user["admin"]:
         return JSONResponse(
@@ -71,7 +67,7 @@ async def statistics(
     else:
         realm = user["realm"]
 
-    stats = users_statistics(db_session, realm)
+    stats = users_statistics(realm)
 
     return JSONResponse(content={"result": stats})
 
@@ -81,7 +77,6 @@ async def modify_user(
     request: Request,
     username: str,
     admin_user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Modify a user's active status.
@@ -95,7 +90,7 @@ async def modify_user(
             status_code=401,
         )
 
-    admin_user = user_get(db_session, admin_user_id)["user"]
+    admin_user = user_get(admin_user_id)["user"]
 
     if not admin_user["admin"]:
         return JSONResponse(
@@ -109,14 +104,12 @@ async def modify_user(
 
     if active is not None:
         user_update(
-            db_session,
             username,
             active=active,
         )
 
     if admin is not None:
         user_update(
-            db_session,
             username,
             admin=admin,
         )

@@ -3,12 +3,10 @@ from authlib.jose import jwt
 from datetime import datetime
 from typing import Optional
 from db.user import user_create
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException
 from fastapi import Request
 from pydantic import BaseModel
 from utils.settings import get_settings
-from sqlalchemy.orm import sessionmaker
-from db.session import get_session
 
 settings = get_settings()
 
@@ -57,7 +55,6 @@ async def verify_token(id_token: str):
 async def verify_user(
     request: Request,
 ):
-    db_session = get_session()
     auth_header = request.headers.get("Authorization")
 
     if auth_header is None:
@@ -78,7 +75,6 @@ async def verify_user(
     realm = decoded_jwt.get("realm", username.split("@")[-1])
 
     user = user_create(
-        session=db_session,
         username=username,
         realm=realm,
         user_id=user_id,

@@ -2,7 +2,6 @@ import shutil
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
-from db.session import get_session
 from db.job import (
     job_create,
     job_delete,
@@ -18,7 +17,6 @@ from utils.settings import get_settings
 from pathlib import Path
 from fastapi.concurrency import run_in_threadpool
 from auth.oidc import get_current_user_id
-from sqlalchemy.orm import sessionmaker
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
@@ -32,7 +30,6 @@ async def transcribe(
     job_id: str = "",
     status: Optional[JobStatus] = None,
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Transcribe audio file.
@@ -41,9 +38,9 @@ async def transcribe(
     """
 
     if job_id:
-        res = job_get(db_session, job_id, user_id)
+        res = job_get(job_id, user_id)
     else:
-        res = job_get_all(db_session, user_id)
+        res = job_get_all(user_id)
 
     return JSONResponse(content={"result": res})
 
@@ -53,7 +50,6 @@ async def transcribe_file(
     request: Request,
     file: UploadFile,
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Transcribe audio file.
@@ -63,7 +59,6 @@ async def transcribe_file(
 
     # Create a job for the transcription
     job = job_create(
-        db_session,
         user_id=user_id,
         job_type=JobType.TRANSCRIPTION,
         filename=file.filename,
@@ -79,12 +74,10 @@ async def transcribe_file(
         with open(dest_path, "wb") as f:
             await run_in_threadpool(shutil.copyfileobj, file.file, f, 1024 * 1024)
     except Exception as e:
-        job = job_update(
-            db_session, job["uuid"], user_id, status=JobStatus.FAILED, error=str(e)
-        )
+        job = job_update(job["uuid"], user_id, status=JobStatus.FAILED, error=str(e))
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
-    job = job_update(db_session, job["uuid"], status=JobStatusEnum.UPLOADED)
+    job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
 
     return JSONResponse(
         content={
@@ -104,7 +97,6 @@ async def delete_transcription_job(
     request: Request,
     job_id: str,
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Delete a transcription job.
@@ -112,7 +104,7 @@ async def delete_transcription_job(
     Used by the frontend to delete a transcription job.
     """
 
-    job = job_get(db_session, job_id, user_id)
+    job = job_get(job_id, user_id)
 
     if not job:
         return JSONResponse(
@@ -120,7 +112,7 @@ async def delete_transcription_job(
         )
 
     # Delete the job from the database
-    job_delete(db_session, job_id)
+    job_delete(job_id)
 
     # Remove the video file if it exists
     file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
@@ -135,7 +127,6 @@ async def update_transcription_status(
     request: Request,
     job_id: str,
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
@@ -152,7 +143,6 @@ async def update_transcription_status(
     output_format = data.get("output_format")
 
     job = job_update(
-        db_session,
         job_id,
         user_id=user_id,
         language=language,
@@ -189,7 +179,6 @@ async def put_transcription_result(
     request: Request,
     job_id: str,
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Upload the transcription result.
@@ -197,21 +186,19 @@ async def put_transcription_result(
     json_data = await request.json()
 
     try:
-        if not job_get(db_session, job_id, user_id):
+        if not job_get(job_id, user_id):
             return JSONResponse(
                 content={"result": {"error": "Job not found"}}, status_code=404
             )
 
         if json_data["format"] == "srt":
             job_result_save(
-                db_session,
                 job_id,
                 user_id,
                 result_srt=json_data["data"],
             )
         elif json_data["format"] == "json":
             job_result_save(
-                db_session,
                 job_id,
                 user_id,
                 result=json_data["data"],
@@ -228,20 +215,19 @@ async def get_transcription_result(
     job_id: str,
     output_format: OutputFormatEnum,
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> FileResponse:
     """
     Get the transcription result.
     """
 
-    job = job_get(db_session, job_id, user_id)
+    job = job_get(job_id, user_id)
 
     if not job:
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    job_result = job_result_get(db_session, user_id, job_id)
+    job_result = job_result_get(user_id, job_id)
 
     if not job_result:
         return JSONResponse(
@@ -273,13 +259,12 @@ async def get_video_stream(
     job_id: str,
     range: str = Header(None),
     user_id: str = Depends(get_current_user_id),
-    db_session: sessionmaker = Depends(get_session),
 ) -> FileResponse:
     """
     Get the video stream for a transcription job.
     """
 
-    job = job_get(db_session, job_id, user_id)
+    job = job_get(job_id, user_id)
 
     if not job:
         return JSONResponse(

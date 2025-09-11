@@ -4,7 +4,6 @@ from datetime import datetime
 from db.models import Job, JobResult, JobStatusEnum, Jobs
 from db.session import get_session
 from pathlib import Path
-from sqlmodel import Session
 from typing import Optional
 from utils.settings import get_settings
 
@@ -12,7 +11,6 @@ settings = get_settings()
 
 
 def job_create(
-    session: Session,
     user_id: Optional[str] = None,
     job_type: Optional[JobStatusEnum] = None,
     language: Optional[str] = "",
@@ -22,84 +20,89 @@ def job_create(
     """
     Create a new job in the database.
     """
-    job = Job(
-        user_id=user_id,
-        job_type=job_type,
-        language=language,
-        model_type=model_type,
-        status=JobStatusEnum.UPLOADING,
-        filename=filename,
-    )
 
-    session.add(job)
-    session.commit()
+    with get_session() as session:
+        job = Job(
+            user_id=user_id,
+            job_type=job_type,
+            language=language,
+            model_type=model_type,
+            status=JobStatusEnum.UPLOADING,
+            filename=filename,
+        )
 
-    return job.as_dict()
+        session.add(job)
+
+        return job.as_dict()
 
 
-def job_get(session: Session, uuid: str, user_id: str) -> Optional[Job]:
+def job_get(uuid: str, user_id: str) -> Optional[Job]:
     """
     Get a job by UUID.
     """
 
-    job = (
-        session.query(Job)
-        .filter(Job.uuid == uuid)
-        .filter(Job.user_id == user_id)
-        .first()
-    )
+    with get_session() as session:
+        job = (
+            session.query(Job)
+            .filter(Job.uuid == uuid)
+            .filter(Job.user_id == user_id)
+            .first()
+        )
 
-    return job.as_dict() if job else {}
+        return job.as_dict() if job else {}
 
 
-def job_get_next(session: Session) -> dict:
+def job_get_next() -> dict:
     """
     Get the next available job from the database.
     """
 
-    job = (
-        session.query(Job)
-        .filter(Job.status == JobStatusEnum.PENDING)
-        .with_for_update()
-        .first()
-    )
+    with get_session() as session:
+        job = (
+            session.query(Job)
+            .filter(Job.status == JobStatusEnum.PENDING)
+            .with_for_update()
+            .first()
+        )
 
-    if job:
-        job.status = JobStatusEnum.IN_PROGRESS
-        session.commit()
+        if job:
+            job.status = JobStatusEnum.IN_PROGRESS
 
-    return job.as_dict() if job else {}
+        return job.as_dict() if job else {}
 
 
-def job_get_all(session: Session, user_id: str) -> list[Job]:
+def job_get_all(user_id: str) -> list[Job]:
     """
     Get all jobs from the database.
     """
-    jobs = session.query(Job).filter(Job.user_id == user_id).all()
 
-    if not jobs:
-        return {"jobs": []}
+    with get_session() as session:
+        jobs = session.query(Job).filter(Job.user_id == user_id).all()
 
-    return {"jobs": [job.as_dict() for job in jobs]}
+        if not jobs:
+            return {"jobs": []}
+
+        return {"jobs": [job.as_dict() for job in jobs]}
 
 
-def job_get_status(session: Session, user_id: str) -> dict:
+def job_get_status(user_id: str) -> dict:
     """
     Get all job UUIDs together with statuses from the database.
     """
-    columns = [Job.uuid, Job.status, Job.job_type, Job.created_at, Job.updated_at]
-    query = session.query(*columns).filter(Job.user_id == user_id).all()
 
-    if not query:
-        return {}
+    with get_session() as session:
+        columns = [Job.uuid, Job.status, Job.job_type, Job.created_at, Job.updated_at]
+        query = session.query(*columns).filter(Job.user_id == user_id).all()
 
-    jobs = [job for job in query]
+        if not query:
+            return {}
 
-    return Jobs(jobs=jobs)
+        jobs = [job for job in query]
+
+        return Jobs(jobs=jobs)
 
 
 def job_update(
-    session: Session,
     uuid: str,
     user_id: Optional[str] = None,
     status: Optional[JobStatusEnum] = None,
@@ -113,55 +116,56 @@ def job_update(
     """
     Update a job by UUID.
     """
-    job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
 
-    if not job:
-        return None
+    with get_session() as session:
+        job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
 
-    if user_id:
-        job.user_id = user_id
-    if status:
-        job.status = status
-    if error:
-        job.error = error
-    if language:
-        job.language = language
-    if model_type:
-        job.model_type = model_type
-    if speakers:
-        job.speakers = speakers
-    if output_format:
-        job.output_format = output_format
-    if transcribed_seconds:
-        job.transcribed_seconds = transcribed_seconds
+        if not job:
+            return None
 
-    session.commit()
+        if user_id:
+            job.user_id = user_id
+        if status:
+            job.status = status
+        if error:
+            job.error = error
+        if language:
+            job.language = language
+        if model_type:
+            job.model_type = model_type
+        if speakers:
+            job.speakers = speakers
+        if output_format:
+            job.output_format = output_format
+        if transcribed_seconds:
+            job.transcribed_seconds = transcribed_seconds
 
-    return job.as_dict()
+        return job.as_dict()
 
 
-def job_delete(session: Session, uuid: str) -> bool:
+def job_delete(uuid: str) -> bool:
     """
     Delete a job by UUID.
     """
-    job = session.query(Job).filter(Job.uuid == uuid).first()
 
-    if not job:
-        return False
+    with get_session() as session:
+        job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
 
-    file_path = Path(settings.API_FILE_STORAGE_DIR) / job.user_id / job.uuid
-    file_path_mp4 = (
-        Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.mp4"
-    )
+        if not job:
+            return False
 
-    if file_path.exists():
-        file_path.unlink()
+        file_path = Path(settings.API_FILE_STORAGE_DIR) / job.user_id / job.uuid
+        file_path_mp4 = (
+            Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.mp4"
+        )
 
-    if file_path_mp4.exists():
-        file_path_mp4.unlink()
+        if file_path.exists():
+            file_path.unlink()
 
-    session.delete(job)
-    session.commit()
+        if file_path_mp4.exists():
+            file_path_mp4.unlink()
+
+        session.delete(job)
 
     return True
 
@@ -171,41 +175,37 @@ def job_cleanup() -> None:
     Remove all jobs from the database.
     """
 
-    session = get_session()
-
-    jobs_to_delete = (
-        session.query(Job)
-        .filter(Job.deletion_date <= datetime.now())
-        .with_for_update()
-        .all()
-    )
+    with get_session() as session:
+        jobs_to_delete = (
+            session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
+        )
 
     for job in jobs_to_delete:
-        job_delete(session, job.uuid)
+        job_delete(job.uuid)
 
 
 def job_result_get(
-    session: Session,
     user_id: str,
     job_id: str,
 ) -> Optional[JobResult]:
     """
     Get the transcription result for a job by UUID.
     """
-    res = (
-        session.query(JobResult)
-        .filter(
-            JobResult.job_id == job_id,
-            JobResult.user_id == user_id,
-        )
-        .first()
-    )
 
-    return res.as_dict() if res else {}
+    with get_session() as session:
+        res = (
+            session.query(JobResult)
+            .filter(
+                JobResult.job_id == job_id,
+                JobResult.user_id == user_id,
+            )
+            .first()
+        )
+
+        return res.as_dict() if res else {}
 
 
 def job_result_save(
-    session: Session,
     uuid: str,
     user_id: str,
     result_srt: Optional[str] = {},
@@ -214,34 +214,35 @@ def job_result_save(
     """
     Save the transcription result for a job.
     """
-    job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
 
-    if not job:
-        raise ValueError("Job not found")
+    with get_session() as session:
+        job = session.query(Job).filter(Job.uuid == uuid).first()
 
-    job_result = (
-        session.query(JobResult)
-        .filter(
-            JobResult.job_id == uuid,
-            JobResult.user_id == user_id,
-        )
-        .first()
-    )
+        if not job:
+            raise ValueError("Job not found")
 
-    if job_result:
-        if result:
-            job_result.result = json.dumps(result)
-        if result_srt:
-            job_result.result_srt = result_srt
-    else:
-        job_result = JobResult(
-            job_id=uuid,
-            user_id=user_id,
-            result=json.dumps(result) if result else None,
-            result_srt=result_srt if result_srt else None,
+        job_result = (
+            session.query(JobResult)
+            .filter(
+                JobResult.job_id == uuid,
+                JobResult.user_id == user_id,
+            )
+            .first()
         )
 
-    session.add(job_result)
-    session.commit()
+        if job_result:
+            if result:
+                job_result.result = json.dumps(result)
+            if result_srt:
+                job_result.result_srt = result_srt
+        else:
+            job_result = JobResult(
+                job_id=uuid,
+                user_id=user_id,
+                result=json.dumps(result) if result else None,
+                result_srt=result_srt if result_srt else None,
+            )
 
-    return job_result.as_dict()
+        session.add(job_result)
+
+        return job_result.as_dict()

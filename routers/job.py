@@ -3,7 +3,6 @@ import aiofiles
 from fastapi import APIRouter, UploadFile, Request, HTTPException, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
-from db.session import get_session
 from db.job import (
     job_get,
     job_update,
@@ -15,7 +14,6 @@ from db.models import JobStatusEnum
 from utils.settings import get_settings
 from pathlib import Path
 from typing import Optional
-from sqlalchemy.orm import sessionmaker
 
 router = APIRouter(tags=["job"])
 settings = get_settings()
@@ -25,7 +23,6 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 def verify_client_dn(
     request: Request,
-    db_session: sessionmaker = Depends(get_session),
 ) -> Optional[str]:
     """
     Verify the client DN from the request headers.
@@ -46,7 +43,6 @@ def verify_client_dn(
 async def update_transcription_status(
     request: Request,
     job_id: str,
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
@@ -54,11 +50,10 @@ async def update_transcription_status(
 
     verify_client_dn(request)
     data = await request.json()
-    user_id = user_get_from_job(db_session, job_id)
+    user_id = user_get_from_job(job_id)
     file_path = Path(api_file_storage_dir) / user_id / job_id
 
     job = job_update(
-        db_session,
         job_id,
         status=data["status"],
         error=data["error"],
@@ -72,7 +67,6 @@ async def update_transcription_status(
 
     if job["status"] == JobStatusEnum.COMPLETED:
         user_update(
-            db_session,
             user_id,
             transcribed_seconds=data["transcribed_seconds"],
             active=None,
@@ -91,13 +85,12 @@ async def update_transcription_status(
 @router.get("/job/next")
 async def get_transcription_job(
     request: Request,
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Get the next available job.
     """
     verify_client_dn(request)
-    job = job_get_next(db_session)
+    job = job_get_next()
     return JSONResponse(content={"result": jsonable_encoder(job)})
 
 
@@ -106,13 +99,12 @@ async def get_transcription_file(
     request: Request,
     user_id: str,
     job_id: str,
-    db_session: sessionmaker = Depends(get_session),
 ) -> FileResponse:
     """
     Get the data to transcribe.
     """
     verify_client_dn(request)
-    job = job_get(db_session, job_id, user_id)
+    job = job_get(job_id, user_id)
 
     if not job:
         return JSONResponse(
@@ -135,7 +127,6 @@ async def put_video_file(
     user_id: str,
     job_id: str,
     file: UploadFile,
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Upload the video file to transcribe.
@@ -144,7 +135,7 @@ async def put_video_file(
     verify_client_dn(request)
     filename = file.filename
 
-    if not job_get(db_session, job_id, user_id):
+    if not job_get(job_id, user_id):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -178,7 +169,6 @@ async def put_transcription_result(
     request: Request,
     user_id: str,
     job_id: str,
-    db_session: sessionmaker = Depends(get_session),
 ) -> JSONResponse:
     """
     Upload the transcription result.
@@ -186,7 +176,7 @@ async def put_transcription_result(
 
     verify_client_dn(request)
 
-    if not job_get(db_session, job_id, user_id):
+    if not job_get(job_id, user_id):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -196,14 +186,12 @@ async def put_transcription_result(
     match data["format"]:
         case "srt":
             job_result_save(
-                db_session,
                 job_id,
                 user_id,
                 result_srt=data["result"],
             )
         case "json":
             job_result_save(
-                db_session,
                 job_id,
                 user_id,
                 result=data["result"],
@@ -215,7 +203,6 @@ async def put_transcription_result(
                 await out_file.write(data)
 
     job = job_update(
-        db_session,
         job_id,
         status=JobStatusEnum.COMPLETED,
         error=None,
