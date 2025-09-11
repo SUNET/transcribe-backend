@@ -1,6 +1,6 @@
 import shutil
 
-from fastapi import APIRouter, UploadFile, Request, Header
+from fastapi import APIRouter, UploadFile, Request, Header, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
 from db.session import get_session
 from db.job import (
@@ -16,9 +16,8 @@ from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
-from auth.oidc import verify_user
 from fastapi.concurrency import run_in_threadpool
-
+from auth.oidc import get_current_user_id
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
@@ -29,15 +28,16 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 @router.get("/transcriber")
 async def transcribe(
-    request: Request, job_id: str = "", status: Optional[JobStatus] = None
+    request: Request,
+    job_id: str = "",
+    status: Optional[JobStatus] = None,
+    user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Transcribe audio file.
 
     Used by the frontend to get the status of a transcription job.
     """
-
-    user_id = await verify_user(request)
 
     if job_id:
         res = job_get(db_session, job_id, user_id)
@@ -51,14 +51,13 @@ async def transcribe(
 async def transcribe_file(
     request: Request,
     file: UploadFile,
+    user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Transcribe audio file.
 
     Used by the frontend to upload an audio file for transcription.
     """
-
-    user_id = await verify_user(request)
 
     # Create a job for the transcription
     job = job_create(
@@ -102,14 +101,13 @@ async def transcribe_file(
 async def delete_transcription_job(
     request: Request,
     job_id: str,
+    user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Delete a transcription job.
 
     Used by the frontend to delete a transcription job.
     """
-
-    user_id = await verify_user(request)
 
     job = job_get(db_session, job_id, user_id)
 
@@ -133,6 +131,7 @@ async def delete_transcription_job(
 async def update_transcription_status(
     request: Request,
     job_id: str,
+    user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
@@ -140,7 +139,6 @@ async def update_transcription_status(
     Used by the frontend and worker to update the status of a transcription job.
     """
 
-    user_id = await verify_user(request)
     data = await request.json()
     language = data.get("language")
     model = data.get("model")
@@ -183,11 +181,14 @@ async def update_transcription_status(
 
 
 @router.put("/transcriber/{job_id}/result")
-async def put_transcription_result(request: Request, job_id: str) -> JSONResponse:
+async def put_transcription_result(
+    request: Request,
+    job_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
     """
     Upload the transcription result.
     """
-    user_id = await verify_user(request)
     json_data = await request.json()
 
     try:
@@ -218,13 +219,15 @@ async def put_transcription_result(request: Request, job_id: str) -> JSONRespons
 
 @router.get("/transcriber/{job_id}/result/{output_format}")
 async def get_transcription_result(
-    request: Request, job_id: str, output_format: OutputFormatEnum
+    request: Request,
+    job_id: str,
+    output_format: OutputFormatEnum,
+    user_id: str = Depends(get_current_user_id),
 ) -> FileResponse:
     """
     Get the transcription result.
     """
 
-    user_id = await verify_user(request)
     job = job_get(db_session, job_id, user_id)
 
     if not job:
@@ -260,13 +263,14 @@ async def get_transcription_result(
 
 @router.get("/transcriber/{job_id}/videostream")
 async def get_video_stream(
-    request: Request, job_id: str, range: str = Header(None)
+    request: Request,
+    job_id: str,
+    range: str = Header(None),
+    user_id: str = Depends(get_current_user_id),
 ) -> FileResponse:
     """
     Get the video stream for a transcription job.
     """
-
-    user_id = await verify_user(request)
 
     job = job_get(db_session, job_id, user_id)
 

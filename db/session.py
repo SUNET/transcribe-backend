@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from functools import wraps
 from sqlmodel import SQLModel
 from utils.settings import get_settings
+from contextlib import contextmanager
 
 settings = get_settings()
 
@@ -53,3 +54,21 @@ def handle_database_errors(func) -> callable:
                 session.close()
 
     return wrapper
+
+
+@contextmanager
+def sqla_session():
+    """
+    Provide a transactional scope around a series of operations.
+    """
+
+    session = get_session()
+
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

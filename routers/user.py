@@ -1,10 +1,9 @@
 from auth.oidc import verify_user
 from db.session import get_session
-from fastapi import APIRouter
-from fastapi import Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from utils.settings import get_settings
-
+from auth.oidc import get_current_user_id
 from db.user import user_get, users_statistics, user_update
 
 router = APIRouter(tags=["user"])
@@ -17,12 +16,12 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 @router.get("/me")
 async def get_user_info(
     request: Request,
+    user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Get user information.
     Used by the frontend to get user information.
     """
-    user_id = await verify_user(request)
 
     if not user_id:
         return JSONResponse(
@@ -44,12 +43,12 @@ async def get_user_info(
 @router.get("/admin")
 async def statistics(
     request: Request,
+    user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Get user statistics.
     Used by the frontend to get user statistics.
     """
-    user_id = await verify_user(request)
 
     if not user_id:
         return JSONResponse(
@@ -79,6 +78,7 @@ async def statistics(
 async def modify_user(
     request: Request,
     username: str,
+    admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Modify a user's active status.

@@ -32,6 +32,10 @@ class RefreshToken(BaseModel):
     token: str
 
 
+async def get_current_user_id(request: Request) -> str:
+    return await verify_user(request)
+
+
 async def verify_token(id_token: str):
     jwks = await oauth.auth0.fetch_jwk_set()
     try:

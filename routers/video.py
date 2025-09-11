@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Response, Request
-from auth.oidc import verify_user
+from fastapi import APIRouter, Response, Request, Depends
+from auth.oidc import get_current_user_id
 from fastapi.responses import FileResponse
 from utils.settings import get_settings
 from db.job import job_result_get
@@ -11,12 +11,15 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 
 @router.get("/vtt")
-async def get_vtt(request: Request, job_id: str):
+async def get_vtt(
+    request: Request,
+    job_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
     """
     Endpoint to retrieve VTT file for a transcription job.
     """
 
-    user_id = await verify_user(request)
     result = job_result_get(user_id, job_id)
 
     if not result:
@@ -32,12 +35,14 @@ async def get_vtt(request: Request, job_id: str):
 
 
 @router.get("/video")
-async def get_video(request: Request, job_id: str):
+async def get_video(
+    request: Request,
+    job_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
     """
     Endpoint to retrieve video information.
     """
-
-    user_id = await verify_user(request)
 
     path = f"{settings.API_FILE_STORAGE_DIR}/{user_id}/{job_id}.mp4"
 
