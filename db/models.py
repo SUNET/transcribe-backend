@@ -1,9 +1,9 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy.types import Enum as SQLAlchemyEnum
-from sqlmodel import Field, SQLModel, JSON, Column
+from sqlmodel import Field, SQLModel
 from enum import Enum
 from datetime import timedelta
 

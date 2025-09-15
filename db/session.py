@@ -1,5 +1,5 @@
 from functools import lru_cache
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, schema
 from sqlalchemy.orm import sessionmaker
 from functools import wraps
 from sqlmodel import SQLModel
@@ -18,10 +18,12 @@ def get_sessionmaker() -> sessionmaker:
     Uses lru_cache to ensure only one instance is created.
     """
 
-    engine = create_engine(
-        settings.API_DATABASE_URL,
-        connect_args={"check_same_thread": False},  # for SQLite only
-    )
+    engine = create_engine(settings.API_DATABASE_URL)
+
+    connection = engine.connect()
+    if connection.dialect.has_schema(connection, "transcribe"):
+        engine.execute(schema.CreateSchema("transcribe"))
+
     SQLModel.metadata.create_all(engine)
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
