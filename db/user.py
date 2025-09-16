@@ -69,7 +69,7 @@ def user_get(user_id: str) -> Optional[User]:
 
 
 def user_update(
-    username: str,
+    user_id: str,
     transcribed_seconds: Optional[str] = "",
     active: Optional[bool] = None,
     admin: Optional[bool] = None,
@@ -81,7 +81,7 @@ def user_update(
     with get_session() as session:
         user = (
             session.query(User)
-            .filter(User.username == username)
+            .filter(User.user_id == user_id)
             .with_for_update()
             .first()
         )
@@ -100,9 +100,7 @@ def user_update(
         if admin is not None:
             user.admin = admin
 
-        session.add(user)
-
-    return user.as_dict() if user else {}
+        return user.as_dict() if user else {}
 
 
 def get_username_from_id(user_id: str) -> Optional[str]:

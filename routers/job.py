@@ -64,11 +64,14 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
-        user_update(
+        if not user_update(
             user_id,
             transcribed_seconds=data["transcribed_seconds"],
             active=None,
-        )
+        ):
+            return JSONResponse(
+                content={"result": {"error": "User not found"}}, status_code=404
+            )
 
     if (
         job["status"] == JobStatusEnum.FAILED
