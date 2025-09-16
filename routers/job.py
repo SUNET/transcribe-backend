@@ -18,8 +18,6 @@ from typing import Optional
 router = APIRouter(tags=["job"])
 settings = get_settings()
 
-api_file_storage_dir = settings.API_FILE_STORAGE_DIR
-
 
 def verify_client_dn(
     request: Request,
@@ -51,7 +49,7 @@ async def update_transcription_status(
     verify_client_dn(request)
     data = await request.json()
     user_id = user_get_from_job(job_id)
-    file_path = Path(api_file_storage_dir) / user_id / job_id
+    file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / job_id
 
     job = job_update(
         job_id,
@@ -111,7 +109,7 @@ async def get_transcription_file(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    file_path = Path(api_file_storage_dir) / user_id / job_id
+    file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / job_id
 
     if not file_path.exists():
         return JSONResponse(
@@ -140,7 +138,7 @@ async def put_video_file(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    file_path = Path(api_file_storage_dir + "/" + user_id)
+    file_path = Path(settings.API_FILE_STORAGE_DIR + "/" + user_id)
 
     if not file_path.exists():
         file_path.mkdir(parents=True, exist_ok=True)
@@ -198,7 +196,7 @@ async def put_transcription_result(
             )
         case "mp4":
             data = await request.body()
-            file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+            file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / f"{job_id}.mp4"
             async with aiofiles.open(file_path, "wb") as out_file:
                 await out_file.write(data)
 
