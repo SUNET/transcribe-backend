@@ -1,11 +1,10 @@
 import calendar
 
-from db.models import User, Job
-from db.job import job_get_all
-from typing import Optional
-from sqlmodel import Session
 from datetime import datetime, timedelta
+from db.job import job_get_all
+from db.models import Job, User
 from db.session import get_session
+from typing import Optional
 
 
 def user_create(

@@ -1,11 +1,10 @@
+from datetime import datetime, timedelta
+from enum import Enum
 from pydantic import BaseModel
-from typing import Optional, List
-from uuid import uuid4
-from datetime import datetime
 from sqlalchemy.types import Enum as SQLAlchemyEnum
 from sqlmodel import Field, SQLModel
-from enum import Enum
-from datetime import timedelta
+from typing import List, Optional
+from uuid import uuid4
 
 
 class JobStatusEnum(str, Enum):

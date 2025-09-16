@@ -1,9 +1,8 @@
-from auth.oidc import verify_user
-from fastapi import APIRouter, Request, Depends
+from auth.oidc import get_current_user_id, verify_user
+from db.user import user_get, user_update, users_statistics
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from utils.settings import get_settings
-from auth.oidc import get_current_user_id
-from db.user import user_get, users_statistics, user_update
 
 router = APIRouter(tags=["user"])
 settings = get_settings()

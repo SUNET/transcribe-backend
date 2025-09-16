@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Response, Request, Depends
 from auth.oidc import get_current_user_id
+from db.job import job_result_get
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import FileResponse
 from utils.settings import get_settings
-from db.job import job_result_get
 
 router = APIRouter(tags=["video"])
 

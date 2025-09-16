@@ -1,4 +1,3 @@
-from auth.oidc import verify_user
 from db.session import get_session
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse

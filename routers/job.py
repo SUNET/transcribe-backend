@@ -1,6 +1,6 @@
 import aiofiles
 
-from fastapi import APIRouter, UploadFile, Request, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, Request, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
 from db.job import (
