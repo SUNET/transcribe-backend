@@ -69,7 +69,7 @@ def user_get(user_id: str) -> Optional[User]:
 
 
 def user_update(
-    user_id: str,
+    username: str,
     transcribed_seconds: Optional[str] = "",
     active: Optional[bool] = None,
     admin: Optional[bool] = None,
@@ -81,7 +81,7 @@ def user_update(
     with get_session() as session:
         user = (
             session.query(User)
-            .filter(User.user_id == user_id)
+            .filter(User.username == username)
             .with_for_update()
             .first()
         )
