@@ -9,7 +9,7 @@ from db.job import (
     job_get_next,
     job_result_save,
 )
-from db.user import user_get_from_job, user_update
+from db.user import user_get_from_job, user_get_username_from_job, user_update
 from db.models import JobStatusEnum
 from utils.settings import get_settings
 from pathlib import Path
@@ -49,10 +49,12 @@ async def update_transcription_status(
     verify_client_dn(request)
     data = await request.json()
     user_id = user_get_from_job(job_id)
+    username = user_get_username_from_job(job_id)
     file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / job_id
 
     job = job_update(
         job_id,
+        user_id,
         status=data["status"],
         error=data["error"],
         transcribed_seconds=data["transcribed_seconds"],
@@ -65,7 +67,7 @@ async def update_transcription_status(
 
     if job["status"] == JobStatusEnum.COMPLETED:
         if not user_update(
-            user_id,
+            username,
             transcribed_seconds=data["transcribed_seconds"],
             active=None,
         ):

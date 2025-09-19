@@ -53,6 +53,21 @@ def user_get_from_job(job_id: str) -> Optional[User]:
         return user.as_dict()["user_id"] if user else None
 
 
+def user_get_username_from_job(job_id: str) -> Optional[User]:
+    """
+    Get a user by job_user_id.
+    """
+    with get_session() as session:
+        job = session.query(Job).filter(Job.uuid == job_id).first()
+
+        if not job:
+            return None
+
+        user = session.query(User).filter(User.user_id == job.user_id).first()
+
+        return user.as_dict()["username"] if user else None
+
+
 def user_get(user_id: str) -> Optional[User]:
     """
     Get a user by user_id.
