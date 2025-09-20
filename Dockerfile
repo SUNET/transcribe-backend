@@ -9,6 +9,7 @@ RUN apt-get update && \
 		git \
 		gnupg \
 		libcurl4-openssl-dev \
+		libpq-dev \
 		libssl-dev \
 		make \
 		pkg-config \
