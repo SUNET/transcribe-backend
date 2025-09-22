@@ -108,6 +108,11 @@ class Job(SQLModel, table=True):
         index=True,
         description="User ID associated with the job",
     )
+    external_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="ID used to refer to this job by external software",
+    )
     status: JobStatusEnum = Field(
         default=None,
         sa_column=Field(sa_column=SQLAlchemyEnum(JobStatusEnum)),
@@ -155,6 +160,7 @@ class Job(SQLModel, table=True):
             "id": self.id,
             "uuid": self.uuid,
             "user_id": self.user_id,
+            "external_id": self.external_id,
             "status": self.status,
             "job_type": self.job_type,
             "created_at": str(self.created_at),

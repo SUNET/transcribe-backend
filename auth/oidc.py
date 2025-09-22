@@ -1,14 +1,16 @@
-from authlib.integrations.starlette_client import OAuth
-from authlib.jose import jwt
-from datetime import datetime
-from typing import Optional
-from db.user import user_create
-from fastapi import HTTPException
 from fastapi import Request
-from pydantic import BaseModel
+from authlib.jose import jwt
+from fastapi import HTTPException
+from datetime import datetime
 from utils.settings import get_settings
+from authlib.integrations.starlette_client import OAuth
+from pydantic import BaseModel
+from db.user import user_create
+from db.session import get_session
+
 
 settings = get_settings()
+db_session = get_session()
 
 oauth = OAuth()
 oauth.register(
@@ -21,17 +23,16 @@ oauth.register(
 )
 
 
+async def get_current_user_id(request: Request) -> str:
+    return await verify_user(request)
+
 class UnauthenticatedError(HTTPException):
-    def __init__(self, error: Optional[str] = "") -> None:
-        super().__init__(status_code=401, detail="You are not authenticated: " + error)
+    def __init__(self) -> None:
+        super().__init__(status_code=401, detail="You are not authenticated.")
 
 
 class RefreshToken(BaseModel):
     token: str
-
-
-async def get_current_user_id(request: Request) -> str:
-    return await verify_user(request)
 
 
 async def verify_token(id_token: str):
@@ -52,9 +53,7 @@ async def verify_token(id_token: str):
     return decoded_jwt
 
 
-async def verify_user(
-    request: Request,
-):
+async def verify_user(request: Request):
     auth_header = request.headers.get("Authorization")
 
     if auth_header is None:
@@ -74,13 +73,11 @@ async def verify_user(
     username = decoded_jwt.get("preferred_username")
     realm = decoded_jwt.get("realm", username.split("@")[-1])
 
-    user = user_create(
+    user_create(
+        session=db_session,
         username=username,
         realm=realm,
         user_id=user_id,
     )
-
-    if not user["active"]:
-        raise HTTPException(status_code=403, detail="User is not active.")
 
     return user_id

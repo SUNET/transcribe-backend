@@ -1,8 +1,10 @@
 import aiofiles
 
-from fastapi import APIRouter, UploadFile, Request, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
+
+from auth.client_auth import verify_client_dn
 from db.job import (
     job_get,
     job_update,
@@ -12,32 +14,13 @@ from db.job import (
 from db.user import user_get_from_job, user_update
 from db.models import JobStatusEnum
 from utils.settings import get_settings
+
 from pathlib import Path
-from typing import Optional
 
 router = APIRouter(tags=["job"])
 settings = get_settings()
 
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
-
-
-def verify_client_dn(
-    request: Request,
-) -> Optional[str]:
-    """
-    Verify the client DN from the request headers.
-    """
-
-    if settings.API_WORKER_CLIENT_DN == "":
-        return "TranscriberWorker"
-
-    client_dn = request.headers.get("x-client-dn")
-
-    if not client_dn or client_dn.strip() != settings.API_WORKER_CLIENT_DN:
-        raise HTTPException(status_code=403, detail="Invalid request")
-
-    return client_dn
-
 
 @router.put("/job/{job_id}")
 async def update_transcription_status(

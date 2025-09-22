@@ -10,6 +10,8 @@ from db.job import (
     job_update,
     job_result_get,
     job_result_save,
+    job_get_by_external_id,
+    job_result_get_external
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
 from typing import Optional
@@ -295,3 +297,120 @@ async def get_video_stream(
         }
 
         return Response(data, status_code=206, headers=headers, media_type="video/mp4")
+
+
+@router.get("/transcriber/external/{external_id}")
+async def get_job_external(
+    request: Request,
+    external_id: str = "",
+    status: Optional[JobStatus] = None,
+    user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Get job by external id.
+
+    Used by external integrations.
+    """
+
+    res = job_get_by_external_id(external_id, user_id)
+
+    return JSONResponse(content={"result": res})
+
+
+@router.post("/transcriber/external")
+async def transcribe_external_file(
+    request: Request,
+    file: UploadFile,
+    user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Transcribe audio file.
+
+    Used by external integrations to upload files.
+    """
+
+    data = await request.json()
+    language = data.get("language")
+    external_id = data.get("id")
+    model = data.get("model")
+    output_format = data.get("output_format")
+
+    job = job_create(
+        user_id=user_id,
+        job_type=JobType.TRANSCRIPTION,
+        filename=file.filename,
+        language=language,
+        model_type=model,
+        output_format=output_format,
+        external_id=external_id
+    )
+
+    try:
+        file_path = Path(api_file_storage_dir + "/" + user_id)
+        dest_path = file_path / job["uuid"]
+
+        if not file_path.exists():
+            file_path.mkdir(parents=True, exist_ok=True)
+
+        with open(dest_path, "wb") as f:
+            await run_in_threadpool(shutil.copyfileobj, file.file, f, 1024 * 1024)
+    except Exception as e:
+        job = job_update(job["uuid"], user_id, status=JobStatus.FAILED, error=str(e))
+        return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
+
+    job = job_update(job["uuid"], status=JobStatusEnum.PENDING)
+
+    return JSONResponse(
+        content={
+            "result": {
+                "uuid": job["uuid"],
+                "user_id": user_id,
+                "status": job["status"],
+                "job_type": job["job_type"],
+                "filename": file.filename,
+            }
+        }
+    )
+
+@router.get("/transcriber/external/{external_id}/result/{output_format}")
+async def get_transcription_result_external(
+    request: Request,
+    external_id: str,
+    output_format: OutputFormatEnum,
+    user_id: str = Depends(get_current_user_id),
+) -> FileResponse:
+    """
+    Get the transcription result.
+    """
+
+    job = job_get_by_external_id(external_id, user_id)
+
+    if not job:
+        return JSONResponse(
+            content={"result": {"error": "Job not found"}}, status_code=404
+        )
+
+    job_result = job_result_get_external(user_id, external_id)
+
+    if not job_result:
+        return JSONResponse(
+            content={"result": {"error": "Job result not found"}}, status_code=404
+        )
+
+    match output_format:
+        case OutputFormatEnum.TXT:
+            content = job_result.get("result", "")
+        case OutputFormatEnum.SRT:
+            content = job_result.get("result_srt", "")
+        case OutputFormatEnum.CSV:
+            pass
+        case _:
+            return JSONResponse(
+                content={"result": {"error": "Unsupported output format"}},
+                status_code=400,
+            )
+
+    return JSONResponse(
+        content={"result": content},
+        media_type="text/plain",
+    )

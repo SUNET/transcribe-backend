@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     API_TITLE: str = "Whisper REST backend"
     API_VERSION: str = "0.1.0"
     API_WORKER_CLIENT_DN: str = "CN=TranscriberWorker,O=SUNET,ST=Stockholm,C=SE"
+    API_KALTURA_CLIENT_DN: str = "CN=KalturaAdaptor,O=SUNET,ST=Stockholm,C=SE"
+    API_CLIENT_VERIFICATION_ENABLED: bool = True
 
     # OIDC configuration.
     OIDC_CLIENT_ID: str = ""
