@@ -1,5 +1,4 @@
 import aiofiles
-
 from fastapi import APIRouter, UploadFile, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
@@ -11,7 +10,7 @@ from db.job import (
     job_get_next,
     job_result_save,
 )
-from db.user import user_get_from_job, user_update
+from db.user import user_get_from_job, user_get_username_from_job, user_update
 from db.models import JobStatusEnum
 from utils.settings import get_settings
 
@@ -19,7 +18,6 @@ from pathlib import Path
 
 router = APIRouter(tags=["job"])
 settings = get_settings()
-
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 @router.put("/job/{job_id}")
@@ -34,10 +32,12 @@ async def update_transcription_status(
     verify_client_dn(request)
     data = await request.json()
     user_id = user_get_from_job(job_id)
-    file_path = Path(api_file_storage_dir) / user_id / job_id
+    username = user_get_username_from_job(job_id)
+    file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / job_id
 
     job = job_update(
         job_id,
+        user_id,
         status=data["status"],
         error=data["error"],
         transcribed_seconds=data["transcribed_seconds"],
@@ -49,11 +49,14 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
-        user_update(
-            user_id,
+        if not user_update(
+            username,
             transcribed_seconds=data["transcribed_seconds"],
             active=None,
-        )
+        ):
+            return JSONResponse(
+                content={"result": {"error": "User not found"}}, status_code=404
+            )
 
     if (
         job["status"] == JobStatusEnum.FAILED
@@ -94,7 +97,7 @@ async def get_transcription_file(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    file_path = Path(api_file_storage_dir) / user_id / job_id
+    file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / job_id
 
     if not file_path.exists():
         return JSONResponse(
@@ -123,7 +126,7 @@ async def put_video_file(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    file_path = Path(api_file_storage_dir + "/" + user_id)
+    file_path = Path(settings.API_FILE_STORAGE_DIR + "/" + user_id)
 
     if not file_path.exists():
         file_path.mkdir(parents=True, exist_ok=True)
@@ -181,7 +184,7 @@ async def put_transcription_result(
             )
         case "mp4":
             data = await request.body()
-            file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+            file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / f"{job_id}.mp4"
             async with aiofiles.open(file_path, "wb") as out_file:
                 await out_file.write(data)
 

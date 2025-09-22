@@ -1,12 +1,10 @@
-from auth.oidc import RefreshToken
-from auth.oidc import oauth
-from auth.oidc import verify_user
+import requests
+
+from auth.oidc import RefreshToken, oauth, verify_user
 from db.job import job_cleanup
-from fastapi import FastAPI
-from fastapi import Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi_utils.tasks import repeat_every
 from routers.job import router as job_router
 from routers.static import router as static_router
@@ -16,7 +14,6 @@ from routers.video import router as video_router
 from starlette.middleware.sessions import SessionMiddleware
 from utils.settings import get_settings
 
-import requests
 
 settings = get_settings()
 

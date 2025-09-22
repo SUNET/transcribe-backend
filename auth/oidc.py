@@ -74,7 +74,6 @@ async def verify_user(request: Request):
     realm = decoded_jwt.get("realm", username.split("@")[-1])
 
     user_create(
-        session=db_session,
         username=username,
         realm=realm,
         user_id=user_id,
