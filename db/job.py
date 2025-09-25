@@ -180,8 +180,8 @@ def job_cleanup() -> None:
             session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
         )
 
-    for job in jobs_to_delete:
-        job_delete(job.uuid)
+        for job in jobs_to_delete:
+            job_delete(job.uuid)
 
 
 def job_result_get(
