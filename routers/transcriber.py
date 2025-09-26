@@ -19,11 +19,18 @@ from utils.settings import get_settings
 from pathlib import Path
 from fastapi.concurrency import run_in_threadpool
 from auth.oidc import get_current_user_id
+from auth.client_auth import verify_client_dn
+import requests
+
+import logging
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
 
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("backend")
 
 
 @router.get("/transcriber")
@@ -304,7 +311,6 @@ async def get_job_external(
     request: Request,
     external_id: str = "",
     status: Optional[JobStatus] = None,
-    user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Get job by external id.
@@ -312,16 +318,28 @@ async def get_job_external(
     Used by external integrations.
     """
 
-    res = job_get_by_external_id(external_id, user_id)
+    logger.error("Entered get endpoint")
+
+    client_dn = verify_client_dn(request)
+
+    logger.error("CLient_dn: {}".format(client_dn))
+
+    res = job_get_by_external_id(external_id, client_dn)
+
+    logger.error("FETCH RES: {}".format(res))
+
+    if isinstance(res, dict) and res and res["status"] == "completed":
+        res["result_url"] = "/transcriber/external/{}/result/{}".format(external_id, res["output_format"])
 
     return JSONResponse(content={"result": res})
 
+def write_bytes(path: str, data: bytes) -> None:
+    with open(path, "wb") as f:
+        f.write(data)
 
 @router.post("/transcriber/external")
 async def transcribe_external_file(
     request: Request,
-    file: UploadFile,
-    user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
     Transcribe audio file.
@@ -329,31 +347,47 @@ async def transcribe_external_file(
     Used by external integrations to upload files.
     """
 
-    data = await request.json()
-    language = data.get("language")
-    external_id = data.get("id")
-    model = data.get("model")
-    output_format = data.get("output_format")
+    client_dn = verify_client_dn(request)
 
-    job = job_create(
-        user_id=user_id,
-        job_type=JobType.TRANSCRIPTION,
-        filename=file.filename,
-        language=language,
-        model_type=model,
-        output_format=output_format,
-        external_id=external_id
-    )
+    data = await request.json()
+    language = "Swedish"
+    external_id = data.get("id")
+    model = "fast transcription (normal accuracy)"
+    output_format = data.get("output_format")
+    billing_id = data.get("billing_id")
+    user_id = client_dn
+    url = data.get("file_url")
+
+    filename = billing_id
+
 
     try:
-        file_path = Path(api_file_storage_dir + "/" + user_id)
+        kaltura_repsonse = await run_in_threadpool(lambda: requests.get(url, timeout=120))
+
+        if kaltura_repsonse.status_code != 200:
+            raise Exception("Bad status code response from kaltura: {}".format(kaltura_repsonse.status_code))
+
+        job = job_create(
+            user_id=user_id,
+            job_type=JobType.TRANSCRIPTION,
+            filename=filename,
+            language=language,
+            model_type=model,
+            output_format=output_format,
+            external_id=external_id,
+            billing_id=billing_id,
+            client_dn=client_dn
+        )
+
+        file_path = Path(api_file_storage_dir + "/" + client_dn)
         dest_path = file_path / job["uuid"]
 
         if not file_path.exists():
             file_path.mkdir(parents=True, exist_ok=True)
 
-        with open(dest_path, "wb") as f:
-            await run_in_threadpool(shutil.copyfileobj, file.file, f, 1024 * 1024)
+        await run_in_threadpool(
+            write_bytes, dest_path, kaltura_repsonse.content
+        )
     except Exception as e:
         job = job_update(job["uuid"], user_id, status=JobStatus.FAILED, error=str(e))
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
@@ -367,7 +401,7 @@ async def transcribe_external_file(
                 "user_id": user_id,
                 "status": job["status"],
                 "job_type": job["job_type"],
-                "filename": file.filename,
+                "filename": filename,
             }
         }
     )
@@ -376,21 +410,22 @@ async def transcribe_external_file(
 async def get_transcription_result_external(
     request: Request,
     external_id: str,
-    output_format: OutputFormatEnum,
-    user_id: str = Depends(get_current_user_id),
+    output_format: OutputFormatEnum
 ) -> FileResponse:
     """
     Get the transcription result.
     """
 
-    job = job_get_by_external_id(external_id, user_id)
+    client_dn = verify_client_dn(request)
+
+    job = job_get_by_external_id(external_id, client_dn)
 
     if not job:
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    job_result = job_result_get_external(user_id, external_id)
+    job_result = job_result_get_external(external_id)
 
     if not job_result:
         return JSONResponse(
@@ -409,6 +444,8 @@ async def get_transcription_result_external(
                 content={"result": {"error": "Unsupported output format"}},
                 status_code=400,
             )
+
+    logger.info("SRT return - format: {}".format(content))
 
     return JSONResponse(
         content={"result": content},

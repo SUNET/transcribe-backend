@@ -6,6 +6,8 @@ from db.models import Job, User
 from db.session import get_session
 from typing import Optional
 
+from auth.client_auth import DN_LIST
+
 
 def user_create(
     username: str,
@@ -37,7 +39,6 @@ def user_create(
 
         return user.dict()
 
-
 def user_get_from_job(job_id: str) -> Optional[User]:
     """
     Get a user by job_user_id.
@@ -49,6 +50,9 @@ def user_get_from_job(job_id: str) -> Optional[User]:
             return None
 
         user = session.query(User).filter(User.user_id == job.user_id).first()
+
+        if user is None and str(job.user_id) in DN_LIST:
+            return job.user_id
 
         return user.as_dict()["user_id"] if user else None
 

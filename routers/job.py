@@ -14,6 +14,9 @@ from db.user import user_get_from_job, user_get_username_from_job, user_update
 from db.models import JobStatusEnum
 from utils.settings import get_settings
 
+from auth.client_auth import DN_LIST
+
+
 from pathlib import Path
 
 router = APIRouter(tags=["job"])
@@ -33,6 +36,10 @@ async def update_transcription_status(
     data = await request.json()
     user_id = user_get_from_job(job_id)
     username = user_get_username_from_job(job_id)
+
+    if user_id is None or job_id is None:
+        raise Exception("Job or user not found: {} - {}".format(job_id, user_id))
+
     file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / job_id
 
     job = job_update(
@@ -53,7 +60,7 @@ async def update_transcription_status(
             username,
             transcribed_seconds=data["transcribed_seconds"],
             active=None,
-        ):
+        ) and user_id not in DN_LIST:
             return JSONResponse(
                 content={"result": {"error": "User not found"}}, status_code=404
             )
@@ -162,7 +169,9 @@ async def put_transcription_result(
 
     verify_client_dn(request)
 
-    if not job_get(job_id, user_id):
+    job = job_get(job_id, user_id)
+
+    if not job:
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -175,12 +184,14 @@ async def put_transcription_result(
                 job_id,
                 user_id,
                 result_srt=data["result"],
+                external_id=job["external_id"]
             )
         case "json":
             job_result_save(
                 job_id,
                 user_id,
                 result=data["result"],
+                external_id=job["external_id"]
             )
         case "mp4":
             data = await request.body()

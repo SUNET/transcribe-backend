@@ -72,6 +72,11 @@ class JobResult(SQLModel, table=True):
         default_factory=datetime.utcnow,
         description="Creation timestamp",
     )
+    external_id: str = Field(
+        index=True,
+        unique=True,
+        description="UUID of the job",
+    )
 
     def as_dict(self) -> dict:
         """
@@ -85,6 +90,7 @@ class JobResult(SQLModel, table=True):
             "user_id": self.user_id,
             "result": self.result,
             "result_srt": self.result_srt,
+            "external_id": self.external_id
         }
 
 
@@ -111,6 +117,17 @@ class Job(SQLModel, table=True):
         default=None,
         index=True,
         description="ID used to refer to this job by external software",
+    )
+
+    client_dn: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="Name of the automated client software requesting this job",
+    )
+    billing_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="Id to be used for billing",
     )
     status: JobStatusEnum = Field(
         default=None,

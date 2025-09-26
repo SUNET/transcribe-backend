@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Optional
 from utils.settings import get_settings
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("backend")
+
 settings = get_settings()
 
 
@@ -17,7 +22,9 @@ def job_create(
     model_type: Optional[str] = "",
     filename: Optional[str] = "",
     output_format: Optional[str] = None,
-    external_id: Optional[str] = None
+    external_id: Optional[str] = None,
+    billing_id: Optional[str] = None,
+    client_dn: Optional[str] = None
 ) -> dict:
     """
     Create a new job in the database.
@@ -32,7 +39,9 @@ def job_create(
             status=JobStatusEnum.UPLOADING,
             filename=filename,
             output_format=output_format,
-            external_id=external_id
+            external_id=external_id,
+            billing_id=billing_id,
+            client_dn=client_dn
         )
 
         session.add(job)
@@ -56,18 +65,20 @@ def job_get(uuid: str, user_id: str) -> Optional[Job]:
         return job.as_dict() if job else {}
 
 
-def job_get_by_external_id(external_id: str, user_id: str) -> Optional[Job]:
+def job_get_by_external_id(external_id: str, client_dn: str) -> Optional[Job]:
     """
     Get a job by External ID.
     """
-
+    logger.info("Job Fetch Started.")
     with get_session() as session:
         job = (
             session.query(Job)
             .filter(Job.external_id == external_id)
-            .filter(Job.user_id == user_id)
+            .filter(Job.client_dn == client_dn)
             .first()
         )
+
+        logger.info("Job fetched.")
 
         return job.as_dict() if job else {}
 
@@ -225,7 +236,6 @@ def job_result_get(
         return res.as_dict() if res else {}
 
 def job_result_get_external(
-    user_id: str,
     external_id: str,
 ) -> Optional[JobResult]:
     """
@@ -237,7 +247,6 @@ def job_result_get_external(
             session.query(JobResult)
             .filter(
                 JobResult.external_id == external_id,
-                JobResult.user_id == user_id,
             )
             .first()
         )
@@ -250,6 +259,7 @@ def job_result_save(
     user_id: str,
     result_srt: Optional[str] = {},
     result: Optional[str] = "",
+    external_id: Optional[str] = None
 ) -> JobResult:
     """
     Save the transcription result for a job.
@@ -279,6 +289,7 @@ def job_result_save(
             job_result = JobResult(
                 job_id=uuid,
                 user_id=user_id,
+                external_id=external_id,
                 result=json.dumps(result) if result else None,
                 result_srt=result_srt if result_srt else None,
             )
