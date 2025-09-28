@@ -180,11 +180,16 @@ async def put_transcription_result(
 
     match data["format"]:
         case "srt":
+            # if job.billing_id is not None:
+            #     file_path = Path(settings.API_FILE_STORAGE_DIR) / job.billing_id / f"{job_id}.srt"
+            #     async with aiofiles.open(file_path, "wb") as out_file:
+            #         await out_file.write(data)
             job_result_save(
                 job_id,
                 user_id,
                 result_srt=data["result"],
-                external_id=job["external_id"]
+                external_id=job["external_id"],
+                # result_path = Path(settings.API_FILE_STORAGE_DIR) / job.billing_id / f"{job_id}.srt"
             )
         case "json":
             job_result_save(

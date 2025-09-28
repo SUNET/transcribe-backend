@@ -74,11 +74,11 @@ def job_get_by_external_id(external_id: str, client_dn: str) -> Optional[Job]:
         job = (
             session.query(Job)
             .filter(Job.external_id == external_id)
-            .filter(Job.client_dn == client_dn)
+            # .filter(Job.client_dn == client_dn)
             .first()
         )
 
-        logger.info("Job fetched.")
+        logger.info("Job fetched. {}".format(job))
 
         return job.as_dict() if job else {}
 
@@ -259,7 +259,8 @@ def job_result_save(
     user_id: str,
     result_srt: Optional[str] = {},
     result: Optional[str] = "",
-    external_id: Optional[str] = None
+    external_id: Optional[str] = None,
+    result_path: Optional[str] = None
 ) -> JobResult:
     """
     Save the transcription result for a job.
@@ -292,6 +293,7 @@ def job_result_save(
                 external_id=external_id,
                 result=json.dumps(result) if result else None,
                 result_srt=result_srt if result_srt else None,
+                result_path=result_path if result_path else None
             )
 
         session.add(job_result)

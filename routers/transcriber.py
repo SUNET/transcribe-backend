@@ -1,7 +1,8 @@
 import shutil
+from io import BytesIO
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from db.job import (
     job_create,
     job_delete,
@@ -421,6 +422,7 @@ async def get_transcription_result_external(
     job = job_get_by_external_id(external_id, client_dn)
 
     if not job:
+        logger.info("Not Job - {}".format(job))
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -447,7 +449,9 @@ async def get_transcription_result_external(
 
     logger.info("SRT return - format: {}".format(content))
 
-    return JSONResponse(
-        content={"result": content},
-        media_type="text/plain",
+    srt_obj = BytesIO(content.encode("utf-8"))
+    return StreamingResponse(
+        srt_obj,
+        media_type="application/x-subrip",
+        headers={"Content-Disposition": "attachment; filename=subtitles_(Whisper).srt"}
     )
