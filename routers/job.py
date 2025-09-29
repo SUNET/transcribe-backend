@@ -14,7 +14,9 @@ from db.models import JobStatusEnum
 from utils.settings import get_settings
 from pathlib import Path
 from typing import Optional
+from utils.log import get_logger
 
+log = get_logger()
 router = APIRouter(tags=["job"])
 settings = get_settings()
 
@@ -27,12 +29,16 @@ def verify_client_dn(
     """
 
     if settings.API_WORKER_CLIENT_DN == "":
+        log.warning("API_WORKER_CLIENT_DN is not set, skipping client DN verification")
         return "TranscriberWorker"
 
     client_dn = request.headers.get("x-client-dn")
 
     if not client_dn or client_dn.strip() != settings.API_WORKER_CLIENT_DN:
+        log.error("Invalid client DN.")
         raise HTTPException(status_code=403, detail="Invalid request")
+
+    log.info(f"Client DN {client_dn} verified.")
 
     return client_dn
 

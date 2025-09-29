@@ -1,13 +1,15 @@
 from authlib.integrations.starlette_client import OAuth
 from authlib.jose import jwt
 from datetime import datetime
-from typing import Optional
 from db.user import user_create
 from fastapi import HTTPException
 from fastapi import Request
 from pydantic import BaseModel
+from typing import Optional
+from utils.log import get_logger
 from utils.settings import get_settings
 
+log = get_logger()
 settings = get_settings()
 
 oauth = OAuth()
@@ -81,6 +83,9 @@ async def verify_user(
     )
 
     if not user["active"]:
+        log.error(f"User {user_id} is not active.")
         raise HTTPException(status_code=403, detail="User is not active.")
+
+    log.info(f"User {user_id} authenticated successfully.")
 
     return user_id

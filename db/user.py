@@ -5,6 +5,9 @@ from db.job import job_get_all
 from db.models import Job, User
 from db.session import get_session
 from typing import Optional
+from utils.log import get_logger
+
+log = get_logger()
 
 
 def user_create(
@@ -32,6 +35,8 @@ def user_create(
             transcribed_seconds="0",
             last_login=datetime.utcnow(),
         )
+
+        log.info(f"User {user_id} created from {username}.")
 
         session.add(user)
 
@@ -114,6 +119,10 @@ def user_update(
 
         if admin is not None:
             user.admin = admin
+
+        log.info(
+            f"User {user.user_id} updated: transcribed_seconds={user.transcribed_seconds}, active={user.active}, admin={user.admin}"
+        )
 
         return user.as_dict() if user else {}
 

@@ -5,8 +5,10 @@ from db.models import Job, JobResult, JobStatusEnum, Jobs
 from db.session import get_session
 from pathlib import Path
 from typing import Optional
+from utils.log import get_logger
 from utils.settings import get_settings
 
+log = get_logger()
 settings = get_settings()
 
 
@@ -32,6 +34,8 @@ def job_create(
         )
 
         session.add(job)
+
+        log.info(f"Job {job.uuid} created for user {user_id}.")
 
         return job.as_dict()
 
@@ -140,6 +144,8 @@ def job_update(
         if transcribed_seconds:
             job.transcribed_seconds = transcribed_seconds
 
+        log.info(f"Job {job.uuid} updated for user {user_id}.")
+
         return job.as_dict()
 
 
@@ -166,6 +172,8 @@ def job_delete(uuid: str) -> bool:
             file_path_mp4.unlink()
 
         session.delete(job)
+
+    log.info(f"Job {uuid} deleted.")
 
     return True
 
@@ -201,6 +209,8 @@ def job_result_get(
             )
             .first()
         )
+
+        log.info(f"Job result for job {job_id} retrieved for user {user_id}.")
 
         return res.as_dict() if res else {}
 
@@ -244,5 +254,7 @@ def job_result_save(
             )
 
         session.add(job_result)
+
+        log.info(f"Job result for job {uuid} saved for user {user_id}.")
 
         return job_result.as_dict()
