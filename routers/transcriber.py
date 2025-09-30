@@ -2,7 +2,7 @@ import shutil
 from io import BytesIO
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
-from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from db.job import (
     job_create,
     job_delete,
@@ -32,6 +32,8 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("backend")
+
+EXTERNAL_JOB_MODEL = "slower transcription (higher accuracy)"
 
 
 @router.get("/transcriber")
@@ -146,7 +148,7 @@ async def update_transcription_status(
 
     data = await request.json()
     language = data.get("language")
-    model = data.get("model")
+    model = EXTERNAL_JOB_MODEL
     speakers = data.get("speakers", 0)
     status = data.get("status")
     error = data.get("error")
@@ -319,18 +321,12 @@ async def get_job_external(
     Used by external integrations.
     """
 
-    logger.error("Entered get endpoint")
-
     client_dn = verify_client_dn(request)
-
-    logger.error("CLient_dn: {}".format(client_dn))
-
     res = job_get_by_external_id(external_id, client_dn)
 
-    logger.error("FETCH RES: {}".format(res))
-
     if isinstance(res, dict) and res and res["status"] == "completed":
-        res["result_url"] = "/transcriber/external/{}/result/{}".format(external_id, res["output_format"])
+        job_result = job_result_get_external(external_id)
+        res["result_srt"] = job_result["result_srt"]
 
     return JSONResponse(content={"result": res})
 
@@ -351,16 +347,15 @@ async def transcribe_external_file(
     client_dn = verify_client_dn(request)
 
     data = await request.json()
-    language = "Swedish"
+    language = data.get("language")
     external_id = data.get("id")
-    model = "fast transcription (normal accuracy)"
+    model = EXTERNAL_JOB_MODEL
     output_format = data.get("output_format")
     billing_id = data.get("billing_id")
     user_id = client_dn
     url = data.get("file_url")
 
     filename = billing_id
-
 
     try:
         kaltura_repsonse = await run_in_threadpool(lambda: requests.get(url, timeout=120))
@@ -405,53 +400,4 @@ async def transcribe_external_file(
                 "filename": filename,
             }
         }
-    )
-
-@router.get("/transcriber/external/{external_id}/result/{output_format}")
-async def get_transcription_result_external(
-    request: Request,
-    external_id: str,
-    output_format: OutputFormatEnum
-) -> FileResponse:
-    """
-    Get the transcription result.
-    """
-
-    client_dn = verify_client_dn(request)
-
-    job = job_get_by_external_id(external_id, client_dn)
-
-    if not job:
-        logger.info("Not Job - {}".format(job))
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
-
-    job_result = job_result_get_external(external_id)
-
-    if not job_result:
-        return JSONResponse(
-            content={"result": {"error": "Job result not found"}}, status_code=404
-        )
-
-    match output_format:
-        case OutputFormatEnum.TXT:
-            content = job_result.get("result", "")
-        case OutputFormatEnum.SRT:
-            content = job_result.get("result_srt", "")
-        case OutputFormatEnum.CSV:
-            pass
-        case _:
-            return JSONResponse(
-                content={"result": {"error": "Unsupported output format"}},
-                status_code=400,
-            )
-
-    logger.info("SRT return - format: {}".format(content))
-
-    srt_obj = BytesIO(content.encode("utf-8"))
-    return StreamingResponse(
-        srt_obj,
-        media_type="application/x-subrip",
-        headers={"Content-Disposition": "attachment; filename=subtitles_(Whisper).srt"}
     )
