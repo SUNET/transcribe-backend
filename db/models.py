@@ -122,12 +122,7 @@ class Job(SQLModel, table=True):
     client_dn: Optional[str] = Field(
         default=None,
         index=True,
-        description="Name of the automated client software requesting this job",
-    )
-    billing_id: Optional[str] = Field(
-        default=None,
-        index=True,
-        description="Id to be used for billing",
+        description="Client_dn associated with this job",
     )
     status: JobStatusEnum = Field(
         default=None,

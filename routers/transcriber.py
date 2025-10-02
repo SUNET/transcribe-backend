@@ -347,15 +347,14 @@ async def transcribe_external_file(
     client_dn = verify_client_dn(request)
 
     data = await request.json()
-    language = data.get("language")
     external_id = data.get("id")
+    language = data.get("language")
     model = EXTERNAL_JOB_MODEL
     output_format = data.get("output_format")
-    billing_id = data.get("billing_id")
     user_id = client_dn
     url = data.get("file_url")
 
-    filename = billing_id
+    filename = external_id
 
     try:
         kaltura_repsonse = await run_in_threadpool(lambda: requests.get(url, timeout=120))
@@ -371,7 +370,6 @@ async def transcribe_external_file(
             model_type=model,
             output_format=output_format,
             external_id=external_id,
-            billing_id=billing_id,
             client_dn=client_dn
         )
 
