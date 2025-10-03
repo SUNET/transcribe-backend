@@ -23,15 +23,14 @@ from auth.oidc import get_current_user_id
 from auth.client_auth import verify_client_dn
 import requests
 
-import logging
+from utils.log import get_logger
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
 
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("backend")
+logger = get_logger()
 
 EXTERNAL_JOB_MODEL = "slower transcription (higher accuracy)"
 

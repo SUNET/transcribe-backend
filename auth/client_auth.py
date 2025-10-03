@@ -2,14 +2,13 @@
 from fastapi import  Request, HTTPException
 from utils.settings import get_settings
 from typing import Optional
-import logging
+from utils.log import get_logger
 
 settings = get_settings()
 
 DN_LIST = [settings.API_WORKER_CLIENT_DN, settings.API_KALTURA_CLIENT_DN]
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("backend")
+logger = get_logger()
 
 def verify_client_dn(
     request: Request,
