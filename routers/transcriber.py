@@ -4,7 +4,7 @@ from fastapi import APIRouter, UploadFile, Request, Header, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
 from db.job import (
     job_create,
-    job_delete,
+    job_cleanup,
     job_get,
     job_get_all,
     job_update,
@@ -112,10 +112,11 @@ async def delete_transcription_job(
         )
 
     # Delete the job from the database
-    job_delete(job_id)
+    job_cleanup(job_id)
 
     # Remove the video file if it exists
     file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+
     if file_path.exists():
         file_path.unlink()
 

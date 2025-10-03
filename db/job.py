@@ -149,7 +149,7 @@ def job_update(
         return job.as_dict()
 
 
-def job_delete(uuid: str) -> bool:
+def job_cleanup(uuid: str) -> bool:
     """
     Delete a job by UUID.
     """
@@ -171,9 +171,15 @@ def job_delete(uuid: str) -> bool:
         if file_path_mp4.exists():
             file_path_mp4.unlink()
 
-        session.delete(job)
+        job.job_type = None
+        job.language = None
+        job.model_type = None
+        job.filename = None
+        job.error = None
+        job.speakers = None
+        job.output_format = None
 
-    log.info(f"Job {uuid} deleted.")
+    log.info(f"Job {uuid} cleaned.")
 
     return True
 
@@ -184,12 +190,12 @@ def job_cleanup() -> None:
     """
 
     with get_session() as session:
-        jobs_to_delete = (
+        jobs_to_cleanup = (
             session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
         )
 
-        for job in jobs_to_delete:
-            job_delete(job.uuid)
+        for job in jobs_to_cleanup:
+            job_cleanup(job.uuid)
 
 
 def job_result_get(
