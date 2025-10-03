@@ -5,13 +5,10 @@ from db.models import Job, JobResult, JobStatusEnum, Jobs
 from db.session import get_session
 from pathlib import Path
 from typing import Optional
+from utils.log import get_logger
 from utils.settings import get_settings
 
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("backend")
-
+log = get_logger()
 settings = get_settings()
 
 
@@ -46,6 +43,8 @@ def job_create(
 
         session.add(job)
 
+        log.info(f"Job {job.uuid} created for user {user_id}.")
+
         return job.as_dict()
 
 
@@ -69,7 +68,6 @@ def job_get_by_external_id(external_id: str, client_dn: str) -> Optional[Job]:
     """
     Get a job by External ID.
     """
-    logger.info("Job Fetch Started.")
     with get_session() as session:
         job = (
             session.query(Job)
@@ -77,8 +75,6 @@ def job_get_by_external_id(external_id: str, client_dn: str) -> Optional[Job]:
             # .filter(Job.client_dn == client_dn)
             .first()
         )
-
-        logger.info("Job fetched. {}".format(job))
 
         return job.as_dict() if job else {}
 
@@ -171,6 +167,8 @@ def job_update(
         if transcribed_seconds:
             job.transcribed_seconds = transcribed_seconds
 
+        log.info(f"Job {job.uuid} updated for user {user_id}.")
+
         return job.as_dict()
 
 
@@ -198,6 +196,8 @@ def job_delete(uuid: str) -> bool:
 
         session.delete(job)
 
+    log.info(f"Job {uuid} deleted.")
+
     return True
 
 
@@ -211,8 +211,8 @@ def job_cleanup() -> None:
             session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
         )
 
-    for job in jobs_to_delete:
-        job_delete(job.uuid)
+        for job in jobs_to_delete:
+            job_delete(job.uuid)
 
 
 def job_result_get(
@@ -232,6 +232,8 @@ def job_result_get(
             )
             .first()
         )
+
+        log.info(f"Job result for job {job_id} retrieved for user {user_id}.")
 
         return res.as_dict() if res else {}
 
@@ -297,5 +299,7 @@ def job_result_save(
             )
 
         session.add(job_result)
+
+        log.info(f"Job result for job {uuid} saved for user {user_id}.")
 
         return job_result.as_dict()

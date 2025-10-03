@@ -1,7 +1,12 @@
-from fastapi import Request
+from authlib.integrations.starlette_client import OAuth
 from authlib.jose import jwt
-from fastapi import HTTPException
 from datetime import datetime
+from db.user import user_create
+from fastapi import HTTPException
+from fastapi import Request
+from pydantic import BaseModel
+from typing import Optional
+from utils.log import get_logger
 from utils.settings import get_settings
 from authlib.integrations.starlette_client import OAuth
 from pydantic import BaseModel
@@ -9,6 +14,7 @@ from db.user import user_create
 from db.session import get_session
 
 
+log = get_logger()
 settings = get_settings()
 db_session = get_session()
 
@@ -73,10 +79,16 @@ async def verify_user(request: Request):
     username = decoded_jwt.get("preferred_username")
     realm = decoded_jwt.get("realm", username.split("@")[-1])
 
-    user_create(
+    user = user_create(
         username=username,
         realm=realm,
         user_id=user_id,
     )
+
+    if not user["active"]:
+        log.error(f"User {user_id} is not active.")
+        raise HTTPException(status_code=403, detail="User is not active.")
+
+    log.info(f"User {user_id} authenticated successfully.")
 
     return user_id

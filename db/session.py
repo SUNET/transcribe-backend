@@ -4,9 +4,11 @@ from sqlalchemy import create_engine, schema
 from sqlalchemy.orm import Session, sessionmaker
 from sqlmodel import SQLModel
 from typing import Generator
+from utils.log import get_logger
 from utils.settings import get_settings
 
 
+log = get_logger()
 settings = get_settings()
 
 
@@ -38,6 +40,7 @@ def get_session() -> Generator[Session, None, None]:
     try:
         yield session
     except Exception:
+        log.error("Session rollback because of exception", exc_info=True)
         session.rollback()
         raise
     finally:
@@ -59,7 +62,7 @@ def handle_database_errors(func) -> callable:
 
             return func(*args, **kwargs)
         except Exception as e:
-            print(f"Database error has occurred: {e}")
+            log.error(f"Database error: {e}", exc_info=True)
             raise
         finally:
             if session:
@@ -79,7 +82,8 @@ def sqla_session():
     try:
         yield session
         session.commit()
-    except Exception:
+    except Exception as e:
+        log.error(f"Session rollback because of exception: {e}", exc_info=True)
         session.rollback()
         raise
     finally:

@@ -35,4 +35,4 @@ RUN python3 -m venv venv && \
 	pip install --no-cache-dir -r requirements.txt
 
 # Run FastAPI
-CMD ["/app/venv/bin/python3", "-m", "fastapi", "run", "app.py", "--port", "8000"]
+CMD ["/app/venv/bin/uvicorn", "app:app", "--port", "8000"]

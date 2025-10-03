@@ -16,12 +16,14 @@ from utils.settings import get_settings
 
 from auth.client_auth import DN_LIST
 
-
 from pathlib import Path
+from typing import Optional
+from utils.log import get_logger
 
+log = get_logger()
 router = APIRouter(tags=["job"])
 settings = get_settings()
-api_file_storage_dir = settings.API_FILE_STORAGE_DIR
+
 
 @router.put("/job/{job_id}")
 async def update_transcription_status(

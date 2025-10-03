@@ -12,10 +12,13 @@ from routers.transcriber import router as transcriber_router
 from routers.user import router as user_router
 from routers.video import router as video_router
 from starlette.middleware.sessions import SessionMiddleware
+from utils.log import get_logger
 from utils.settings import get_settings
 
-
 settings = get_settings()
+log = get_logger()
+
+log.info(f"Starting API: {settings.API_TITLE} {settings.API_VERSION}")
 
 app = FastAPI(
     title=settings.API_TITLE,
@@ -37,6 +40,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 app.add_middleware(SessionMiddleware, settings.API_SECRET_KEY, https_only=False)
 app.include_router(transcriber_router, prefix=settings.API_PREFIX, tags=["transcriber"])
 app.include_router(job_router, prefix=settings.API_PREFIX, tags=["job"])

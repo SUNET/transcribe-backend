@@ -2,8 +2,10 @@ from auth.oidc import get_current_user_id, verify_user
 from db.user import user_get, user_update, users_statistics
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from utils.log import get_logger
 from utils.settings import get_settings
 
+log = get_logger()
 router = APIRouter(tags=["user"])
 settings = get_settings()
 
@@ -56,12 +58,15 @@ async def statistics(
     user = user_get(user_id)["user"]
 
     if not user["admin"]:
+        log.warning(f"User {user_id} is not admin")
+
         return JSONResponse(
             content={"error": "User not authorized"},
             status_code=403,
         )
 
     if user["bofh"]:
+        log.info(f"User {user_id} is bofh, getting stats for all realms")
         realm = "*"
     else:
         realm = user["realm"]
