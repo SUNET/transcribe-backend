@@ -6,7 +6,7 @@ from utils.log import get_logger
 
 settings = get_settings()
 
-DN_LIST = [settings.API_WORKER_CLIENT_DN, settings.API_KALTURA_CLIENT_DN]
+dn_list = [settings.API_WORKER_CLIENT_DN, settings.API_KALTURA_CLIENT_DN]
 
 logger = get_logger()
 
@@ -22,7 +22,12 @@ def verify_client_dn(
     if settings.API_CLIENT_VERIFICATION_ENABLED is False:
         return client_dn
 
-    if not client_dn or client_dn.strip() not in  DN_LIST:
+    if not client_dn or client_dn.strip() not in  dn_list:
         raise HTTPException(status_code=403, detail="Invalid request")
 
     return client_dn
+
+
+def dn_in_list(dn):
+    return dn in dn_list
+

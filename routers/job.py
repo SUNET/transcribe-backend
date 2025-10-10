@@ -14,7 +14,7 @@ from db.user import user_get_from_job, user_get_username_from_job, user_update
 from db.models import JobStatusEnum
 from utils.settings import get_settings
 
-from auth.client_auth import DN_LIST
+from auth.client_auth import dn_in_list
 
 from pathlib import Path
 from typing import Optional
@@ -58,11 +58,12 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
+        #Check if the user exists or if the user_id is in the dn list (used by integrations)
         if not user_update(
             username,
             transcribed_seconds=data["transcribed_seconds"],
             active=None,
-        ) and user_id not in DN_LIST:
+        ) and not dn_in_list(user_id):
             return JSONResponse(
                 content={"result": {"error": "User not found"}}, status_code=404
             )

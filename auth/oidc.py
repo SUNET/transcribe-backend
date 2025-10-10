@@ -33,8 +33,8 @@ async def get_current_user_id(request: Request) -> str:
     return await verify_user(request)
 
 class UnauthenticatedError(HTTPException):
-    def __init__(self) -> None:
-        super().__init__(status_code=401, detail="You are not authenticated.")
+    def __init__(self, error: Optional[str] = "") -> None:
+        super().__init__(status_code=401, detail="You are not authenticated: " + error)
 
 
 class RefreshToken(BaseModel):
@@ -59,7 +59,9 @@ async def verify_token(id_token: str):
     return decoded_jwt
 
 
-async def verify_user(request: Request):
+async def verify_user(
+    request: Request
+):
     auth_header = request.headers.get("Authorization")
 
     if auth_header is None:

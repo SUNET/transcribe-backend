@@ -1,5 +1,5 @@
 import shutil
-from io import BytesIO
+import aiofiles
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -31,8 +31,6 @@ settings = get_settings()
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 logger = get_logger()
-
-EXTERNAL_JOB_MODEL = "slower transcription (higher accuracy)"
 
 
 @router.get("/transcriber")
@@ -147,7 +145,7 @@ async def update_transcription_status(
 
     data = await request.json()
     language = data.get("language")
-    model = EXTERNAL_JOB_MODEL
+    model = data.get("model")
     speakers = data.get("speakers", 0)
     status = data.get("status")
     error = data.get("error")
@@ -329,10 +327,6 @@ async def get_job_external(
 
     return JSONResponse(content={"result": res})
 
-def write_bytes(path: str, data: bytes) -> None:
-    with open(path, "wb") as f:
-        f.write(data)
-
 @router.post("/transcriber/external")
 async def transcribe_external_file(
     request: Request,
@@ -347,8 +341,9 @@ async def transcribe_external_file(
 
     data = await request.json()
     external_id = data.get("id")
+    external_user_id = data.get("external_user_id")
     language = data.get("language")
-    model = EXTERNAL_JOB_MODEL
+    model = settings.EXTERNAL_JOB_MODEL
     output_format = data.get("output_format")
     user_id = client_dn
     url = data.get("file_url")
@@ -369,6 +364,7 @@ async def transcribe_external_file(
             model_type=model,
             output_format=output_format,
             external_id=external_id,
+            external_user_id=external_user_id,
             client_dn=client_dn
         )
 
@@ -378,9 +374,9 @@ async def transcribe_external_file(
         if not file_path.exists():
             file_path.mkdir(parents=True, exist_ok=True)
 
-        await run_in_threadpool(
-            write_bytes, dest_path, kaltura_repsonse.content
-        )
+        async with aiofiles.open(dest_path, "wb") as out_file:
+            await out_file.write(kaltura_repsonse.content)
+
     except Exception as e:
         job = job_update(job["uuid"], user_id, status=JobStatus.FAILED, error=str(e))
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)

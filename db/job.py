@@ -20,6 +20,7 @@ def job_create(
     filename: Optional[str] = "",
     output_format: Optional[str] = None,
     external_id: Optional[str] = None,
+    external_user_id: Optional[str] = None,
     billing_id: Optional[str] = None,
     client_dn: Optional[str] = None
 ) -> dict:
@@ -37,6 +38,7 @@ def job_create(
             filename=filename,
             output_format=output_format,
             external_id=external_id,
+            external_user_id=external_user_id,
             billing_id=billing_id,
             client_dn=client_dn
         )

@@ -119,6 +119,12 @@ class Job(SQLModel, table=True):
         description="ID used to refer to this job by external software",
     )
 
+    external_user_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="ID of the user in the external system requesting this job",
+    )
+
     client_dn: Optional[str] = Field(
         default=None,
         index=True,
@@ -172,6 +178,7 @@ class Job(SQLModel, table=True):
             "uuid": self.uuid,
             "user_id": self.user_id,
             "external_id": self.external_id,
+            "external_user_id": self.external_user_id,
             "status": self.status,
             "job_type": self.job_type,
             "created_at": str(self.created_at),

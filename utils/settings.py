@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     OIDC_REFRESH_URI: str = ""
     OIDC_FRONTEND_URI: str = ""
 
+    #EXTERNAL
+    EXTERNAL_JOB_MODEL: str = "slower transcription (higher accuracy)"
+
 
 @lru_cache
 def get_settings() -> Settings:
