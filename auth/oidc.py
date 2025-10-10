@@ -8,9 +8,15 @@ from pydantic import BaseModel
 from typing import Optional
 from utils.log import get_logger
 from utils.settings import get_settings
+from authlib.integrations.starlette_client import OAuth
+from pydantic import BaseModel
+from db.user import user_create
+from db.session import get_session
+
 
 log = get_logger()
 settings = get_settings()
+db_session = get_session()
 
 oauth = OAuth()
 oauth.register(
@@ -23,6 +29,9 @@ oauth.register(
 )
 
 
+async def get_current_user_id(request: Request) -> str:
+    return await verify_user(request)
+
 class UnauthenticatedError(HTTPException):
     def __init__(self, error: Optional[str] = "") -> None:
         super().__init__(status_code=401, detail="You are not authenticated: " + error)
@@ -30,10 +39,6 @@ class UnauthenticatedError(HTTPException):
 
 class RefreshToken(BaseModel):
     token: str
-
-
-async def get_current_user_id(request: Request) -> str:
-    return await verify_user(request)
 
 
 async def verify_token(id_token: str):
@@ -55,7 +60,7 @@ async def verify_token(id_token: str):
 
 
 async def verify_user(
-    request: Request,
+    request: Request
 ):
     auth_header = request.headers.get("Authorization")
 

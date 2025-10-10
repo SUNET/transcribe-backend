@@ -28,6 +28,7 @@ Backend built on FastAPI for the SUNET transcription service
 	API_DESCRIPTION="A REST API for the Whisper ASR model"
 	API_FILE_STORAGE_DIR=<Your file storage directory>
 	API_SECRET_KEY=<Your secret key>
+	API_CLIENT_VERIFICATION_ENABLED=true/false
 
 	OIDC_CLIENT_ID = <Your OIDC client ID>
 	OIDC_CLIENT_SECRET = <Your OIDC client secret>
