@@ -338,3 +338,40 @@ async def remove_user_from_group(
 
     group_remove_user(group_id, username)
     return JSONResponse(content={"result": {"status": "OK"}})
+
+
+@router.get("/admin/groups/{groupname}/stats")
+async def group_stats(
+    request: Request,
+    groupname: str,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Get group statistics.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["admin"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    group = group_get(groupname, realm=admin_user["realm"])
+
+    if not group:
+        return JSONResponse(content={"error": "Group not found"}, status_code=404)
+
+    stats = users_statistics(groupname, realm=admin_user["realm"])
+
+    return JSONResponse(content={"result": stats})

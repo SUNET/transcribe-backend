@@ -76,6 +76,7 @@ class JobStatusEnum(str, Enum):
     UPLOADED = "uploaded"
     COMPLETED = "completed"
     FAILED = "failed"
+    DELETED = "deleted"
 
 
 class JobStatus(BaseModel):
@@ -91,6 +92,7 @@ class OutputFormatEnum(str, Enum):
     TXT = "txt"
     SRT = "srt"
     CSV = "csv"
+    NONE = "none"
 
 
 class JobType(str, Enum):

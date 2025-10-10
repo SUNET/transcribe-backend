@@ -1,7 +1,7 @@
 import json
 
 from datetime import datetime
-from db.models import Job, JobResult, JobStatusEnum, Jobs
+from db.models import Job, JobResult, JobStatusEnum, Jobs, OutputFormatEnum
 from db.session import get_session
 from pathlib import Path
 from typing import Optional
@@ -149,7 +149,7 @@ def job_update(
         return job.as_dict()
 
 
-def job_cleanup(uuid: str) -> bool:
+def job_remove(uuid: str) -> bool:
     """
     Delete a job by UUID.
     """
@@ -171,13 +171,13 @@ def job_cleanup(uuid: str) -> bool:
         if file_path_mp4.exists():
             file_path_mp4.unlink()
 
-        job.job_type = None
-        job.language = None
-        job.model_type = None
-        job.filename = None
-        job.error = None
-        job.speakers = None
-        job.output_format = None
+        job.job_type = "transcription"
+        job.language = ""
+        job.model_type = ""
+        job.filename = ""
+        job.error = ""
+        job.speakers = 0
+        job.output_format = OutputFormatEnum.NONE
 
     log.info(f"Job {uuid} cleaned.")
 
@@ -195,7 +195,7 @@ def job_cleanup() -> None:
         )
 
         for job in jobs_to_cleanup:
-            job_cleanup(job.uuid)
+            job_remove(job.uuid)
 
 
 def job_result_get(

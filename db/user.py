@@ -2,6 +2,7 @@ import calendar
 
 from datetime import datetime, timedelta
 from db.job import job_get_all
+from db.models import Group
 from db.models import Job, User
 from db.session import get_session
 from typing import Optional
@@ -139,6 +140,7 @@ def get_username_from_id(user_id: str) -> Optional[str]:
 
 
 def users_statistics(
+    groupname: str,
     realm: str,
     days: int = 30,
 ) -> dict:
@@ -147,10 +149,26 @@ def users_statistics(
     """
 
     with get_session() as session:
-        if realm == "*":
-            users = session.query(User).all()
-        else:
+        if groupname == "All users":
             users = session.query(User).filter(User.realm == realm).all()
+        else:
+            group = (
+                session.query(Group)
+                .filter(Group.name == groupname)
+                .filter(Group.realm == realm)
+                .first()
+            )
+
+            if not group:
+                return {
+                    "total_users": 0,
+                    "active_users": [],
+                    "total_transcribed_seconds": 0,
+                    "transcribed_seconds_per_day": {},
+                    "transcribed_seconds_per_user": {},
+                }
+
+            users = group.users
 
         total_transcribed_seconds = sum(
             int(user.transcribed_seconds) for user in users if user.transcribed_seconds
