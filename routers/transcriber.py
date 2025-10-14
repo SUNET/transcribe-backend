@@ -1,4 +1,5 @@
 import shutil
+import aiofiles
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -10,6 +11,8 @@ from db.job import (
     job_update,
     job_result_get,
     job_result_save,
+    job_get_by_external_id,
+    job_result_get_external
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
 from typing import Optional
@@ -17,11 +20,17 @@ from utils.settings import get_settings
 from pathlib import Path
 from fastapi.concurrency import run_in_threadpool
 from auth.oidc import get_current_user_id
+from auth.client_auth import verify_client_dn
+import requests
+
+from utils.log import get_logger
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
 
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
+
+logger = get_logger()
 
 
 @router.get("/transcriber")
@@ -296,3 +305,93 @@ async def get_video_stream(
         }
 
         return Response(data, status_code=206, headers=headers, media_type="video/mp4")
+
+
+@router.get("/transcriber/external/{external_id}")
+async def get_job_external(
+    request: Request,
+    external_id: str = "",
+    status: Optional[JobStatus] = None,
+) -> JSONResponse:
+    """
+    Get job by external id.
+
+    Used by external integrations.
+    """
+
+    client_dn = verify_client_dn(request)
+    res = job_get_by_external_id(external_id, client_dn)
+
+    if isinstance(res, dict) and res and res["status"] == "completed":
+        job_result = job_result_get_external(external_id)
+        res["result_srt"] = job_result["result_srt"]
+
+    return JSONResponse(content={"result": res})
+
+@router.post("/transcriber/external")
+async def transcribe_external_file(
+    request: Request,
+) -> JSONResponse:
+    """
+    Transcribe audio file.
+
+    Used by external integrations to upload files.
+    """
+
+    client_dn = verify_client_dn(request)
+
+    data = await request.json()
+    external_id = data.get("id")
+    external_user_id = data.get("external_user_id")
+    language = data.get("language")
+    model = settings.EXTERNAL_JOB_MODEL
+    output_format = data.get("output_format")
+    user_id = client_dn
+    url = data.get("file_url")
+
+    filename = external_id
+
+    try:
+        kaltura_repsonse = await run_in_threadpool(lambda: requests.get(url, timeout=120))
+
+        if kaltura_repsonse.status_code != 200:
+            raise Exception("Bad status code response from kaltura: {}".format(kaltura_repsonse.status_code))
+
+        job = job_create(
+            user_id=user_id,
+            job_type=JobType.TRANSCRIPTION,
+            filename=filename,
+            language=language,
+            model_type=model,
+            output_format=output_format,
+            external_id=external_id,
+            external_user_id=external_user_id,
+            client_dn=client_dn
+        )
+
+        file_path = Path(api_file_storage_dir + "/" + client_dn)
+        dest_path = file_path / job["uuid"]
+
+        if not file_path.exists():
+            file_path.mkdir(parents=True, exist_ok=True)
+
+        async with aiofiles.open(dest_path, "wb") as out_file:
+            await out_file.write(kaltura_repsonse.content)
+
+    except Exception as e:
+        job = job_update(job["uuid"], user_id, status=JobStatus.FAILED, error=str(e))
+        return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
+
+    job = job_update(job["uuid"], status=JobStatusEnum.PENDING)
+
+    return JSONResponse(
+        content={
+            "result": {
+                "uuid": job["uuid"],
+                "user_id": user_id,
+                "status": job["status"],
+                "job_type": job["job_type"],
+                "filename": filename,
+            }
+        }
+    )

@@ -10,6 +10,8 @@ from utils.log import get_logger
 
 log = get_logger()
 
+from auth.client_auth import dn_in_list
+
 
 def user_create(
     username: str,
@@ -43,7 +45,6 @@ def user_create(
 
         return user.dict()
 
-
 def user_get_from_job(job_id: str) -> Optional[User]:
     """
     Get a user by job_user_id.
@@ -55,6 +56,9 @@ def user_get_from_job(job_id: str) -> Optional[User]:
             return None
 
         user = session.query(User).filter(User.user_id == job.user_id).first()
+
+        if user is None and dn_in_list(job.user_id):
+            return job.user_id
 
         return user.as_dict()["user_id"] if user else None
 

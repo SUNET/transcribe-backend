@@ -1,8 +1,9 @@
 import aiofiles
-
-from fastapi import APIRouter, UploadFile, Request, HTTPException
+from fastapi import APIRouter, UploadFile, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
+
+from auth.client_auth import verify_client_dn
 from db.job import (
     job_get,
     job_update,
@@ -12,6 +13,9 @@ from db.job import (
 from db.user import user_get_from_job, user_get_username_from_job, user_update
 from db.models import JobStatusEnum
 from utils.settings import get_settings
+
+from auth.client_auth import dn_in_list
+
 from pathlib import Path
 from typing import Optional
 from utils.log import get_logger
@@ -19,28 +23,6 @@ from utils.log import get_logger
 log = get_logger()
 router = APIRouter(tags=["job"])
 settings = get_settings()
-
-
-def verify_client_dn(
-    request: Request,
-) -> Optional[str]:
-    """
-    Verify the client DN from the request headers.
-    """
-
-    if settings.API_WORKER_CLIENT_DN == "":
-        log.warning("API_WORKER_CLIENT_DN is not set, skipping client DN verification")
-        return "TranscriberWorker"
-
-    client_dn = request.headers.get("x-client-dn")
-
-    if not client_dn or client_dn.strip() != settings.API_WORKER_CLIENT_DN:
-        log.error("Invalid client DN.")
-        raise HTTPException(status_code=403, detail="Invalid request")
-
-    log.info(f"Client DN {client_dn} verified.")
-
-    return client_dn
 
 
 @router.put("/job/{job_id}")
@@ -56,6 +38,10 @@ async def update_transcription_status(
     data = await request.json()
     user_id = user_get_from_job(job_id)
     username = user_get_username_from_job(job_id)
+
+    if user_id is None or job_id is None:
+        raise Exception("Job or user not found: {} - {}".format(job_id, user_id))
+
     file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / job_id
 
     job = job_update(
@@ -72,11 +58,12 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
+        #Check if the user exists or if the user_id is in the dn list (used by integrations)
         if not user_update(
             username,
             transcribed_seconds=data["transcribed_seconds"],
             active=None,
-        ):
+        ) and not dn_in_list(user_id):
             return JSONResponse(
                 content={"result": {"error": "User not found"}}, status_code=404
             )
@@ -185,7 +172,9 @@ async def put_transcription_result(
 
     verify_client_dn(request)
 
-    if not job_get(job_id, user_id):
+    job = job_get(job_id, user_id)
+
+    if not job:
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -194,16 +183,23 @@ async def put_transcription_result(
 
     match data["format"]:
         case "srt":
+            # if job.billing_id is not None:
+            #     file_path = Path(settings.API_FILE_STORAGE_DIR) / job.billing_id / f"{job_id}.srt"
+            #     async with aiofiles.open(file_path, "wb") as out_file:
+            #         await out_file.write(data)
             job_result_save(
                 job_id,
                 user_id,
                 result_srt=data["result"],
+                external_id=job["external_id"],
+                # result_path = Path(settings.API_FILE_STORAGE_DIR) / job.billing_id / f"{job_id}.srt"
             )
         case "json":
             job_result_save(
                 job_id,
                 user_id,
                 result=data["result"],
+                external_id=job["external_id"]
             )
         case "mp4":
             data = await request.body()

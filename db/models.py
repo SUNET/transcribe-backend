@@ -1,11 +1,11 @@
 from datetime import datetime, timedelta
 from enum import Enum
-from pydantic import BaseModel
-from sqlalchemy.types import Enum as SQLAlchemyEnum
-from sqlmodel import Field, Relationship, SQLModel
 from typing import List, Optional
 from uuid import uuid4
 
+from pydantic import BaseModel
+from sqlalchemy.types import Enum as SQLAlchemyEnum
+from sqlmodel import Field, Relationship, SQLModel
 
 # +-------------------+             +---------------------+             +--------------------------+
 # |       User        |             |   GroupUserLink     |             |       Group              |
@@ -132,6 +132,13 @@ class JobResult(SQLModel, table=True):
         default_factory=datetime.utcnow,
         description="Creation timestamp",
     )
+    external_id: str = Field(
+        index=True,
+        unique=True,
+        description="UUID of the job",
+        default=None,
+        nullable=True,
+    )
 
     def as_dict(self) -> dict:
         """
@@ -145,6 +152,7 @@ class JobResult(SQLModel, table=True):
             "user_id": self.user_id,
             "result": self.result,
             "result_srt": self.result_srt,
+            "external_id": self.external_id,
         }
 
 
@@ -166,6 +174,23 @@ class Job(SQLModel, table=True):
         default=None,
         index=True,
         description="User ID associated with the job",
+    )
+    external_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="ID used to refer to this job by external software",
+    )
+
+    external_user_id: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="ID of the user in the external system requesting this job",
+    )
+
+    client_dn: Optional[str] = Field(
+        default=None,
+        index=True,
+        description="Client_dn associated with this job",
     )
     status: JobStatusEnum = Field(
         default=None,
@@ -214,6 +239,8 @@ class Job(SQLModel, table=True):
             "id": self.id,
             "uuid": self.uuid,
             "user_id": self.user_id,
+            "external_id": self.external_id,
+            "external_user_id": self.external_user_id,
             "status": self.status,
             "job_type": self.job_type,
             "created_at": str(self.created_at),
