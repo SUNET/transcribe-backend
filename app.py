@@ -1,17 +1,17 @@
 import requests
-
-from auth.oidc import RefreshToken, oauth, verify_user
-from db.job import job_cleanup
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi_utils.tasks import repeat_every
+from starlette.middleware.sessions import SessionMiddleware
+
+from auth.oidc import RefreshToken, oauth, verify_user
+from db.job import job_cleanup
 from routers.job import router as job_router
 from routers.static import router as static_router
 from routers.transcriber import router as transcriber_router
 from routers.user import router as user_router
 from routers.video import router as video_router
-from starlette.middleware.sessions import SessionMiddleware
 from utils.log import get_logger
 from utils.settings import get_settings
 
@@ -25,6 +25,9 @@ app = FastAPI(
     description=settings.API_DESCRIPTION,
     version=settings.API_VERSION,
     secret_key=settings.API_SECRET_KEY,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
     openapi_tags=[
         {
             "name": "transcriber",
@@ -100,7 +103,7 @@ async def refresh(request: Request, refresh_token: RefreshToken):
     return JSONResponse({"access_token": response.json()["access_token"]})
 
 
-@app.get("/docs")
+@app.get("/api/docs")
 async def docs(request: Request) -> RedirectResponse:
     await verify_user(request)
 
