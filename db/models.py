@@ -1,9 +1,12 @@
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 from enum import Enum
 from pydantic import BaseModel
 from sqlalchemy.types import Enum as SQLAlchemyEnum
-from sqlmodel import Field, SQLModel
-from typing import List, Optional
+from sqlmodel import Field
+from sqlmodel import SQLModel
+from typing import List
+from typing import Optional
 from uuid import uuid4
 
 
@@ -76,6 +79,8 @@ class JobResult(SQLModel, table=True):
         index=True,
         unique=True,
         description="UUID of the job",
+        default=None,
+        nullable=True,
     )
 
     def as_dict(self) -> dict:
