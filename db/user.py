@@ -45,6 +45,7 @@ def user_create(
 
         return user.dict()
 
+
 def user_get_from_job(job_id: str) -> Optional[User]:
     """
     Get a user by job_user_id.
@@ -167,19 +168,16 @@ def users_statistics(
                 return {
                     "total_users": 0,
                     "active_users": [],
-                    "total_transcribed_seconds": 0,
-                    "transcribed_seconds_per_day": {},
-                    "transcribed_seconds_per_user": {},
+                    "total_transcribed_minutes": 0,
+                    "transcribed_minutes_per_day": {},
+                    "transcribed_minutes_per_user": {},
                 }
 
             users = group.users
 
-        total_transcribed_seconds = sum(
-            int(user.transcribed_seconds) for user in users if user.transcribed_seconds
-        )
-
-        transcribed_seconds_per_day = {}
-        transcribed_seconds_per_user = {}
+        total_transcribed_minutes = 0
+        transcribed_minutes_per_user = {}
+        transcribed_minutes_per_day = {}
 
         today = datetime.utcnow().date()
         last_day = calendar.monthrange(today.year, today.month)[1]
@@ -192,7 +190,7 @@ def users_statistics(
             for i in range((last_date - start_date).days + 1)
         ]
 
-        transcribed_seconds_per_day = {d: 0 for d in date_range}
+        transcribed_minutes_per_day = {d: 0 for d in date_range}
 
         for user in users:
             jobs = job_get_all(user.user_id)["jobs"]
@@ -207,14 +205,23 @@ def users_statistics(
 
                 job_date = dt.date().isoformat()
 
-                transcribed_seconds_per_day[job_date] = transcribed_seconds_per_day.get(
-                    job_date, 0
-                ) + job.get("transcribed_seconds", 0)
+                if user.username not in transcribed_minutes_per_user:
+                    transcribed_minutes_per_user[user.username] = 0
+
+                transcribed_minutes_per_user[user.username] += int(
+                    job["transcribed_seconds"] // 60
+                )
+
+                transcribed_minutes_per_day[job_date] += int(
+                    job["transcribed_seconds"] // 60
+                )
+
+                total_transcribed_minutes += int(job["transcribed_seconds"] // 60)
 
         return {
             "total_users": len(users),
             "active_users": [user.as_dict() for user in users],
-            "total_transcribed_seconds": total_transcribed_seconds,
-            "transcribed_seconds_per_day": transcribed_seconds_per_day,
-            "transcribed_seconds_per_user": transcribed_seconds_per_user,
+            "total_transcribed_minutes": total_transcribed_minutes,
+            "transcribed_minutes_per_day": transcribed_minutes_per_day,
+            "transcribed_minutes_per_user": transcribed_minutes_per_user,
         }
