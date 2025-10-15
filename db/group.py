@@ -44,22 +44,32 @@ def group_get(groupname: str, realm: str) -> Optional[dict]:
         if groupname == "All users":
             group = Group(name="All users", realm=realm)
         else:
-            group = (
-                session.query(Group)
-                .filter(Group.name == groupname)
-                .filter(Group.realm == realm)
-                .first()
-            )
+            if realm == "*":
+                group = session.query(Group).filter(Group.name == groupname).first()
+            else:
+                group = (
+                    session.query(Group)
+                    .filter(Group.name == groupname)
+                    .filter(Group.realm == realm)
+                    .first()
+                )
 
         if not group:
             return {}
 
-        other_users = (
-            session.query(User)
-            .filter(~User.groups.any(Group.name == groupname))
-            .filter(User.realm == realm)
-            .all()
-        )
+        if realm == "*":
+            other_users = (
+                session.query(User)
+                .filter(~User.groups.any(Group.name == groupname))
+                .all()
+            )
+        else:
+            other_users = (
+                session.query(User)
+                .filter(~User.groups.any(Group.name == groupname))
+                .filter(User.realm == realm)
+                .all()
+            )
 
         group_dict = group.as_dict()
 

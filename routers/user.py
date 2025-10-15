@@ -1,5 +1,5 @@
 from auth.oidc import get_current_user_id, verify_user
-from db.user import user_get, user_update, users_statistics
+from db.user import user_get, user_update, users_statistics, user_get_all
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from utils.log import get_logger
@@ -85,6 +85,42 @@ async def statistics(
     stats = users_statistics(realm)
 
     return JSONResponse(content={"result": stats})
+
+
+@router.get("/admin/users")
+async def list_users(
+    request: Request,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    List all users with statistics.
+    Used by the frontend to list all users.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"},
+            status_code=401,
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["admin"]:
+        return JSONResponse(
+            content={"error": "User not authorized"},
+            status_code=403,
+        )
+
+    if admin_user["bofh"]:
+        realm = "*"
+    else:
+        realm = admin_user["realm"]
+
+    users = user_get_all(realm=realm)
+
+    return JSONResponse(content={"result": users})
 
 
 @router.put("/admin/{username}")
@@ -227,7 +263,12 @@ async def get_group(
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    group = group_get(groupname, realm=admin_user["realm"])
+    if admin_user["bofh"]:
+        realm = "*"
+    else:
+        realm = admin_user["realm"]
+
+    group = group_get(groupname, realm=realm)
 
     if not group:
         return JSONResponse(content={"error": "Group not found"}, status_code=404)

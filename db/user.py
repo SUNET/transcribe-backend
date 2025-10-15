@@ -10,8 +10,6 @@ from utils.log import get_logger
 
 log = get_logger()
 
-from auth.client_auth import dn_in_list
-
 
 def user_create(
     username: str,
@@ -92,6 +90,19 @@ def user_get(user_id: str) -> Optional[User]:
         }
 
     return result
+
+
+def user_get_all(realm) -> list:
+    """
+    Get all users in a realm.
+    """
+    with get_session() as session:
+        if realm == "*":
+            users = session.query(User).all()
+        else:
+            users = session.query(User).filter(User.realm == realm).all()
+
+        return [user.as_dict() for user in users]
 
 
 def user_update(
