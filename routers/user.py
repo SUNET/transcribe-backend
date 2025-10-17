@@ -77,7 +77,6 @@ async def statistics(
         )
 
     if user["bofh"]:
-        log.info(f"User {user_id} is bofh, getting stats for all realms")
         realm = "*"
     else:
         realm = user["realm"]
@@ -413,7 +412,7 @@ async def group_stats(
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    if admin_user["bofh"]:
+    if admin_user["bofh"] and groupname == "All users":
         realm = "*"
     else:
         realm = admin_user["realm"]
@@ -423,6 +422,6 @@ async def group_stats(
     if not group:
         return JSONResponse(content={"error": "Group not found"}, status_code=404)
 
-    stats = users_statistics(groupname, realm=admin_user["realm"])
+    stats = users_statistics(groupname, realm=realm)
 
     return JSONResponse(content={"result": stats})
