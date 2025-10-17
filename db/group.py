@@ -149,7 +149,10 @@ def group_statistics(groupname: str, realm: str) -> dict:
         one_year_ago = datetime.utcnow() - timedelta(days=365)
 
         if group.name == "All users":
-            users = session.query(User).filter(User.realm == realm).all()
+            if realm == "*":
+                users = session.query(User).all()
+            else:
+                users = session.query(User).filter(User.realm == realm).all()
         else:
             users = group.users
 

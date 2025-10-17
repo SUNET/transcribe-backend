@@ -189,7 +189,12 @@ async def list_groups(
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    groups = group_get_all(realm=admin_user["realm"])
+    if admin_user["bofh"]:
+        realm = "*"
+    else:
+        realm = admin_user["realm"]
+
+    groups = group_get_all(realm=realm)
     result = []
 
     for g in groups:
