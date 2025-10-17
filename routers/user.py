@@ -413,11 +413,16 @@ async def group_stats(
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    group = group_get(groupname, realm=admin_user["realm"])
+    if admin_user["bofh"]:
+        realm = "*"
+    else:
+        realm = admin_user["realm"]
+
+    group = group_get(groupname, realm=realm)
 
     if not group:
         return JSONResponse(content={"error": "Group not found"}, status_code=404)
 
-    stats = users_statistics(groupname, realm=admin_user["realm"])
+    stats = users_statistics(groupname, realm=realm)
 
     return JSONResponse(content={"result": stats})

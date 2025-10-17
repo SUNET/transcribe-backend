@@ -166,7 +166,10 @@ def users_statistics(
 
     with get_session() as session:
         if groupname == "All users":
-            users = session.query(User).filter(User.realm == realm).all()
+            if realm == "*":
+                users = session.query(User).all()
+            else:
+                users = session.query(User).filter(User.realm == realm).all()
         else:
             group = (
                 session.query(Group)
