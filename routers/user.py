@@ -423,6 +423,6 @@ async def group_stats(
     if not group:
         return JSONResponse(content={"error": "Group not found"}, status_code=404)
 
-    stats = users_statistics(groupname, realm=realm)
+    stats = users_statistics(groupname, realm=admin_user["realm"])
 
     return JSONResponse(content={"result": stats})
