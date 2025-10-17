@@ -240,15 +240,19 @@ def users_statistics(
                 if user.username not in transcribed_minutes_per_user:
                     transcribed_minutes_per_user[user.username] = 0
 
-                transcribed_minutes_per_user[user.username] += int(
-                    job["transcribed_seconds"] // 60
+                transcribed_seconds = int(job["transcribed_seconds"] // 60)
+
+                transcribed_minutes_per_user[user.username] += (
+                    transcribed_seconds if transcribed_seconds > 0 else 1
                 )
 
-                transcribed_minutes_per_day[job_date] += int(
-                    job["transcribed_seconds"] // 60
+                transcribed_minutes_per_day[job_date] += (
+                    transcribed_seconds if transcribed_seconds > 0 else 1
                 )
 
-                total_transcribed_minutes += int(job["transcribed_seconds"] // 60)
+                total_transcribed_minutes += (
+                    transcribed_seconds if transcribed_seconds > 0 else 1
+                )
 
             for job in jobs:
                 dt = datetime.strptime(job["created_at"], "%Y-%m-%d %H:%M:%S.%f")
