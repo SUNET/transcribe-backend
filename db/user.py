@@ -189,9 +189,33 @@ def users_statistics(
 
                 job_date = dt.date().isoformat()
 
-                transcribed_seconds_per_day[job_date] = transcribed_seconds_per_day.get(
-                    job_date, 0
-                ) + job.get("transcribed_seconds", 0)
+                if user.username not in transcribed_minutes_per_user:
+                    transcribed_minutes_per_user[user.username] = 0
+
+                transcribed_seconds = int(job["transcribed_seconds"] // 60)
+
+                transcribed_minutes_per_user[user.username] += (
+                    transcribed_seconds if transcribed_seconds > 0 else 1
+                )
+
+                transcribed_minutes_per_day[job_date] += (
+                    transcribed_seconds if transcribed_seconds > 0 else 1
+                )
+
+                total_transcribed_minutes += (
+                    transcribed_seconds if transcribed_seconds > 0 else 1
+                )
+
+            for job in jobs:
+                dt = datetime.strptime(job["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+                if dt.date() < first_day_prev_month or dt.date() > last_day_prev_month:
+                    continue
+
+                job_date = dt.date().isoformat()
+
+                transcribed_minutes_per_day_previous_month[job_date] += int(
+                    job["transcribed_seconds"] // 60
+                )
 
         return {
             "total_users": len(users),
