@@ -184,6 +184,7 @@ def users_statistics(
                     "active_users": [],
                     "total_transcribed_minutes": 0,
                     "transcribed_minutes_per_day": {},
+                    "transcribed_minutes_per_day_previous_month": {},
                     "transcribed_minutes_per_user": {},
                 }
 
@@ -192,6 +193,7 @@ def users_statistics(
         total_transcribed_minutes = 0
         transcribed_minutes_per_user = {}
         transcribed_minutes_per_day = {}
+        transcribed_minutes_per_day_previous_month = {}
 
         today = datetime.utcnow().date()
         last_day = calendar.monthrange(today.year, today.month)[1]
@@ -204,7 +206,23 @@ def users_statistics(
             for i in range((last_date - start_date).days + 1)
         ]
 
+        today = datetime.utcnow().date()
+
+        first_day_this_month = today.replace(day=1)
+        last_day_prev_month = first_day_this_month - timedelta(days=1)
+        first_day_prev_month = last_day_prev_month.replace(day=1)
+
+        num_days_prev_month = last_day_prev_month.day
+
+        date_range_prev_month = [
+            (first_day_prev_month + timedelta(days=i)).isoformat()
+            for i in range(num_days_prev_month)
+        ]
+
         transcribed_minutes_per_day = {d: 0 for d in date_range}
+        transcribed_minutes_per_day_previous_month = {
+            d: 0 for d in date_range_prev_month
+        }
 
         for user in users:
             jobs = job_get_all(user.user_id)["jobs"]
@@ -232,10 +250,22 @@ def users_statistics(
 
                 total_transcribed_minutes += int(job["transcribed_seconds"] // 60)
 
+            for job in jobs:
+                dt = datetime.strptime(job["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+                if dt.date() < first_day_prev_month or dt.date() > last_day_prev_month:
+                    continue
+
+                job_date = dt.date().isoformat()
+
+                transcribed_minutes_per_day_previous_month[job_date] += int(
+                    job["transcribed_seconds"] // 60
+                )
+
         return {
             "total_users": len(users),
             "active_users": [user.as_dict() for user in users],
             "total_transcribed_minutes": total_transcribed_minutes,
             "transcribed_minutes_per_day": transcribed_minutes_per_day,
+            "transcribed_minutes_per_day_previous_month": transcribed_minutes_per_day_previous_month,
             "transcribed_minutes_per_user": transcribed_minutes_per_user,
         }
