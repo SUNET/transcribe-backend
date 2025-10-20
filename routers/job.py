@@ -239,8 +239,6 @@ async def healthcheck(request: Request) -> JSONResponse:
 
     health.add(data)
 
-    print(data)
-
     return JSONResponse(content={"result": "ok"})
 
 
