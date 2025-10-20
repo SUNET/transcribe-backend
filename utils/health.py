@@ -14,7 +14,7 @@ class HealthStatus:
         worker_seen = time.time()
 
         if worker_id not in self.workers:
-            self.workers[worker_id] = collections.deque(maxlen=600)
+            self.workers[worker_id] = collections.deque(maxlen=120)
 
         self.workers[worker_id].append(
             {
