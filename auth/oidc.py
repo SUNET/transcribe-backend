@@ -1,6 +1,7 @@
 from authlib.integrations.starlette_client import OAuth
 from authlib.jose import jwt
 from datetime import datetime
+from db.session import get_session
 from db.user import user_create
 from fastapi import HTTPException
 from fastapi import Request
@@ -8,10 +9,6 @@ from pydantic import BaseModel
 from typing import Optional
 from utils.log import get_logger
 from utils.settings import get_settings
-from authlib.integrations.starlette_client import OAuth
-from pydantic import BaseModel
-from db.user import user_create
-from db.session import get_session
 
 
 log = get_logger()
@@ -30,19 +27,43 @@ oauth.register(
 
 
 async def get_current_user_id(request: Request) -> str:
+    """
+    Get the current user ID from the request.
+    """
+
     return await verify_user(request)
 
+
 class UnauthenticatedError(HTTPException):
+    """
+    Exception raised when the user is not authenticated.
+    """
+
     def __init__(self, error: Optional[str] = "") -> None:
+        """
+        Initialize the exception.
+        """
         super().__init__(status_code=401, detail="You are not authenticated: " + error)
 
 
 class RefreshToken(BaseModel):
+    """
+    Refresh token model.
+    """
+
     token: str
 
 
 async def verify_token(id_token: str):
+    """
+    Verify the given ID token.
+    1. Fetch the JWKS from the OIDC provider.
+    2. Decode and verify the JWT using the JWKS.
+    3. Check the issuer and expiration time.
+    """
+
     jwks = await oauth.auth0.fetch_jwk_set()
+
     try:
         decoded_jwt = jwt.decode(s=id_token, key=jwks)
     except Exception as e:
@@ -54,14 +75,21 @@ async def verify_token(id_token: str):
         raise UnauthenticatedError("Invalid issuer.")
 
     exp = datetime.fromtimestamp(decoded_jwt["exp"])
+
     if exp < datetime.now():
         raise UnauthenticatedError("Token expired.")
     return decoded_jwt
 
 
-async def verify_user(
-    request: Request
-):
+async def verify_user(request: Request):
+    """
+    Verify the user from the request.
+    1. Extract the ID token from the Authorization header.
+    2. Verify the ID token.
+    3. Create or update the user in the database.
+    4. Return the user ID.
+    """
+
     auth_header = request.headers.get("Authorization")
 
     if auth_header is None:

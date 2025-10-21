@@ -156,27 +156,28 @@ def get_username_from_id(user_id: str) -> Optional[str]:
 
 
 def users_statistics(
-    groupname: str,
-    realm: str,
-    days: int = 30,
+    group_id: str, realm: str, days: int = 30, user_id: Optional[str] = ""
 ) -> dict:
     """
     Get user statistics for the last 'days' days.
     """
 
     with get_session() as session:
-        if groupname == "All users":
+        if group_id == "0":
             if realm == "*":
                 users = session.query(User).all()
             else:
                 users = session.query(User).filter(User.realm == realm).all()
         else:
-            group = (
-                session.query(Group)
-                .filter(Group.name == groupname)
-                .filter(Group.realm == realm)
-                .first()
-            )
+            if realm == "*":
+                group = session.query(Group).filter(Group.id == group_id).first()
+            else:
+                group = (
+                    session.query(Group)
+                    .filter(Group.id == group_id)
+                    .filter(Group.users.any(User.user_id == user_id))
+                    .first()
+                )
 
             if not group:
                 return {

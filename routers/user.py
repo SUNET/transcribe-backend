@@ -193,27 +193,28 @@ async def list_groups(
     else:
         realm = admin_user["realm"]
 
-    groups = group_get_all(realm=realm)
+    groups = group_get_all(admin_user_id, realm=realm)
+
     result = []
 
     for g in groups:
-        stats = group_statistics(g["name"], g["realm"])
+        stats = group_statistics(g["id"], g["realm"])
 
         if g["name"] == "All users":
             g["nr_users"] = stats["nr_users"]
 
-        result.append(
-            {
-                "id": g["id"],
-                "name": g["name"],
-                "realm": g["realm"],
-                "description": g["description"],
-                "created_at": g["created_at"],
-                "users": g["users"],
-                "nr_users": g["nr_users"],
-                "stats": stats,
-            }
-        )
+        group_dict = {
+            "id": g["id"],
+            "name": g["name"],
+            "realm": g["realm"],
+            "description": g["description"],
+            "created_at": g["created_at"],
+            "users": g["users"],
+            "nr_users": g["nr_users"],
+            "stats": stats,
+        }
+
+        result.append(group_dict)
 
     return JSONResponse(content={"result": result})
 
@@ -223,7 +224,9 @@ async def create_group(
     request: Request,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
-    """Create a new group."""
+    """
+    Create a new group."""
+
     admin_user_id = await verify_user(request)
     if not admin_user_id:
         return JSONResponse(
@@ -242,13 +245,14 @@ async def create_group(
         return JSONResponse(content={"error": "Missing group name"}, status_code=400)
 
     group = group_create(name=name, realm=admin_user["realm"], description=description)
+
     return JSONResponse(content={"result": {"id": group["id"], "name": group["name"]}})
 
 
-@router.get("/admin/groups/{groupname}")
+@router.get("/admin/groups/{group_id}")
 async def get_group(
     request: Request,
-    groupname: str,
+    group_id: str,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
@@ -272,7 +276,7 @@ async def get_group(
     else:
         realm = admin_user["realm"]
 
-    group = group_get(groupname, realm=realm)
+    group = group_get(group_id, realm=realm, user_id=admin_user_id)
 
     if not group:
         return JSONResponse(content={"error": "Group not found"}, status_code=404)
@@ -280,10 +284,10 @@ async def get_group(
     return JSONResponse(content={"result": group})
 
 
-@router.put("/admin/groups/{groupname}")
+@router.put("/admin/groups/{group_id}")
 async def update_group(
     request: Request,
-    groupname: str,
+    group_id: str,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
@@ -298,6 +302,7 @@ async def update_group(
         )
 
     admin_user = user_get(admin_user_id)["user"]
+
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
@@ -306,9 +311,10 @@ async def update_group(
     description = data.get("description")
     usernames = data.get("usernames", [])
 
-    print("Updating group", groupname, name, description, usernames)
-
-    group_update(groupname, name=name, description=description, usernames=usernames)
+    if not group_update(
+        group_id, name=name, description=description, usernames=usernames
+    ):
+        return JSONResponse(content={"error": "Group not found"}, status_code=404)
 
     return JSONResponse(content={"result": {"status": "ok"}})
 
@@ -385,10 +391,10 @@ async def remove_user_from_group(
     return JSONResponse(content={"result": {"status": "OK"}})
 
 
-@router.get("/admin/groups/{groupname}/stats")
+@router.get("/admin/groups/{group_id}/stats")
 async def group_stats(
     request: Request,
-    groupname: str,
+    group_id: str,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
@@ -412,16 +418,16 @@ async def group_stats(
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    if admin_user["bofh"] and groupname == "All users":
+    if admin_user["bofh"]:
         realm = "*"
     else:
         realm = admin_user["realm"]
 
-    group = group_get(groupname, realm=realm)
+    group = group_get(group_id, realm=realm, user_id=admin_user_id)
 
     if not group:
         return JSONResponse(content={"error": "Group not found"}, status_code=404)
 
-    stats = users_statistics(groupname, realm=realm)
+    stats = users_statistics(group_id, realm=realm, user_id=admin_user_id)
 
     return JSONResponse(content={"result": stats})

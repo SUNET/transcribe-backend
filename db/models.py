@@ -423,8 +423,8 @@ class Group(SQLModel, table=True):
 
     __tablename__ = "groups"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(index=True, unique=True)
+    id: Optional[int] = Field(default=None, primary_key=True, unique=True)
+    name: str = Field(index=True, unique=False)
     realm: str = Field(index=True, description="Realm the group belongs to")
     description: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from db.models import Group, GroupModelLink, GroupUserLink, Job, User
 from db.session import get_session
-from sqlalchemy import func
 from typing import Optional
 
 
@@ -17,11 +16,6 @@ def group_create(
     """
 
     with get_session() as session:
-        existing = session.query(Group).filter(Group.name == name).first()
-
-        if existing:
-            return existing.as_dict()
-
         group = Group(
             name=name,
             realm=realm,
@@ -36,21 +30,23 @@ def group_create(
         return group.as_dict()
 
 
-def group_get(groupname: str, realm: str) -> Optional[dict]:
+def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optional[dict]:
     """
     Get a group by id with its users and models.
     """
+
     with get_session() as session:
-        if groupname == "All users":
+        if group_id == "0":
             group = Group(name="All users", realm=realm)
         else:
+            print(f"Fetching group {group_id} for user {user_id} in realm {realm}")
             if realm == "*":
-                group = session.query(Group).filter(Group.name == groupname).first()
+                group = session.query(Group).filter(Group.id == group_id).first()
             else:
                 group = (
                     session.query(Group)
-                    .filter(Group.name == groupname)
-                    .filter(Group.realm == realm)
+                    .filter(Group.id == group_id)
+                    .filter(Group.users.any(User.user_id == user_id))
                     .first()
                 )
 
@@ -59,14 +55,12 @@ def group_get(groupname: str, realm: str) -> Optional[dict]:
 
         if realm == "*":
             other_users = (
-                session.query(User)
-                .filter(~User.groups.any(Group.name == groupname))
-                .all()
+                session.query(User).filter(~User.groups.any(Group.id == group_id)).all()
             )
         else:
             other_users = (
                 session.query(User)
-                .filter(~User.groups.any(Group.name == groupname))
+                .filter(~User.groups.any(Group.id == group_id))
                 .filter(User.realm == realm)
                 .all()
             )
@@ -85,32 +79,38 @@ def group_get(groupname: str, realm: str) -> Optional[dict]:
         return group_dict
 
 
-def group_get_all(realm: str) -> list[dict]:
+def group_get_all(user_id: str, realm: str) -> list[dict]:
     """
     Get all groups with their users and models.
     """
 
     groups_list = []
 
-    # Create a default group with all users in it
-    default_group = {
-        "id": 0,
-        "name": "All users",
-        "realm": realm,
-        "description": "Default group with all users",
-        "created_at": "",
-        "owner_user_id": None,
-        "quota_seconds": None,
-        "users": [],
-        "models": [],
-        "nr_users": 0,
-    }
+    if realm == "*":
+        default_group = {
+            "id": 0,
+            "name": "All users",
+            "realm": realm,
+            "description": "Default group with all users",
+            "created_at": "",
+            "owner_user_id": None,
+            "quota_seconds": None,
+            "users": [],
+            "models": [],
+            "nr_users": 0,
+        }
 
-    groups_list.append(default_group)
+        groups_list.append(default_group)
 
     with get_session() as session:
-        groups = session.query(Group).all()
-
+        if realm == "*":
+            groups = session.query(Group).all()
+        else:
+            groups = (
+                session.query(Group)
+                .filter(Group.users.any(User.user_id == user_id))
+                .all()
+            )
         for group in groups:
             group_dict = group.as_dict()
             group_dict["nr_users"] = len(group_dict["users"])
@@ -119,7 +119,7 @@ def group_get_all(realm: str) -> list[dict]:
     return groups_list
 
 
-def group_statistics(groupname: str, realm: str) -> dict:
+def group_statistics(group_id: str, realm: str) -> dict:
     """
     Get statistics for a group.
     """
@@ -132,12 +132,12 @@ def group_statistics(groupname: str, realm: str) -> dict:
     }
 
     with get_session() as session:
-        if groupname == "All users":
+        if group_id == 0:
             group = Group(name="All users", realm=realm)
         else:
             group = (
                 session.query(Group)
-                .filter(Group.name == groupname)
+                .filter(Group.id == group_id)
                 .filter(Group.realm == realm)
                 .first()
             )
@@ -231,7 +231,7 @@ def group_delete(group_id: int) -> bool:
 
 
 def group_update(
-    groupname: str,
+    group_id: str,
     name: Optional[str] = None,
     description: Optional[str] = None,
     usernames: Optional[list[int]] = None,
@@ -241,10 +241,10 @@ def group_update(
     """
 
     with get_session() as session:
-        group = session.query(Group).filter(Group.name == groupname).first()
+        group = session.query(Group).filter(Group.id == group_id).first()
 
         if not group:
-            return None
+            return {}
 
         if name is not None:
             group.name = name
@@ -357,14 +357,14 @@ def group_list() -> list[dict]:
         return [g.as_dict() for g in groups]
 
 
-def group_get_users(groupname: str, realm: str) -> list[dict]:
+def group_get_users(group_id: str, realm: str) -> list[dict]:
     """
     Get all users in a group.
     """
     with get_session() as session:
         group = (
             session.query(Group)
-            .filter(Group.name == groupname)
+            .filter(Group.id == group_id)
             .filter(Group.realm == realm)
             .first()
         )
