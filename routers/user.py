@@ -81,7 +81,7 @@ async def statistics(
     else:
         realm = user["realm"]
 
-    stats = users_statistics(realm)
+    stats = users_statistics(realm=realm)
 
     return JSONResponse(content={"result": stats})
 
@@ -212,6 +212,7 @@ async def list_groups(
             "users": g["users"],
             "nr_users": g["nr_users"],
             "stats": stats,
+            "quota_seconds": g["quota_seconds"],
         }
 
         result.append(group_dict)
@@ -240,11 +241,19 @@ async def create_group(
     data = await request.json()
     name = data.get("name")
     description = data.get("description", "")
+    quota = data.get("quota_seconds", 0)
+
+    print(quota)
 
     if not name:
         return JSONResponse(content={"error": "Missing group name"}, status_code=400)
 
-    group = group_create(name=name, realm=admin_user["realm"], description=description)
+    group = group_create(
+        name=name,
+        realm=admin_user["realm"],
+        description=description,
+        quota_seconds=quota,
+    )
 
     return JSONResponse(content={"result": {"id": group["id"], "name": group["name"]}})
 
@@ -310,9 +319,14 @@ async def update_group(
     name = data.get("name")
     description = data.get("description")
     usernames = data.get("usernames", [])
+    quota = data.get("quota_seconds", 0)
 
     if not group_update(
-        group_id, name=name, description=description, usernames=usernames
+        group_id,
+        name=name,
+        description=description,
+        usernames=usernames,
+        quota_seconds=int(quota),
     ):
         return JSONResponse(content={"error": "Group not found"}, status_code=404)
 

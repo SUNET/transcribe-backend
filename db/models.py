@@ -453,7 +453,7 @@ class Group(SQLModel, table=True):
             "description": self.description,
             "created_at": str(self.created_at),
             "owner_user_id": self.owner_user_id,
-            "quota_seconds": self.quota_seconds,
+            "quota_seconds": self.quota_seconds if self.quota_seconds else 0,
             "user_count": len(self.users),
             "transcribed_seconds_total": sum(
                 u.transcribed_seconds or 0 for u in self.users

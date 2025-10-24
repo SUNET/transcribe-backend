@@ -9,7 +9,7 @@ def group_create(
     realm: str,
     description: Optional[str] = None,
     owner_user_id: Optional[int] = None,
-    quota_seconds: Optional[int] = None,
+    quota_seconds: Optional[int] = 0,
 ) -> dict:
     """
     Create a new group in the database.
@@ -39,7 +39,6 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
         if group_id == "0":
             group = Group(name="All users", realm=realm)
         else:
-            print(f"Fetching group {group_id} for user {user_id} in realm {realm}")
             if realm == "*":
                 group = session.query(Group).filter(Group.id == group_id).first()
             else:
@@ -94,7 +93,7 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
             "description": "Default group with all users",
             "created_at": "",
             "owner_user_id": None,
-            "quota_seconds": None,
+            "quota_seconds": 0,
             "users": [],
             "models": [],
             "nr_users": 0,
@@ -192,6 +191,28 @@ def group_statistics(group_id: str, realm: str) -> dict:
         return stats
 
 
+def group_get_quota_left(group_id: int) -> int:
+    """
+    Get the remaining quota seconds for a group.
+    """
+
+    with get_session() as session:
+        group = session.query(Group).filter(Group.id == group_id).first()
+
+        if not group:
+            return 0
+
+        quota_seconds = group.quota_seconds
+        used_seconds = 0
+
+        for user in group.users:
+            used_seconds += user.transcribed_seconds if user.transcribed_seconds else 0
+
+        quota_left = quota_seconds - used_seconds
+
+        return max(quota_left, 0)
+
+
 def group_delete(group_id: int) -> bool:
     """
     Delete a group by id.
@@ -235,6 +256,7 @@ def group_update(
     name: Optional[str] = None,
     description: Optional[str] = None,
     usernames: Optional[list[int]] = None,
+    quota_seconds: Optional[int] = 0,
 ) -> Optional[dict]:
     """
     Update group metadata.
@@ -250,6 +272,8 @@ def group_update(
             group.name = name
         if description is not None:
             group.description = description
+        if quota_seconds is not None:
+            group.quota_seconds = quota_seconds
         if usernames is not None:
             links = (
                 session.query(GroupUserLink)

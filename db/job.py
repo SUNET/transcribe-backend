@@ -1,7 +1,7 @@
 import json
 
 from datetime import datetime
-from db.models import Job, JobResult, JobStatusEnum, Jobs, OutputFormatEnum
+from db.models import Job, JobResult, JobStatusEnum, JobType, Jobs, OutputFormatEnum
 from db.session import get_session
 from pathlib import Path
 from typing import Optional
@@ -22,7 +22,7 @@ def job_create(
     external_id: Optional[str] = None,
     external_user_id: Optional[str] = None,
     billing_id: Optional[str] = None,
-    client_dn: Optional[str] = None
+    client_dn: Optional[str] = None,
 ) -> dict:
     """
     Create a new job in the database.
@@ -40,7 +40,7 @@ def job_create(
             external_id=external_id,
             external_user_id=external_user_id,
             billing_id=billing_id,
-            client_dn=client_dn
+            client_dn=client_dn,
         )
 
         session.add(job)
@@ -72,8 +72,7 @@ def job_get_by_external_id(external_id: str, client_dn: str) -> Optional[Job]:
     """
     with get_session() as session:
         job = (
-            session.query(Job)
-            .filter(Job.external_id == external_id)
+            session.query(Job).filter(Job.external_id == external_id)
             # .filter(Job.client_dn == client_dn)
             .first()
         )
@@ -106,7 +105,14 @@ def job_get_all(user_id: str) -> list[Job]:
     """
 
     with get_session() as session:
-        jobs = session.query(Job).filter(Job.user_id == user_id).all()
+        jobs = (
+            session.query(Job)
+            .filter(Job.user_id == user_id)
+            .filter(Job.job_type == JobType.TRANSCRIPTION)
+            .filter(Job.output_format != OutputFormatEnum.NONE)
+            .filter(Job.filename != "")
+            .all()
+        )
 
         if not jobs:
             return {"jobs": []}
@@ -245,6 +251,7 @@ def job_result_get(
 
         return res.as_dict() if res else {}
 
+
 def job_result_get_external(
     external_id: str,
 ) -> Optional[JobResult]:
@@ -270,7 +277,7 @@ def job_result_save(
     result_srt: Optional[str] = {},
     result: Optional[str] = "",
     external_id: Optional[str] = None,
-    result_path: Optional[str] = None
+    result_path: Optional[str] = None,
 ) -> JobResult:
     """
     Save the transcription result for a job.
@@ -303,7 +310,7 @@ def job_result_save(
                 external_id=external_id,
                 result=json.dumps(result) if result else None,
                 result_srt=result_srt if result_srt else None,
-                result_path=result_path if result_path else None
+                result_path=result_path if result_path else None,
             )
 
         session.add(job_result)

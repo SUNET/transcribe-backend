@@ -1,5 +1,6 @@
 import calendar
 
+from auth.client_auth import dn_in_list
 from datetime import datetime, timedelta
 from db.job import job_get_all
 from db.models import Group
@@ -24,7 +25,11 @@ def user_create(
         raise ValueError("user_id and realm must be provided")
 
     with get_session() as session:
-        user = session.query(User).filter(User.user_id == user_id).first()
+        user = (
+            session.query(User)
+            .filter((User.user_id == user_id) | (User.username == username))
+            .first()
+        )
 
         if user:
             return user.as_dict()
@@ -105,6 +110,38 @@ def user_get_all(realm) -> list:
         return [user.as_dict() for user in users]
 
 
+def user_get_quota_left(user_id: str) -> int:
+    """
+    Get the transcription quota left for a user.
+    """
+
+    with get_session() as session:
+        user = session.query(User).filter(User.user_id == user_id).first()
+
+        if not user:
+            return 0
+
+        groups = (
+            session.query(Group).filter(Group.users.any(User.user_id == user_id)).all()
+        )
+
+        if not groups:
+            return 0
+
+        for group in groups:
+            if group.quota_seconds == 0:
+                return 0
+
+            if (
+                user.transcribed_seconds < 0
+                if not group.quota_seconds
+                else group.quota_seconds
+            ):
+                return group.quota_seconds - user.transcribed_seconds
+
+        return -1
+
+
 def user_update(
     username: str,
     transcribed_seconds: Optional[str] = "",
@@ -156,7 +193,10 @@ def get_username_from_id(user_id: str) -> Optional[str]:
 
 
 def users_statistics(
-    group_id: str, realm: str, days: int = 30, user_id: Optional[str] = ""
+    group_id: Optional[str] = "",
+    realm: Optional[str] = "",
+    days: Optional[int] = 30,
+    user_id: Optional[str] = "",
 ) -> dict:
     """
     Get user statistics for the last 'days' days.
@@ -274,3 +314,32 @@ def users_statistics(
             "transcribed_minutes_per_day_previous_month": transcribed_minutes_per_day_previous_month,
             "transcribed_minutes_per_user": transcribed_minutes_per_user,
         }
+
+
+def user_can_transcribe(user_id: str) -> int:
+    """
+    Check which group a user belongs to and check whether the user have
+    quota left or not.
+    """
+
+    with get_session() as session:
+        user = session.query(User).filter(User.user_id == user_id).first()
+
+        if not user:
+            return 0
+
+        groups = (
+            session.query(Group).filter(Group.users.any(User.user_id == user_id)).all()
+        )
+
+        if not groups:
+            return -1
+
+        for group in groups:
+            if group.transcription_quota == 0:
+                return -1  # Unlimited quota
+
+            if user.transcribed_seconds < group.transcription_quota:
+                return group.transcription_quota - user.transcribed_seconds
+
+        return 0
