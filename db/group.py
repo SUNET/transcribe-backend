@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from db.models import Group, GroupModelLink, GroupUserLink, Job, User
 from db.session import get_session
+from sqlalchemy import or_
 from typing import Optional
 
 
@@ -57,10 +58,23 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
                 session.query(User).filter(~User.groups.any(Group.id == group_id)).all()
             )
         else:
+            admin_domains = (
+                session.query(User.admin_domains)
+                .filter(User.user_id == user_id)
+                .scalar()
+            )
+
+            if not admin_domains:
+                return group.as_dict()
+
             other_users = (
                 session.query(User)
                 .filter(~User.groups.any(Group.id == group_id))
-                .filter(User.realm == realm)
+                .filter(
+                    User.realm.in_(
+                        [domain.strip() for domain in admin_domains.split(",")]
+                    )
+                )
                 .all()
             )
 
@@ -107,7 +121,12 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
         else:
             groups = (
                 session.query(Group)
-                .filter(Group.users.any(User.user_id == user_id))
+                .filter(
+                    or_(
+                        Group.users.any(User.user_id == user_id),
+                        Group.owner_user_id == user_id,
+                    )
+                )
                 .all()
             )
         for group in groups:
@@ -275,6 +294,21 @@ def group_update(
         if quota_seconds is not None:
             group.quota_seconds = quota_seconds
         if usernames is not None:
+            for username in usernames:
+                user = session.query(User).filter(User.username == username).first()
+
+                found = (
+                    session.query(GroupUserLink)
+                    .filter(
+                        GroupUserLink.group_id != group.id,
+                        GroupUserLink.user_id == user.id,
+                    )
+                    .first()
+                )
+
+                if found:
+                    raise ValueError(f"User {username} is already in another group.")
+
             links = (
                 session.query(GroupUserLink)
                 .filter(GroupUserLink.group_id == group.id)

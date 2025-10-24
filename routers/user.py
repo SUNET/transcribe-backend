@@ -151,6 +151,7 @@ async def modify_user(
     data = await request.json()
     active = data.get("active", None)
     admin = data.get("admin", None)
+    admin_domains = data.get("admin_domains", None)
 
     if active is not None:
         user_update(
@@ -162,6 +163,12 @@ async def modify_user(
         user_update(
             username,
             admin=admin,
+        )
+
+    if admin_domains is not None:
+        user_update(
+            username,
+            admin_domains=admin_domains,
         )
 
     return JSONResponse(content={"result": {"status": "OK"}})
@@ -235,6 +242,7 @@ async def create_group(
         )
 
     admin_user = user_get(admin_user_id)["user"]
+
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
@@ -242,8 +250,6 @@ async def create_group(
     name = data.get("name")
     description = data.get("description", "")
     quota = data.get("quota_seconds", 0)
-
-    print(quota)
 
     if not name:
         return JSONResponse(content={"error": "Missing group name"}, status_code=400)
@@ -253,6 +259,7 @@ async def create_group(
         realm=admin_user["realm"],
         description=description,
         quota_seconds=quota,
+        owner_user_id=admin_user_id,
     )
 
     return JSONResponse(content={"result": {"id": group["id"], "name": group["name"]}})
@@ -315,20 +322,23 @@ async def update_group(
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    data = await request.json()
-    name = data.get("name")
-    description = data.get("description")
-    usernames = data.get("usernames", [])
-    quota = data.get("quota_seconds", 0)
+    try:
+        data = await request.json()
+        name = data.get("name")
+        description = data.get("description")
+        usernames = data.get("usernames", [])
+        quota = data.get("quota_seconds", 0)
 
-    if not group_update(
-        group_id,
-        name=name,
-        description=description,
-        usernames=usernames,
-        quota_seconds=int(quota),
-    ):
-        return JSONResponse(content={"error": "Group not found"}, status_code=404)
+        if not group_update(
+            group_id,
+            name=name,
+            description=description,
+            usernames=usernames,
+            quota_seconds=int(quota),
+        ):
+            return JSONResponse(content={"error": "Group not found"}, status_code=404)
+    except ValueError as e:
+        return JSONResponse(content={"error": str(e)}, status_code=400)
 
     return JSONResponse(content={"result": {"status": "ok"}})
 

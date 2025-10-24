@@ -147,6 +147,7 @@ def user_update(
     transcribed_seconds: Optional[str] = "",
     active: Optional[bool] = None,
     admin: Optional[bool] = None,
+    admin_domains: Optional[str] = None,
 ) -> dict:
     """
     Update a user's transcribed seconds.
@@ -173,6 +174,9 @@ def user_update(
 
         if admin is not None:
             user.admin = admin
+
+        if admin_domains is not None:
+            user.admin_domains = admin_domains
 
         log.info(
             f"User {user.user_id} updated: transcribed_seconds={user.transcribed_seconds}, active={user.active}, admin={user.admin}"

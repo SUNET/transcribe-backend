@@ -7,62 +7,90 @@ from pydantic import BaseModel
 from sqlalchemy.types import Enum as SQLAlchemyEnum
 from sqlmodel import Field, Relationship, SQLModel
 
-# +-------------------+             +---------------------+             +--------------------------+
-# |       User        |             |   GroupUserLink     |             |       Group              |
-# |-------------------|             |---------------------|             |--------------------------|
-# | id (PK)           |<----------->| user_id (FK ->User) |             | id (PK)                  |
-# | user_id           |             | group_id (FK->Group)|<----------->| name                     |
-# | username          |             | role                |             | description              |
-# | realm             |             +---------------------+             | created_at               |
-# | admin (bool)      |                                                 | owner_user_id (FK->User) |
-# | bofh  (bool)      |                                                 | quota_seconds            |
-# | transcribed_secs  |                                                 +---------+----------------+
-# | last_login        |                                                             |
-# | active (bool)     |                                                             |
-# +---------+---------+                                                             |
-#           ^                                                                       |
-#           |                                                                       |
-#           |                                                                       v
-#           |                                                           +-------------------+
-#           |                                                           |  GroupModelLink   |
-#           |                                                           |-------------------|
-#           |                                                           | group_id (FK->Grp)|
-#           |                                                           | model_id (FK->Mod)|
-#           |                                                           +---------+---------+
-#           |                                                                     |
-#           |                                                                     |
-# +---------+---------+                                                           v
-# |   JobResult       |                                                 +-------------------+
-# |-------------------|                                                 |      Model        |
-# | id (PK)           |                                                 |-------------------|
-# | job_id (UUID)     |                                                 | id (PK)           |
-# | user_id           |                                                 | name (unique)     |
-# | result (JSON)     |                                                 | description       |
-# | result_srt        |                                                 | active (bool)     |
-# | created_at        |                                                 +-------------------+
-# +-------------------+
-#           ^
+#
+#                                +-------------------+
+#                                |       Model       |
+#                                |-------------------|
+#                                | id (PK)           |
+#                                | name (unique)     |
+#                                | description       |
+#                                | active (bool)     |
+#                                +---------+---------+
+#                                          ^
+#                                          |
+#                                          |
+#                                +---------+---------+
+#                                |  GroupModelLink   |
+#                                |-------------------|
+#                                | group_id (FK->Grp)|
+#                                | model_id (FK->Mod)|
+#                                +---------+---------+
+#                                          ^
+#                                          |
+#                                          |
+# +--------------------------+     +-------+---------+     +----------------------+
+# |         Group            |     |   GroupUserLink |     |         User         |
+# |--------------------------|     |-----------------|     |----------------------|
+# | id (PK)                  |<--->| group_id (FK)   |<--->| id (PK)              |
+# | name                     |     | user_id (FK)    |     | user_id              |
+# | realm                    |     | role            |     | username             |
+# | description              |     | in_group (bool) |     | realm                |
+# | created_at               |     +-----------------+     | admin (bool)         |
+# | owner_user_id (FK->User) |                             | admin_domains        |
+# | quota_seconds            |                             | bofh (bool)          |
+# +---------+----------------+                             | transcribed_seconds  |
+#           ^                                              | last_login           |
+#           |                                              | active (bool)        |
+#           |                                              +---------+------------+
+#           |                                                      ^
+#           |                                                      |
+#           |                                                      |
+#           |                                                      |
+#           |                                                      |
+#           |                                                      |
+#           |                                                      |
+#           +------------------------------------------------------+
 #           |
+#           |      (Users belong to groups via GroupUserLink;
+#           |       groups can be owned by a user)
 #           |
-# +---------+---------+
-# |       Job         |
-# |-------------------|
-# | id (PK)           |
-# | uuid (UUID)       |
-# | user_id           |
-# | status (Enum)     |
-# | job_type (Enum)   |
-# | created_at        |
-# | updated_at        |
-# | deletion_date     |
-# | language          |
-# | model_type        |
-# | speakers          |
-# | error             |
-# | filename          |
-# | output_format     |
-# | transcribed_secs  |
-# +-------------------+
+#           v
+# +---------------------------+
+# |        JobResult          |
+# |---------------------------|
+# | id (PK)                   |
+# | job_id (UUID)             |
+# | user_id (FK->User.user_id)|
+# | result (JSON)             |
+# | result_srt                |
+# | external_id (UUID)        |
+# | created_at                |
+# +-----------^---------------+
+#             |
+#             |
+#             |
+# +-----------+---------------+
+# |            Job            |
+# |---------------------------|
+# | id (PK)                   |
+# | uuid (UUID)               |
+# | user_id (FK->User.user_id)|
+# | external_id               |
+# | external_user_id          |
+# | client_dn                 |
+# | status (Enum)             |
+# | job_type (Enum)           |
+# | created_at                |
+# | updated_at                |
+# | deletion_date             |
+# | language                  |
+# | model_type                |
+# | speakers                  |
+# | error                     |
+# | filename                  |
+# | output_format (Enum)      |
+# | transcribed_seconds       |
+# +---------------------------+
 
 
 class JobStatusEnum(str, Enum):
@@ -311,6 +339,10 @@ class User(SQLModel, table=True):
         default=False,
         description="Indicates if the user is an admin",
     )
+    admin_domains: Optional[str] = Field(
+        default=None,
+        description="Comma-separated list of domains the admin manages",
+    )
     bofh: bool = Field(
         default=False,
         description="Indicates if the user is a BOFH",
@@ -343,6 +375,7 @@ class User(SQLModel, table=True):
             "username": self.username,
             "realm": self.realm,
             "admin": self.admin,
+            "admin_domains": self.admin_domains,
             "transcribed_seconds": self.transcribed_seconds,
             "last_login": str(self.last_login),
             "active": self.active,
