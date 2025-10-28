@@ -1,7 +1,7 @@
 import json
 
 from datetime import datetime
-from db.models import Job, JobResult, JobStatusEnum, Jobs
+from db.models import Job, JobResult, JobStatusEnum, JobType, Jobs, OutputFormatEnum
 from db.session import get_session
 from pathlib import Path
 from typing import Optional
@@ -22,7 +22,7 @@ def job_create(
     external_id: Optional[str] = None,
     external_user_id: Optional[str] = None,
     billing_id: Optional[str] = None,
-    client_dn: Optional[str] = None
+    client_dn: Optional[str] = None,
 ) -> dict:
     """
     Create a new job in the database.
@@ -40,7 +40,7 @@ def job_create(
             external_id=external_id,
             external_user_id=external_user_id,
             billing_id=billing_id,
-            client_dn=client_dn
+            client_dn=client_dn,
         )
 
         session.add(job)
@@ -72,8 +72,7 @@ def job_get_by_external_id(external_id: str, client_dn: str) -> Optional[Job]:
     """
     with get_session() as session:
         job = (
-            session.query(Job)
-            .filter(Job.external_id == external_id)
+            session.query(Job).filter(Job.external_id == external_id)
             # .filter(Job.client_dn == client_dn)
             .first()
         )
@@ -106,7 +105,14 @@ def job_get_all(user_id: str) -> list[Job]:
     """
 
     with get_session() as session:
-        jobs = session.query(Job).filter(Job.user_id == user_id).all()
+        jobs = (
+            session.query(Job)
+            .filter(Job.user_id == user_id)
+            .filter(Job.job_type == JobType.TRANSCRIPTION)
+            .filter(Job.output_format != OutputFormatEnum.NONE)
+            .filter(Job.filename != "")
+            .all()
+        )
 
         if not jobs:
             return {"jobs": []}
@@ -174,7 +180,7 @@ def job_update(
         return job.as_dict()
 
 
-def job_delete(uuid: str) -> bool:
+def job_remove(uuid: str) -> bool:
     """
     Delete a job by UUID.
     """
@@ -196,9 +202,15 @@ def job_delete(uuid: str) -> bool:
         if file_path_mp4.exists():
             file_path_mp4.unlink()
 
-        session.delete(job)
+        job.job_type = "transcription"
+        job.language = ""
+        job.model_type = ""
+        job.filename = ""
+        job.error = ""
+        job.speakers = 0
+        job.output_format = OutputFormatEnum.NONE
 
-    log.info(f"Job {uuid} deleted.")
+    log.info(f"Job {uuid} cleaned.")
 
     return True
 
@@ -209,12 +221,12 @@ def job_cleanup() -> None:
     """
 
     with get_session() as session:
-        jobs_to_delete = (
+        jobs_to_cleanup = (
             session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
         )
 
-        for job in jobs_to_delete:
-            job_delete(job.uuid)
+        for job in jobs_to_cleanup:
+            job_remove(job.uuid)
 
 
 def job_result_get(
@@ -238,6 +250,7 @@ def job_result_get(
         log.info(f"Job result for job {job_id} retrieved for user {user_id}.")
 
         return res.as_dict() if res else {}
+
 
 def job_result_get_external(
     external_id: str,
@@ -264,7 +277,7 @@ def job_result_save(
     result_srt: Optional[str] = {},
     result: Optional[str] = "",
     external_id: Optional[str] = None,
-    result_path: Optional[str] = None
+    result_path: Optional[str] = None,
 ) -> JobResult:
     """
     Save the transcription result for a job.
@@ -297,7 +310,7 @@ def job_result_save(
                 external_id=external_id,
                 result=json.dumps(result) if result else None,
                 result_srt=result_srt if result_srt else None,
-                result_path=result_path if result_path else None
+                result_path=result_path if result_path else None,
             )
 
         session.add(job_result)

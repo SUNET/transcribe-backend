@@ -1,13 +1,96 @@
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import Enum
+from typing import List, Optional
+from uuid import uuid4
+
 from pydantic import BaseModel
 from sqlalchemy.types import Enum as SQLAlchemyEnum
-from sqlmodel import Field
-from sqlmodel import SQLModel
-from typing import List
-from typing import Optional
-from uuid import uuid4
+from sqlmodel import Field, Relationship, SQLModel
+
+#
+#                                +-------------------+
+#                                |       Model       |
+#                                |-------------------|
+#                                | id (PK)           |
+#                                | name (unique)     |
+#                                | description       |
+#                                | active (bool)     |
+#                                +---------+---------+
+#                                          ^
+#                                          |
+#                                          |
+#                                +---------+---------+
+#                                |  GroupModelLink   |
+#                                |-------------------|
+#                                | group_id (FK->Grp)|
+#                                | model_id (FK->Mod)|
+#                                +---------+---------+
+#                                          ^
+#                                          |
+#                                          |
+# +--------------------------+     +-------+---------+     +----------------------+
+# |         Group            |     |   GroupUserLink |     |         User         |
+# |--------------------------|     |-----------------|     |----------------------|
+# | id (PK)                  |<--->| group_id (FK)   |<--->| id (PK)              |
+# | name                     |     | user_id (FK)    |     | user_id              |
+# | realm                    |     | role            |     | username             |
+# | description              |     | in_group (bool) |     | realm                |
+# | created_at               |     +-----------------+     | admin (bool)         |
+# | owner_user_id (FK->User) |                             | admin_domains        |
+# | quota_seconds            |                             | bofh (bool)          |
+# +---------+----------------+                             | transcribed_seconds  |
+#           ^                                              | last_login           |
+#           |                                              | active (bool)        |
+#           |                                              +---------+------------+
+#           |                                                      ^
+#           |                                                      |
+#           |                                                      |
+#           |                                                      |
+#           |                                                      |
+#           |                                                      |
+#           |                                                      |
+#           +------------------------------------------------------+
+#           |
+#           |      (Users belong to groups via GroupUserLink;
+#           |       groups can be owned by a user)
+#           |
+#           v
+# +---------------------------+
+# |        JobResult          |
+# |---------------------------|
+# | id (PK)                   |
+# | job_id (UUID)             |
+# | user_id (FK->User.user_id)|
+# | result (JSON)             |
+# | result_srt                |
+# | external_id (UUID)        |
+# | created_at                |
+# +-----------^---------------+
+#             |
+#             |
+#             |
+# +-----------+---------------+
+# |            Job            |
+# |---------------------------|
+# | id (PK)                   |
+# | uuid (UUID)               |
+# | user_id (FK->User.user_id)|
+# | external_id               |
+# | external_user_id          |
+# | client_dn                 |
+# | status (Enum)             |
+# | job_type (Enum)           |
+# | created_at                |
+# | updated_at                |
+# | deletion_date             |
+# | language                  |
+# | model_type                |
+# | speakers                  |
+# | error                     |
+# | filename                  |
+# | output_format (Enum)      |
+# | transcribed_seconds       |
+# +---------------------------+
 
 
 class JobStatusEnum(str, Enum):
@@ -21,6 +104,7 @@ class JobStatusEnum(str, Enum):
     UPLOADED = "uploaded"
     COMPLETED = "completed"
     FAILED = "failed"
+    DELETED = "deleted"
 
 
 class JobStatus(BaseModel):
@@ -36,6 +120,7 @@ class OutputFormatEnum(str, Enum):
     TXT = "txt"
     SRT = "srt"
     CSV = "csv"
+    NONE = "none"
 
 
 class JobType(str, Enum):
@@ -95,7 +180,7 @@ class JobResult(SQLModel, table=True):
             "user_id": self.user_id,
             "result": self.result,
             "result_srt": self.result_srt,
-            "external_id": self.external_id
+            "external_id": self.external_id,
         }
 
 
@@ -207,6 +292,26 @@ class Jobs(BaseModel):
     jobs: List[Job]
 
 
+class GroupUserLink(SQLModel, table=True):
+    """
+    Link table between groups and users.
+    Defines which users belong to which groups.
+    """
+
+    __tablename__ = "group_user_link"
+
+    group_id: Optional[int] = Field(
+        default=None, foreign_key="groups.id", primary_key=True
+    )
+    user_id: Optional[int] = Field(
+        default=None, foreign_key="users.id", primary_key=True
+    )
+    role: str = Field(default="member", description="Role of the user in the group")
+    in_group: bool = Field(
+        default=True, description="Indicates if the user is currently in the group"
+    )
+
+
 class User(SQLModel, table=True):
     """
     Model representing a user in the system.
@@ -234,6 +339,10 @@ class User(SQLModel, table=True):
         default=False,
         description="Indicates if the user is an admin",
     )
+    admin_domains: Optional[str] = Field(
+        default=None,
+        description="Comma-separated list of domains the admin manages",
+    )
     bofh: bool = Field(
         default=False,
         description="Indicates if the user is a BOFH",
@@ -250,6 +359,9 @@ class User(SQLModel, table=True):
         default=False,
         description="Indicates if the user is active",
     )
+    groups: List["Group"] = Relationship(
+        back_populates="users", link_model=GroupUserLink
+    )
 
     def as_dict(self) -> dict:
         """
@@ -263,6 +375,7 @@ class User(SQLModel, table=True):
             "username": self.username,
             "realm": self.realm,
             "admin": self.admin,
+            "admin_domains": self.admin_domains,
             "transcribed_seconds": self.transcribed_seconds,
             "last_login": str(self.last_login),
             "active": self.active,
@@ -276,3 +389,108 @@ class Users(BaseModel):
     """
 
     users: List[User]
+
+
+# Block diagram of the connection between users, groups, quota, models etc
+#
+# User <--> GroupUserLink <--> Group <--> GroupModelLink <--> Model
+#  ^                                                        ^
+#  |                                                        |
+#  +----------------- transcribed_seconds ------------------+
+#                                                           |
+#                           quota_seconds ------------------+
+#                           active (Model)                  |
+#                           admin (User)                    |
+#                           bofh (User)                     |
+#                                                           +------------------ owner_user_id (Group)
+#
+# -----------------------------------------------------------
+# This design allows for:
+# - Users to belong to multiple groups
+# - Groups to have access to multiple models
+# - Each group can have a monthly quota in seconds
+# - Each user has a total of transcribed seconds
+# - Admin users can manage groups and users
+# - BOFH users can view statistics across all realms
+# - Each group has an owner or primary contact user
+# -----------------------------------------------------------
+
+
+class GroupModelLink(SQLModel, table=True):
+    """
+    Link table between groups and models.
+    Defines which models a group has access to.
+    """
+
+    __tablename__ = "group_model_link"
+
+    group_id: int = Field(foreign_key="groups.id", primary_key=True)
+    model_id: int = Field(foreign_key="models.id", primary_key=True)
+
+
+class Model(SQLModel, table=True):
+    """
+    Model representing a transcription model type.
+    """
+
+    __tablename__ = "models"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(
+        index=True, unique=True, description="Model name (e.g., base, large)"
+    )
+    description: str = Field(default=None, description="Model description")
+    active: bool = Field(
+        default=True, description="Whether the model is currently available"
+    )
+
+    groups: List["Group"] = Relationship(
+        back_populates="allowed_models", link_model=GroupModelLink
+    )
+
+
+class Group(SQLModel, table=True):
+    """
+    Model representing a user group.
+    """
+
+    __tablename__ = "groups"
+
+    id: Optional[int] = Field(default=None, primary_key=True, unique=True)
+    name: str = Field(index=True, unique=False)
+    realm: str = Field(index=True, description="Realm the group belongs to")
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    # Group management
+    owner_user_id: Optional[int] = Field(
+        foreign_key="users.id", description="Owner or primary contact for this group"
+    )
+    quota_seconds: Optional[int] = Field(
+        default=None, description="Monthly quota in seconds"
+    )
+
+    # Relationships
+    users: List["User"] = Relationship(
+        back_populates="groups", link_model=GroupUserLink
+    )
+    allowed_models: List["Model"] = Relationship(
+        back_populates="groups", link_model=GroupModelLink
+    )
+
+    def as_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "realm": self.realm,
+            "description": self.description,
+            "created_at": str(self.created_at),
+            "owner_user_id": self.owner_user_id,
+            "quota_seconds": self.quota_seconds if self.quota_seconds else 0,
+            "user_count": len(self.users),
+            "transcribed_seconds_total": sum(
+                u.transcribed_seconds or 0 for u in self.users
+            ),
+            "allowed_models": [m.name for m in self.allowed_models],
+            "users": [u.as_dict() for u in self.users] if self.users else [],
+        }

@@ -5,16 +5,17 @@ from fastapi import APIRouter, UploadFile, Request, Header, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
 from db.job import (
     job_create,
-    job_delete,
+    job_remove,
     job_get,
     job_get_all,
     job_update,
     job_result_get,
     job_result_save,
     job_get_by_external_id,
-    job_result_get_external
+    job_result_get_external,
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
+from db.user import user_get_quota_left
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
@@ -66,7 +67,6 @@ async def transcribe_file(
     Used by the frontend to upload an audio file for transcription.
     """
 
-    # Create a job for the transcription
     job = job_create(
         user_id=user_id,
         job_type=JobType.TRANSCRIPTION,
@@ -121,10 +121,11 @@ async def delete_transcription_job(
         )
 
     # Delete the job from the database
-    job_delete(job_id)
+    job_remove(job_id)
 
     # Remove the video file if it exists
     file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+
     if file_path.exists():
         file_path.unlink()
 
@@ -142,6 +143,18 @@ async def update_transcription_status(
 
     Used by the frontend and worker to update the status of a transcription job.
     """
+
+    quota_left = user_get_quota_left(user_id)
+
+    if quota_left == -1:
+        return JSONResponse(
+            content={
+                "result": {
+                    "error": "Quota exceeded, please contact your administrator."
+                }
+            },
+            status_code=403,
+        )
 
     data = await request.json()
     language = data.get("language")
@@ -327,6 +340,7 @@ async def get_job_external(
 
     return JSONResponse(content={"result": res})
 
+
 @router.post("/transcriber/external")
 async def transcribe_external_file(
     request: Request,
@@ -351,10 +365,16 @@ async def transcribe_external_file(
     filename = external_id
 
     try:
-        kaltura_repsonse = await run_in_threadpool(lambda: requests.get(url, timeout=120))
+        kaltura_repsonse = await run_in_threadpool(
+            lambda: requests.get(url, timeout=120)
+        )
 
         if kaltura_repsonse.status_code != 200:
-            raise Exception("Bad status code response from kaltura: {}".format(kaltura_repsonse.status_code))
+            raise Exception(
+                "Bad status code response from kaltura: {}".format(
+                    kaltura_repsonse.status_code
+                )
+            )
 
         job = job_create(
             user_id=user_id,
@@ -365,7 +385,7 @@ async def transcribe_external_file(
             output_format=output_format,
             external_id=external_id,
             external_user_id=external_user_id,
-            client_dn=client_dn
+            client_dn=client_dn,
         )
 
         file_path = Path(api_file_storage_dir + "/" + client_dn)
