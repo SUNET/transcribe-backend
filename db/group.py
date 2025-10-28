@@ -176,8 +176,16 @@ def group_statistics(group_id: str, realm: str) -> dict:
         if not group:
             return stats
 
-        one_month_ago = datetime.utcnow() - timedelta(days=30)
-        one_year_ago = datetime.utcnow() - timedelta(days=365)
+        current_day = datetime.now().day
+        last_month_days = (datetime.now().replace(day=1) - timedelta(days=1)).day
+        current_day_year = datetime.now().timetuple().tm_yday
+
+        one_month_ago = datetime.utcnow() - timedelta(days=current_day)
+        last_month_start = datetime.utcnow() - timedelta(
+            days=current_day + last_month_days
+        )
+        last_month_end = datetime.utcnow() - timedelta(days=current_day)
+        one_year_ago = datetime.utcnow() - timedelta(days=current_day_year)
 
         if group.name == "All users":
             if realm == "*":
@@ -204,6 +212,23 @@ def group_statistics(group_id: str, realm: str) -> dict:
             stats["month_files"] += len(month_jobs)
             stats["month_seconds"] += sum(
                 job.transcribed_seconds for job in month_jobs if job.transcribed_seconds
+            )
+
+            last_moth_jobs = (
+                session.query(Job)
+                .filter(Job.user_id == user_id)
+                .filter(Job.status == "completed")
+                .filter(Job.updated_at >= last_month_start)
+                .filter(Job.updated_at < last_month_end)
+                .filter(Job.status == "completed")
+                .all()
+            )
+
+            stats["last_month_files"] = len(last_moth_jobs)
+            stats["last_month_seconds"] = sum(
+                job.transcribed_seconds
+                for job in last_moth_jobs
+                if job.transcribed_seconds
             )
 
             year_jobs = (
