@@ -158,6 +158,8 @@ def group_statistics(group_id: str, realm: str) -> dict:
     stats = {
         "month_files": 0,
         "month_seconds": 0,
+        "last_month_files": 0,
+        "last_month_seconds": 0,
         "year_files": 0,
         "year_seconds": 0,
     }
