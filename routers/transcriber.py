@@ -146,7 +146,7 @@ async def update_transcription_status(
 
     quota_left = user_get_quota_left(user_id)
 
-    if quota_left is not None and quota_left <= 0:
+    if quota_left == -1:
         return JSONResponse(
             content={
                 "result": {

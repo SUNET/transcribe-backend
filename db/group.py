@@ -92,6 +92,19 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
         return group_dict
 
 
+def group_get_from_user_id(user_id: str) -> list[dict]:
+    """
+    Get all groups for a specific user id.
+    """
+
+    with get_session() as session:
+        groups = (
+            session.query(Group).filter(Group.users.any(User.user_id == user_id)).all()
+        )
+
+    return groups
+
+
 def group_get_all(user_id: str, realm: str) -> list[dict]:
     """
     Get all groups with their users and models.

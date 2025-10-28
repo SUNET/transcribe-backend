@@ -2,6 +2,7 @@ import calendar
 
 from auth.client_auth import dn_in_list
 from datetime import datetime, timedelta
+from db.group import group_get_from_user_id, group_statistics
 from db.job import job_get_all
 from db.models import Group
 from db.models import Job, User
@@ -117,29 +118,23 @@ def user_get_quota_left(user_id: str) -> int:
 
     with get_session() as session:
         user = session.query(User).filter(User.user_id == user_id).first()
+        group = group_get_from_user_id(user_id)
 
-        if not user:
+        if not group:
             return 0
 
-        groups = (
-            session.query(Group).filter(Group.users.any(User.user_id == user_id)).all()
-        )
-
-        if not groups:
+        if group.transcription_quota == 0:
             return 0
 
-        for group in groups:
-            if group.quota_seconds == 0:
-                return 0
+        group_statistics = group_statistics(group.id, group.realm)
 
-            if (
-                user.transcribed_seconds < 0
-                if not group.quota_seconds
-                else group.quota_seconds
-            ):
-                return group.quota_seconds - user.transcribed_seconds
+        if not group_statistics:
+            return -1
 
-        return -1
+        if group_statistics["month_seconds"] < group.transcription_quota:
+            return 0
+
+    return -1
 
 
 def user_update(
