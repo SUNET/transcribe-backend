@@ -46,7 +46,12 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
                 group = (
                     session.query(Group)
                     .filter(Group.id == group_id)
-                    .filter(Group.users.any(User.user_id == user_id))
+                    .filter(
+                        or_(
+                            Group.users.any(User.user_id == user_id),
+                            Group.owner_user_id == user_id,
+                        )
+                    )
                     .first()
                 )
 
