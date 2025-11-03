@@ -116,21 +116,25 @@ def user_get_quota_left(user_id: str) -> int:
     Get the transcription quota left for a user.
     """
 
-    group = group_get_from_user_id(user_id)
+    with get_session() as session:
+        groups = (
+            session.query(Group).filter(Group.users.any(User.user_id == user_id)).all()
+        )
 
-    if not group:
-        return 0
+        if not groups:
+            return 0
 
-    if group.transcription_quota == 0:
-        return 0
+        for group in groups:
+            if group.quota_seconds == 0:
+                return 0
 
-    group_statistics_res = group_statistics(group.id, group.realm)
+            group_statistics_res = group_statistics(group.id, group.realm)
 
-    if not group_statistics_res:
-        return -1
+            if not group_statistics_res:
+                return -1
 
-    if group_statistics_res["month_seconds"] < group.transcription_quota:
-        return 0
+            if group_statistics_res["month_seconds"] < group.quota_seconds:
+                return 0
 
     return -1
 
