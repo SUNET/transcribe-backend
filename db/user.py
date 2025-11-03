@@ -244,8 +244,6 @@ def users_statistics(
             for i in range((last_date - start_date).days + 1)
         ]
 
-        today = datetime.utcnow().date()
-
         first_day_this_month = today.replace(day=1)
         last_day_prev_month = first_day_this_month - timedelta(days=1)
         first_day_prev_month = last_day_prev_month.replace(day=1)
@@ -269,7 +267,7 @@ def users_statistics(
                 continue
 
             for job in jobs:
-                dt = datetime.strptime(job["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+                dt = datetime.strptime(job["updated_at"], "%Y-%m-%d %H:%M:%S.%f")
                 if dt.date() < start_date:
                     continue
 
@@ -293,7 +291,7 @@ def users_statistics(
                 )
 
             for job in jobs:
-                dt = datetime.strptime(job["created_at"], "%Y-%m-%d %H:%M:%S.%f")
+                dt = datetime.strptime(job["updated_at"], "%Y-%m-%d %H:%M:%S.%f")
                 if dt.date() < first_day_prev_month or dt.date() > last_day_prev_month:
                     continue
 
