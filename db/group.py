@@ -1,3 +1,5 @@
+import calendar
+
 from datetime import datetime, timedelta
 from db.models import Group, GroupModelLink, GroupUserLink, Job, User
 from db.session import get_session
@@ -153,106 +155,6 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
             groups_list.append(group_dict)
 
     return groups_list
-
-
-def group_statistics(group_id: str, realm: str) -> dict:
-    """
-    Get statistics for a group.
-    """
-
-    stats = {
-        "month_files": 0,
-        "month_seconds": 0,
-        "last_month_files": 0,
-        "last_month_seconds": 0,
-        "year_files": 0,
-        "year_seconds": 0,
-    }
-
-    with get_session() as session:
-        if group_id == 0:
-            group = Group(name="All users", realm=realm)
-        else:
-            group = (
-                session.query(Group)
-                .filter(Group.id == group_id)
-                .filter(Group.realm == realm)
-                .first()
-            )
-
-        if not group:
-            return stats
-
-        current_day = datetime.now().day
-        last_month_days = (datetime.now().replace(day=1) - timedelta(days=1)).day
-        current_day_year = datetime.now().timetuple().tm_yday
-
-        one_month_ago = datetime.utcnow() - timedelta(days=current_day)
-        last_month_start = datetime.utcnow() - timedelta(
-            days=current_day + last_month_days
-        )
-        last_month_end = datetime.utcnow() - timedelta(days=current_day)
-        one_year_ago = datetime.utcnow() - timedelta(days=current_day_year)
-
-        if group.name == "All users":
-            if realm == "*":
-                users = session.query(User).all()
-            else:
-                users = session.query(User).filter(User.realm == realm).all()
-        else:
-            users = group.users
-
-        stats["nr_users"] = len(users)
-
-        for user in users:
-            user_id = user.user_id
-
-            month_jobs = (
-                session.query(Job)
-                .filter(Job.user_id == user_id)
-                .filter(Job.status == "completed")
-                .filter(Job.updated_at >= one_month_ago)
-                .filter(Job.status == "completed")
-                .all()
-            )
-
-            stats["month_files"] += len(month_jobs)
-            stats["month_seconds"] += sum(
-                job.transcribed_seconds for job in month_jobs if job.transcribed_seconds
-            )
-
-            last_moth_jobs = (
-                session.query(Job)
-                .filter(Job.user_id == user_id)
-                .filter(Job.status == "completed")
-                .filter(Job.updated_at >= last_month_start)
-                .filter(Job.updated_at < last_month_end)
-                .filter(Job.status == "completed")
-                .all()
-            )
-
-            stats["last_month_files"] = len(last_moth_jobs)
-            stats["last_month_seconds"] = sum(
-                job.transcribed_seconds
-                for job in last_moth_jobs
-                if job.transcribed_seconds
-            )
-
-            year_jobs = (
-                session.query(Job)
-                .filter(Job.user_id == user_id)
-                .filter(Job.status == "completed")
-                .filter(Job.updated_at >= one_year_ago)
-                .filter(Job.status == "completed")
-                .all()
-            )
-
-            stats["year_files"] += len(year_jobs)
-            stats["year_seconds"] += sum(
-                job.transcribed_seconds for job in year_jobs if job.transcribed_seconds
-            )
-
-        return stats
 
 
 def group_get_quota_left(group_id: int) -> int:

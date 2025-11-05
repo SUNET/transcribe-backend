@@ -1,5 +1,12 @@
 from auth.oidc import get_current_user_id, verify_user
-from db.user import user_get, user_update, users_statistics, user_get_all
+from db.user import (
+    user_get,
+    user_update,
+    users_statistics,
+    user_get_all,
+    group_statistics,
+)
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from utils.log import get_logger
@@ -12,7 +19,6 @@ from db.group import (
     group_delete,
     group_add_user,
     group_remove_user,
-    group_statistics,
 )
 
 
@@ -205,10 +211,10 @@ async def list_groups(
     result = []
 
     for g in groups:
-        stats = group_statistics(g["id"], g["realm"])
+        stats = group_statistics(str(g["id"]), admin_user_id, g["realm"])
 
         if g["name"] == "All users":
-            g["nr_users"] = stats["nr_users"]
+            g["nr_users"] = stats["total_users"]
 
         group_dict = {
             "id": g["id"],
@@ -217,7 +223,7 @@ async def list_groups(
             "description": g["description"],
             "created_at": g["created_at"],
             "users": g["users"],
-            "nr_users": g["nr_users"],
+            "nr_users": stats["total_users"],
             "stats": stats,
             "quota_seconds": g["quota_seconds"],
         }

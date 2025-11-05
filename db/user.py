@@ -2,7 +2,7 @@ import calendar
 
 from auth.client_auth import dn_in_list
 from datetime import datetime, timedelta
-from db.group import group_get_from_user_id, group_statistics
+from db.group import group_get_from_user_id
 from db.job import job_get_all
 from db.models import Group
 from db.models import Job, User
@@ -208,10 +208,12 @@ def users_statistics(
             if realm == "*":
                 users = session.query(User).all()
             else:
-                users = session.query(User).filter(User.realm == realm).all()
+                users = session.query(User).filter(User.admin_domains == realm).all()
+                print(f"Realm: {realm}")
         else:
             if realm == "*":
                 group = session.query(Group).filter(Group.id == group_id).first()
+                print("All realms, group_id!=0")
             else:
                 group = (
                     session.query(Group)
@@ -219,12 +221,16 @@ def users_statistics(
                     .filter(Group.users.any(User.user_id == user_id))
                     .first()
                 )
+                print(f"Realm: {realm}, group_id!=0")
 
             if not group:
                 return {
                     "total_users": 0,
                     "active_users": [],
+                    "transcribed_files": 0,
+                    "transcribed_files_last_month": 0,
                     "total_transcribed_minutes": 0,
+                    "total_transcribed_minutes_last_month": 0,
                     "transcribed_minutes_per_day": {},
                     "transcribed_minutes_per_day_previous_month": {},
                     "transcribed_minutes_per_user": {},
@@ -233,9 +239,16 @@ def users_statistics(
             users = group.users
 
         total_transcribed_minutes = 0
+        total_transcribed_minutes_last_month = 0
+
+        transcribed_files = 0
+        transcribed_files_last_month = 0
+
         transcribed_minutes_per_user = {}
+        transcribed_minutes_per_user_last_month = {}
+
         transcribed_minutes_per_day = {}
-        transcribed_minutes_per_day_previous_month = {}
+        transcribed_minutes_per_day_last_month = {}
 
         today = datetime.utcnow().date()
         last_day = calendar.monthrange(today.year, today.month)[1]
@@ -260,9 +273,7 @@ def users_statistics(
         ]
 
         transcribed_minutes_per_day = {d: 0 for d in date_range}
-        transcribed_minutes_per_day_previous_month = {
-            d: 0 for d in date_range_prev_month
-        }
+        transcribed_minutes_per_day_last_month = {d: 0 for d in date_range_prev_month}
 
         for user in users:
             jobs = job_get_all(user.user_id)["jobs"]
@@ -271,48 +282,92 @@ def users_statistics(
                 continue
 
             for job in jobs:
-                dt = datetime.strptime(job["updated_at"], "%Y-%m-%d %H:%M:%S.%f")
-                if dt.date() < start_date:
+                if job["status"] != "completed":
                     continue
 
-                job_date = dt.date().isoformat()
+                job_date = datetime.strptime(
+                    job["updated_at"], "%Y-%m-%d %H:%M:%S.%f"
+                ).date()
 
-                if user.username not in transcribed_minutes_per_user:
-                    transcribed_minutes_per_user[user.username] = 0
+                job_date_str = job_date.isoformat()
 
-                transcribed_seconds = int(job["transcribed_seconds"] // 60)
+                if job_date >= first_day_this_month:
+                    transcribed_files += 1
+                    total_transcribed_minutes += job["transcribed_seconds"] // 60
 
-                transcribed_minutes_per_user[user.username] += (
-                    transcribed_seconds if transcribed_seconds > 0 else 1
-                )
+                    transcribed_minutes_per_day[job_date_str] += (
+                        job["transcribed_seconds"] / 60
+                    )
 
-                transcribed_minutes_per_day[job_date] += (
-                    transcribed_seconds if transcribed_seconds > 0 else 1
-                )
+                    if user.user_id not in transcribed_minutes_per_user:
+                        transcribed_minutes_per_user[user.user_id] = 0
 
-                total_transcribed_minutes += (
-                    transcribed_seconds if transcribed_seconds > 0 else 1
-                )
+                    transcribed_minutes_per_user[user.user_id] += (
+                        job["transcribed_seconds"] / 60
+                    )
+                elif first_day_prev_month <= job_date <= last_day_prev_month:
+                    transcribed_files_last_month += 1
 
-            for job in jobs:
-                dt = datetime.strptime(job["updated_at"], "%Y-%m-%d %H:%M:%S.%f")
-                if dt.date() < first_day_prev_month or dt.date() > last_day_prev_month:
-                    continue
+                    total_transcribed_minutes_last_month += (
+                        job["transcribed_seconds"] / 60
+                    )
 
-                job_date = dt.date().isoformat()
+                    transcribed_minutes_per_day_last_month[job_date_str] += (
+                        job["transcribed_seconds"] / 60
+                    )
 
-                transcribed_minutes_per_day_previous_month[job_date] += int(
-                    job["transcribed_seconds"] // 60
-                )
+                    if user.user_id not in transcribed_minutes_per_user_last_month:
+                        transcribed_minutes_per_user_last_month[user.user_id] = 0
+
+                    transcribed_minutes_per_user_last_month[user.user_id] += (
+                        job["transcribed_seconds"] / 60
+                    )
+
+                else:
+                    print(
+                        f"Skipping job {job['uuid']} for user {user.user_id} with date {job_date_str}"
+                    )
+
+        print(
+            group_id,
+            total_transcribed_minutes,
+            total_transcribed_minutes_last_month,
+        )
 
         return {
             "total_users": len(users),
             "active_users": [user.as_dict() for user in users],
-            "total_transcribed_minutes": total_transcribed_minutes,
+            "transcribed_files": int(transcribed_files),
+            "transcribed_files_last_month": int(transcribed_files_last_month),
+            "total_transcribed_minutes": int(total_transcribed_minutes),
+            "total_transcribed_minutes_last_month": int(
+                total_transcribed_minutes_last_month
+            ),
             "transcribed_minutes_per_day": transcribed_minutes_per_day,
-            "transcribed_minutes_per_day_previous_month": transcribed_minutes_per_day_previous_month,
+            "transcribed_minutes_per_day_last_month": transcribed_minutes_per_day_last_month,
             "transcribed_minutes_per_user": transcribed_minutes_per_user,
+            "transcribed_minutes_per_user_last_month": transcribed_minutes_per_user_last_month,
         }
+
+
+def group_statistics(group_id: str, user_id: str, realm: str) -> dict:
+    """
+    Get group statistics for a user.
+    """
+
+    stats = users_statistics(group_id=group_id, user_id=user_id, realm=realm)
+
+    condensed_stats = {
+        "total_users": stats["total_users"],
+        "transcribed_files": stats["transcribed_files"],
+        "transcribed_files_last_month": stats["transcribed_files_last_month"],
+        "total_transcribed_minutes": stats["total_transcribed_minutes"],
+        "total_transcribed_minutes_last_month": stats[
+            "total_transcribed_minutes_last_month"
+        ],
+    }
+
+    return condensed_stats
 
 
 def user_can_transcribe(user_id: str) -> int:
