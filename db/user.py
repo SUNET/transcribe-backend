@@ -2,13 +2,13 @@ import calendar
 
 from auth.client_auth import dn_in_list
 from datetime import datetime, timedelta
-from db.group import group_get_from_user_id
 from db.job import job_get_all
 from db.models import Group
 from db.models import Job, User
 from db.session import get_session
 from typing import Optional
 from utils.log import get_logger
+
 
 log = get_logger()
 
@@ -204,16 +204,19 @@ def users_statistics(
     """
 
     with get_session() as session:
+        user = session.query(User).filter(User.user_id == user_id).first()
+        user_domains = (
+            user.admin_domains.split(",") if user and user.admin_domains else []
+        )
+
         if group_id == "0":
             if realm == "*":
                 users = session.query(User).all()
             else:
-                users = session.query(User).filter(User.admin_domains == realm).all()
-                print(f"Realm: {realm}")
+                users = session.query(User).filter(User.realm.in_(user_domains)).all()
         else:
             if realm == "*":
                 group = session.query(Group).filter(Group.id == group_id).first()
-                print("All realms, group_id!=0")
             else:
                 group = (
                     session.query(Group)
@@ -221,7 +224,6 @@ def users_statistics(
                     .filter(Group.users.any(User.user_id == user_id))
                     .first()
                 )
-                print(f"Realm: {realm}, group_id!=0")
 
             if not group:
                 return {
@@ -327,12 +329,6 @@ def users_statistics(
                     print(
                         f"Skipping job {job['uuid']} for user {user.user_id} with date {job_date_str}"
                     )
-
-        print(
-            group_id,
-            total_transcribed_minutes,
-            total_transcribed_minutes_last_month,
-        )
 
         return {
             "total_users": len(users),

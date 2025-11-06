@@ -211,7 +211,7 @@ async def list_groups(
     result = []
 
     for g in groups:
-        stats = group_statistics(str(g["id"]), admin_user_id, g["realm"])
+        stats = group_statistics(str(g["id"]), admin_user_id, realm)
 
         if g["name"] == "All users":
             g["nr_users"] = stats["total_users"]
