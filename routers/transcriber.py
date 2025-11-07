@@ -287,6 +287,7 @@ async def get_video_stream(
     """
 
     job = job_get(job_id, user_id)
+    logger.info(f"range: {range}")
 
     if not job:
         return JSONResponse(
@@ -308,9 +309,11 @@ async def get_video_stream(
     start = int(start)
     end = int(end) if end else filesize - 1
 
+    logger.info(f"Content-range: {start} - {end}")
+
     with open(file_path, "rb") as video:
         video.seek(start)
-        data = video.read(end - start)
+        data = video.read(end - start + 1)
         headers = {
             "Content-Range": f"bytes {str(start)}-{str(end)}/{filesize}",
             "Accept-Ranges": "bytes",
