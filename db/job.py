@@ -99,20 +99,28 @@ def job_get_next() -> dict:
         return job.as_dict() if job else {}
 
 
-def job_get_all(user_id: str) -> list[Job]:
+def job_get_all(user_id: str, cleaned: Optional[bool] = False) -> list[Job]:
     """
     Get all jobs from the database.
     """
 
     with get_session() as session:
-        jobs = (
-            session.query(Job)
-            .filter(Job.user_id == user_id)
-            .filter(Job.job_type == JobType.TRANSCRIPTION)
-            .filter(Job.output_format != OutputFormatEnum.NONE)
-            .filter(Job.filename != "")
-            .all()
-        )
+        if cleaned:
+            jobs = (
+                session.query(Job)
+                .filter(Job.user_id == user_id)
+                .filter(Job.job_type == JobType.TRANSCRIPTION)
+                .filter(Job.status == JobStatusEnum.COMPLETED)
+                .all()
+            )
+        else:
+            jobs = (
+                session.query(Job)
+                .filter(Job.user_id == user_id)
+                .filter(Job.job_type == JobType.TRANSCRIPTION)
+                .filter(Job.filename != "")
+                .all()
+            )
 
         if not jobs:
             return {"jobs": []}
@@ -186,7 +194,14 @@ def job_remove(uuid: str) -> bool:
     """
 
     with get_session() as session:
-        job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
+        job = (
+            session.query(Job)
+            .filter(Job.uuid == uuid)
+            .filter(Job.filename != "")
+            .filter(Job.output_format != OutputFormatEnum.NONE)
+            .with_for_update()
+            .first()
+        )
 
         if not job:
             return False
@@ -209,8 +224,6 @@ def job_remove(uuid: str) -> bool:
         job.error = ""
         job.speakers = 0
         job.output_format = OutputFormatEnum.NONE
-
-    log.info(f"Job {uuid} cleaned.")
 
     return True
 

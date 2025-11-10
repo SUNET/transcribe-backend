@@ -176,7 +176,9 @@ def user_update(
             user.admin_domains = admin_domains
 
         log.info(
-            f"User {user.user_id} updated: transcribed_seconds={user.transcribed_seconds}, active={user.active}, admin={user.admin}"
+            f"User {user.user_id} updated: "
+            + f"transcribed_seconds={user.transcribed_seconds}, "
+            + f"active={user.active}, admin={user.admin}"
         )
 
         return user.as_dict() if user else {}
@@ -278,17 +280,14 @@ def users_statistics(
         transcribed_minutes_per_day_last_month = {d: 0 for d in date_range_prev_month}
 
         for user in users:
-            jobs = job_get_all(user.user_id)["jobs"]
+            jobs = job_get_all(user.user_id, cleaned=True)["jobs"]
 
             if not jobs:
                 continue
 
             for job in jobs:
-                if job["status"] != "completed":
-                    continue
-
                 job_date = datetime.strptime(
-                    job["updated_at"], "%Y-%m-%d %H:%M:%S.%f"
+                    job["created_at"], "%Y-%m-%d %H:%M:%S.%f"
                 ).date()
 
                 job_date_str = job_date.isoformat()
@@ -301,10 +300,10 @@ def users_statistics(
                         job["transcribed_seconds"] / 60
                     )
 
-                    if user.user_id not in transcribed_minutes_per_user:
-                        transcribed_minutes_per_user[user.user_id] = 0
+                    if user.username not in transcribed_minutes_per_user:
+                        transcribed_minutes_per_user[user.username] = 0
 
-                    transcribed_minutes_per_user[user.user_id] += (
+                    transcribed_minutes_per_user[user.username] += (
                         job["transcribed_seconds"] / 60
                     )
                 elif first_day_prev_month <= job_date <= last_day_prev_month:
@@ -319,15 +318,16 @@ def users_statistics(
                     )
 
                     if user.user_id not in transcribed_minutes_per_user_last_month:
-                        transcribed_minutes_per_user_last_month[user.user_id] = 0
+                        transcribed_minutes_per_user_last_month[user.username] = 0
 
-                    transcribed_minutes_per_user_last_month[user.user_id] += (
+                    transcribed_minutes_per_user_last_month[user.username] += (
                         job["transcribed_seconds"] / 60
                     )
 
                 else:
-                    print(
-                        f"Skipping job {job['uuid']} for user {user.user_id} with date {job_date_str}"
+                    log.debug(
+                        f"Skipping job {job['uuid']} for user {user.username}"
+                        + f" with date {job_date_str}"
                     )
 
         return {
