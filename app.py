@@ -1,4 +1,5 @@
 import requests
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -26,7 +27,6 @@ app = FastAPI(
     version=settings.API_VERSION,
     secret_key=settings.API_SECRET_KEY,
     docs_url="/api/docs",
-    redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
     openapi_tags=[
         {
