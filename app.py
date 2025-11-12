@@ -9,7 +9,6 @@ from starlette.middleware.sessions import SessionMiddleware
 from auth.oidc import RefreshToken, oauth, verify_user
 from db.job import job_cleanup
 from routers.job import router as job_router
-from routers.static import router as static_router
 from routers.transcriber import router as transcriber_router
 from routers.user import router as user_router
 from routers.video import router as video_router
@@ -48,7 +47,6 @@ app.add_middleware(SessionMiddleware, settings.API_SECRET_KEY, https_only=False)
 app.include_router(transcriber_router, prefix=settings.API_PREFIX, tags=["transcriber"])
 app.include_router(job_router, prefix=settings.API_PREFIX, tags=["job"])
 app.include_router(video_router, prefix=settings.API_PREFIX, tags=["video"])
-app.include_router(static_router, prefix="", tags=["static"])
 app.include_router(user_router, prefix=settings.API_PREFIX, tags=["user"])
 
 
