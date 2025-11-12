@@ -1,7 +1,15 @@
 import json
 
 from datetime import datetime
-from db.models import Job, JobResult, JobStatusEnum, JobType, Jobs, OutputFormatEnum
+from db.models import (
+    Job,
+    JobResult,
+    JobStatusEnum,
+    JobType,
+    Jobs,
+    OutputFormatEnum,
+    User,
+)
 from db.session import get_session
 from pathlib import Path
 from typing import Optional
@@ -110,7 +118,6 @@ def job_get_all(user_id: str, cleaned: Optional[bool] = False) -> list[Job]:
                 session.query(Job)
                 .filter(Job.user_id == user_id)
                 .filter(Job.job_type == JobType.TRANSCRIPTION)
-                .filter(Job.status == JobStatusEnum.COMPLETED)
                 .all()
             )
         else:

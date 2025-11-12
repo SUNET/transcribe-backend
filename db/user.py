@@ -238,6 +238,7 @@ def users_statistics(
                     "transcribed_minutes_per_day": {},
                     "transcribed_minutes_per_day_previous_month": {},
                     "transcribed_minutes_per_user": {},
+                    "job_queue": {},
                 }
 
             users = group.users
@@ -253,6 +254,8 @@ def users_statistics(
 
         transcribed_minutes_per_day = {}
         transcribed_minutes_per_day_last_month = {}
+
+        job_queue = []
 
         today = datetime.utcnow().date()
         last_day = calendar.monthrange(today.year, today.month)[1]
@@ -293,37 +296,70 @@ def users_statistics(
                 job_date_str = job_date.isoformat()
 
                 if job_date >= first_day_this_month:
-                    transcribed_files += 1
-                    total_transcribed_minutes += job["transcribed_seconds"] // 60
+                    if job["status"] == "completed":
+                        transcribed_files += 1
+                        total_transcribed_minutes += job["transcribed_seconds"] // 60
 
-                    transcribed_minutes_per_day[job_date_str] += (
-                        job["transcribed_seconds"] / 60
-                    )
+                        transcribed_minutes_per_day[job_date_str] += (
+                            job["transcribed_seconds"] / 60
+                        )
 
-                    if user.username not in transcribed_minutes_per_user:
-                        transcribed_minutes_per_user[user.username] = 0
+                        if user.username not in transcribed_minutes_per_user:
+                            transcribed_minutes_per_user[user.username] = 0
 
-                    transcribed_minutes_per_user[user.username] += (
-                        job["transcribed_seconds"] / 60
-                    )
+                        transcribed_minutes_per_user[user.username] += (
+                            job["transcribed_seconds"] / 60
+                        )
+
+                    if job["status"] == "uploaded" or job["status"] == "in_progress":
+                        if job["status"] == "in_progress":
+                            status = "transcribing"
+                        else:
+                            status = job["status"]
+
+                        job_data = {
+                            "status": status,
+                            "created_at": job["created_at"],
+                            "updated_at": job["updated_at"],
+                            "job_id": job["uuid"],
+                            "username": user.username,
+                        }
+
+                        job_queue.append(job_data)
                 elif first_day_prev_month <= job_date <= last_day_prev_month:
-                    transcribed_files_last_month += 1
+                    if job["status"] == "completed":
+                        transcribed_files_last_month += 1
 
-                    total_transcribed_minutes_last_month += (
-                        job["transcribed_seconds"] / 60
-                    )
+                        total_transcribed_minutes_last_month += (
+                            job["transcribed_seconds"] / 60
+                        )
 
-                    transcribed_minutes_per_day_last_month[job_date_str] += (
-                        job["transcribed_seconds"] / 60
-                    )
+                        transcribed_minutes_per_day_last_month[job_date_str] += (
+                            job["transcribed_seconds"] / 60
+                        )
 
-                    if user.user_id not in transcribed_minutes_per_user_last_month:
-                        transcribed_minutes_per_user_last_month[user.username] = 0
+                        if user.user_id not in transcribed_minutes_per_user_last_month:
+                            transcribed_minutes_per_user_last_month[user.username] = 0
 
-                    transcribed_minutes_per_user_last_month[user.username] += (
-                        job["transcribed_seconds"] / 60
-                    )
+                        transcribed_minutes_per_user_last_month[user.username] += (
+                            job["transcribed_seconds"] / 60
+                        )
 
+                    if job["status"] == "uploaded" or job["status"] == "in_progress":
+                        if job["status"] == "in_progress":
+                            status = "transcribing"
+                        else:
+                            status = job["status"]
+
+                        job_data = {
+                            "status": status,
+                            "created_at": job["created_at"],
+                            "updated_at": job["updated_at"],
+                            "job_id": job["uuid"],
+                            "username": user.username,
+                        }
+
+                        job_queue.append(job_data)
                 else:
                     log.debug(
                         f"Skipping job {job['uuid']} for user {user.username}"
@@ -343,6 +379,7 @@ def users_statistics(
             "transcribed_minutes_per_day_last_month": transcribed_minutes_per_day_last_month,
             "transcribed_minutes_per_user": transcribed_minutes_per_user,
             "transcribed_minutes_per_user_last_month": transcribed_minutes_per_user_last_month,
+            "job_queue": job_queue,
         }
 
 

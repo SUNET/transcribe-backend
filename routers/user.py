@@ -21,7 +21,6 @@ from db.group import (
     group_remove_user,
 )
 
-
 log = get_logger()
 router = APIRouter(tags=["user"])
 settings = get_settings()
