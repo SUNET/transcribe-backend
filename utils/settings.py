@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     # API configuration.
     API_DATABASE_URL: str = "sqlite:///jobs.db"
     API_DEBUG: bool = True
-    API_TITLE="Sunet Scribe REST backend"
-    API_DESCRIPTION="A REST API for the Sunet Scribe service."
+    API_TITLE: str ="Sunet Scribe REST backend"
+    API_DESCRIPTION: str = "A REST API for the Sunet Scribe service."
     API_FILE_STORAGE_DIR: str = ""
     API_PREFIX: str = "/api/v1"
     API_SECRET_KEY: str = ""
