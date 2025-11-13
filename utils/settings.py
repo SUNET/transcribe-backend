@@ -23,13 +23,14 @@ class Settings(BaseSettings):
         enable_decoding=False,
     )
 
+    # API configuration.
     API_DATABASE_URL: str = "sqlite:///jobs.db"
     API_DEBUG: bool = True
-    API_DESCRIPTION: str = "A REST API for the Whisper ASR model"
+    API_TITLE="Sunet Scribe REST backend"
+    API_DESCRIPTION="A REST API for the Sunet Scribe service."
     API_FILE_STORAGE_DIR: str = ""
     API_PREFIX: str = "/api/v1"
     API_SECRET_KEY: str = ""
-    API_TITLE: str = "Whisper REST backend"
     API_VERSION: str = "0.1.0"
     API_WORKER_CLIENT_DN: str = "CN=TranscriberWorker,O=SUNET,ST=Stockholm,C=SE"
     API_KALTURA_CLIENT_DN: str = "CN=KalturaAdaptor,O=SUNET,ST=Stockholm,C=SE"
@@ -44,7 +45,7 @@ class Settings(BaseSettings):
     OIDC_REFRESH_URI: str = ""
     OIDC_FRONTEND_URI: str = ""
 
-    #EXTERNAL
+    # External job configuration.
     EXTERNAL_JOB_MODEL: str = "slower transcription (higher accuracy)"
 
 
