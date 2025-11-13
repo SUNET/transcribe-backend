@@ -14,5 +14,8 @@ RUN apt-get update && \
 WORKDIR /app
 COPY . .
 
+# Expose port
+EXPOSE 8000
+
 # Run FastAPI
-CMD ["uv", "run", "uvicorn", "app:app", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
