@@ -15,7 +15,7 @@ from db.job import (
     job_result_get_external,
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
-from db.user import user_get_quota_left
+from db.user import user_get_quota_left, user_create
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
@@ -378,6 +378,8 @@ async def transcribe_external_file(
                 )
             )
 
+        user_create(username=client_dn, user_id=user_id, realm="external")
+
         job = job_create(
             user_id=user_id,
             job_type=JobType.TRANSCRIPTION,
@@ -402,7 +404,9 @@ async def transcribe_external_file(
     except Exception as e:
         logger.error("Caught exception while creating external job - {}".format(e))
         if job is not None:
-            job = job_update(job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e))
+            job = job_update(
+                job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e)
+            )
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     job = job_update(job["uuid"], status=JobStatusEnum.PENDING)
