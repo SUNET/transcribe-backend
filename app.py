@@ -32,6 +32,18 @@ app = FastAPI(
             "name": "transcriber",
             "description": "Transcription operations",
         },
+        {
+            "name": "job",
+            "description": "Job management operations",
+        },
+        {
+            "name": "video",
+            "description": "Video retrieval operations",
+        },
+        {
+            "name": "user",
+            "description": "User management operations",
+        },
     ],
 )
 
