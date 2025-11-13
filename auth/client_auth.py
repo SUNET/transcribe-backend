@@ -17,7 +17,7 @@ def verify_client_dn(
     Verify the client DN from the request headers.
     """
 
-    client_dn = request.headers.get(settings.API_CLIENT_DN_HEADER, "").strip()
+    client_dn = request.headers.get(settings.API_CLIENT_VERIFICATION_HEADER, "").strip()
 
     if settings.API_CLIENT_VERIFICATION_ENABLED is False:
         return "bypass-client-cert"
