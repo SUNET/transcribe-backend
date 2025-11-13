@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # API configuration.
     API_DATABASE_URL: str = "sqlite:///jobs.db"
     API_DEBUG: bool = True
-    API_TITLE: str ="Sunet Scribe REST backend"
+    API_TITLE: str = "Sunet Scribe REST backend"
     API_DESCRIPTION: str = "A REST API for the Sunet Scribe service."
     API_FILE_STORAGE_DIR: str = ""
     API_PREFIX: str = "/api/v1"
@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     API_WORKER_CLIENT_DN: str = "CN=TranscriberWorker,O=SUNET,ST=Stockholm,C=SE"
     API_KALTURA_CLIENT_DN: str = "CN=KalturaAdaptor,O=SUNET,ST=Stockholm,C=SE"
     API_CLIENT_VERIFICATION_ENABLED: bool = True
+    API_CLIENT_SSL_HEADER: str = "x-client-legacy"
 
     # OIDC configuration.
     OIDC_CLIENT_ID: str = ""
