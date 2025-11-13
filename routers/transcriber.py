@@ -310,7 +310,7 @@ async def get_video_stream(
 
     with open(file_path, "rb") as video:
         video.seek(start)
-        data = video.read(end - start)
+        data = video.read(end - start + 1)
         headers = {
             "Content-Range": f"bytes {str(start)}-{str(end)}/{filesize}",
             "Accept-Ranges": "bytes",
@@ -364,6 +364,8 @@ async def transcribe_external_file(
 
     filename = external_id
 
+    job = None
+
     try:
         kaltura_repsonse = await run_in_threadpool(
             lambda: requests.get(url, timeout=120)
@@ -398,7 +400,9 @@ async def transcribe_external_file(
             await out_file.write(kaltura_repsonse.content)
 
     except Exception as e:
-        job = job_update(job["uuid"], user_id, status=JobStatus.FAILED, error=str(e))
+        logger.error("Caught exception while creating external job - {}".format(e))
+        if job is not None:
+            job = job_update(job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e))
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     job = job_update(job["uuid"], status=JobStatusEnum.PENDING)
