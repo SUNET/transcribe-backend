@@ -4,10 +4,9 @@ from utils.log import get_logger
 from utils.settings import get_settings
 
 settings = get_settings()
+logger = get_logger()
 
 dn_list = [settings.API_WORKER_CLIENT_DN, settings.API_KALTURA_CLIENT_DN]
-
-logger = get_logger()
 
 
 def verify_client_dn(
@@ -22,8 +21,11 @@ def verify_client_dn(
     if settings.API_CLIENT_VERIFICATION_ENABLED is False:
         return "bypass-client-cert"
 
-    if not client_dn or client_dn.strip() not in dn_list:
+    if not client_dn.strip() not in dn_list:
+        logger.info(f"Client failed to authenticate with {client_dn}")
         raise HTTPException(status_code=403, detail="Invalid request")
+
+    logger.info(f"Client authenticated successfully with {client_dn}")
 
     return client_dn
 
