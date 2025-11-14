@@ -28,7 +28,9 @@ class HealthStatus:
     def get(self):
         result = {}
 
-        for worker_id, stats in self.workers.items():
+        workers = dict(sorted(self.workers.items()))
+
+        for worker_id, stats in workers.items():
             result[worker_id] = []
             for stat in stats:
                 result[worker_id].append(stat)
