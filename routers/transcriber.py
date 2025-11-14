@@ -359,11 +359,9 @@ async def transcribe_external_file(
     language = data.get("language")
     model = settings.EXTERNAL_JOB_MODEL
     output_format = data.get("output_format")
-    user_id = client_dn
+    user_id = data["user_id"]
     url = data.get("file_url")
-
     filename = external_id
-
     job = None
 
     try:
@@ -378,7 +376,7 @@ async def transcribe_external_file(
                 )
             )
 
-        user_create(username=client_dn, user_id=user_id, realm="external")
+        user_create(username=user_id, user_id=user_id, realm="external")
 
         job = job_create(
             user_id=user_id,
@@ -392,7 +390,7 @@ async def transcribe_external_file(
             client_dn=client_dn,
         )
 
-        file_path = Path(api_file_storage_dir + "/" + client_dn)
+        file_path = Path(api_file_storage_dir + "/" + user_id)
         dest_path = file_path / job["uuid"]
 
         if not file_path.exists():

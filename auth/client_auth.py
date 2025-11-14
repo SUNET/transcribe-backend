@@ -16,16 +16,14 @@ def verify_client_dn(
     Verify the client DN from the request headers.
     """
 
-    client_dn = request.headers.get(settings.API_CLIENT_VERIFICATION_HEADER, "").strip()
+    client_dn = request.headers.get(settings.API_CLIENT_VERIFICATION_HEADER, "")
 
     if settings.API_CLIENT_VERIFICATION_ENABLED is False:
         return "bypass-client-cert"
 
-    if not client_dn.strip() not in dn_list:
+    if not client_dn.strip() in dn_list:
         logger.info(f"Client failed to authenticate with {client_dn}")
         raise HTTPException(status_code=403, detail="Invalid request")
-
-    logger.info(f"Client authenticated successfully with {client_dn}")
 
     return client_dn
 
