@@ -240,13 +240,14 @@ def job_cleanup() -> None:
     Remove all jobs from the database.
     """
 
-    with get_session() as session:
-        jobs_to_cleanup = (
-            session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
-        )
+    # with get_session() as session:
+    #     jobs_to_cleanup = (
+    #         session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
+    #     )
 
-        for job in jobs_to_cleanup:
-            job_remove(job.uuid)
+    #     for job in jobs_to_cleanup:
+    #         job_remove(job.uuid)
+    pass
 
 
 def job_result_get(

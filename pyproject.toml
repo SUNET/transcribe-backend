@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "aiofiles==24.1.0",
+    "alembic>=1.17.1",
     "annotated-types==0.7.0",
     "anyio==4.9.0",
     "authlib==1.5.2",

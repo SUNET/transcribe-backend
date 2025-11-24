@@ -123,6 +123,15 @@ class OutputFormatEnum(str, Enum):
     NONE = "none"
 
 
+class PricePlanEnum(str, Enum):
+    """
+    Enum representing the pricing plan type.
+    """
+
+    FIXED = "fixed"
+    VARIABLE = "variable"
+
+
 class JobType(str, Enum):
     """
     Enum representing the type of job.
@@ -493,4 +502,69 @@ class Group(SQLModel, table=True):
             ),
             "allowed_models": [m.name for m in self.allowed_models],
             "users": [u.as_dict() for u in self.users] if self.users else [],
+        }
+
+
+class Customer(SQLModel, table=True):
+    """
+    Model representing a customer organization.
+    Note: Customers are linked to users via the 'realms' field, not via foreign key.
+    """
+
+    __tablename__ = "customer"
+
+    id: Optional[int] = Field(default=None, primary_key=True, description="Primary key")
+    partner_id: str = Field(
+        default=None,
+        index=True,
+        unique=True,
+        description="Partner ID associated with the customer",
+    )
+    name: str = Field(
+        default=None,
+        index=True,
+        description="Customer organization name",
+    )
+    contact_email: Optional[str] = Field(
+        default=None,
+        description="Contact email for the customer organization",
+    )
+    priceplan: PricePlanEnum = Field(
+        default=PricePlanEnum.VARIABLE,
+        sa_column=Field(sa_column=SQLAlchemyEnum(PricePlanEnum)),
+        description="Pricing plan type (fixed or variable)",
+    )
+    realms: str = Field(
+        default="",
+        description="Comma-separated list of realms associated with this customer",
+    )
+    notes: Optional[str] = Field(
+        default=None,
+        description="Additional notes about the customer",
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Creation timestamp",
+    )
+    blocks_purchased: Optional[int] = Field(
+        default=0,
+        description="Number of 4000-minute blocks purchased (for fixed plan)",
+    )
+
+    def as_dict(self) -> dict:
+        """
+        Convert the customer object to a dictionary.
+        Returns:
+            dict: The customer object as a dictionary.
+        """
+        return {
+            "id": self.id,
+            "partner_id": self.partner_id,
+            "name": self.name,
+            "contact_email": self.contact_email,
+            "priceplan": self.priceplan,
+            "realms": self.realms,
+            "notes": self.notes,
+            "created_at": str(self.created_at),
+            "blocks_purchased": self.blocks_purchased if self.blocks_purchased else 0,
         }

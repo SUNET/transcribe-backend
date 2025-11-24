@@ -203,6 +203,7 @@ def users_statistics(
 ) -> dict:
     """
     Get user statistics for the last 'days' days.
+    Shows customer names instead of usernames when available.
     """
 
     with get_session() as session:
@@ -242,6 +243,18 @@ def users_statistics(
                 }
 
             users = group.users
+
+        # Get all customers for realm-to-customer mapping
+        from db.models import Customer
+
+        customers = session.query(Customer).all()
+        realm_to_customer = {}
+        for customer in customers:
+            customer_realms = [
+                r.strip() for r in customer.realms.split(",") if r.strip()
+            ]
+            for realm_item in customer_realms:
+                realm_to_customer[realm_item] = customer.name
 
         total_transcribed_minutes = 0
         total_transcribed_minutes_last_month = 0
@@ -288,6 +301,11 @@ def users_statistics(
             if not jobs:
                 continue
 
+            # Determine display name: customer name if available, otherwise username
+            display_name = user.username
+            if user.realm in realm_to_customer:
+                display_name = realm_to_customer[user.realm]
+
             for job in jobs:
                 job_date = datetime.strptime(
                     job["created_at"], "%Y-%m-%d %H:%M:%S.%f"
@@ -304,10 +322,10 @@ def users_statistics(
                             job["transcribed_seconds"] / 60
                         )
 
-                        if user.username not in transcribed_minutes_per_user:
-                            transcribed_minutes_per_user[user.username] = 0
+                        if display_name not in transcribed_minutes_per_user:
+                            transcribed_minutes_per_user[display_name] = 0
 
-                        transcribed_minutes_per_user[user.username] += (
+                        transcribed_minutes_per_user[display_name] += (
                             job["transcribed_seconds"] / 60
                         )
 
@@ -322,7 +340,7 @@ def users_statistics(
                             "created_at": job["created_at"],
                             "updated_at": job["updated_at"],
                             "job_id": job["uuid"],
-                            "username": user.username,
+                            "username": display_name,  # Use display name
                         }
 
                         job_queue.append(job_data)
@@ -338,10 +356,10 @@ def users_statistics(
                             job["transcribed_seconds"] / 60
                         )
 
-                        if user.user_id not in transcribed_minutes_per_user_last_month:
-                            transcribed_minutes_per_user_last_month[user.username] = 0
+                        if display_name not in transcribed_minutes_per_user_last_month:
+                            transcribed_minutes_per_user_last_month[display_name] = 0
 
-                        transcribed_minutes_per_user_last_month[user.username] += (
+                        transcribed_minutes_per_user_last_month[display_name] += (
                             job["transcribed_seconds"] / 60
                         )
 
@@ -356,7 +374,7 @@ def users_statistics(
                             "created_at": job["created_at"],
                             "updated_at": job["updated_at"],
                             "job_id": job["uuid"],
-                            "username": user.username,
+                            "username": display_name,  # Use display name
                         }
 
                         job_queue.append(job_data)

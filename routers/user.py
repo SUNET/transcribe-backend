@@ -8,7 +8,7 @@ from db.user import (
 )
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from utils.log import get_logger
 from utils.settings import get_settings
 from db.group import (
@@ -19,6 +19,16 @@ from db.group import (
     group_delete,
     group_add_user,
     group_remove_user,
+)
+from db.customer import (
+    customer_create,
+    customer_get,
+    customer_get_all,
+    customer_update,
+    customer_delete,
+    customer_get_statistics,
+    get_all_realms,
+    export_customers_to_csv,
 )
 
 log = get_logger()
@@ -460,3 +470,281 @@ async def group_stats(
     stats = users_statistics(group_id, realm=realm, user_id=admin_user_id)
 
     return JSONResponse(content={"result": stats})
+
+
+@router.get("/admin/customers")
+async def list_customers(
+    request: Request,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    List all customers with statistics.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["bofh"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    customers = customer_get_all()
+
+    # Add statistics to each customer
+    result = []
+    for customer in customers:
+        stats = customer_get_statistics(customer["id"])
+        customer["stats"] = stats
+        result.append(customer)
+
+    return JSONResponse(content={"result": result})
+
+
+@router.post("/admin/customers")
+async def create_customer(
+    request: Request,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Create a new customer.
+    """
+
+    admin_user_id = await verify_user(request)
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["bofh"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    data = await request.json()
+    partner_id = data.get("partner_id")
+    name = data.get("name")
+    priceplan = data.get("priceplan", "variable")
+    realms = data.get("realms", "")
+    contact_email = data.get("contact_email", "")
+    notes = data.get("notes", "")
+    blocks_purchased = data.get("blocks_purchased", 0)
+
+    if not partner_id or not name:
+        return JSONResponse(
+            content={"error": "Missing required fields"}, status_code=400
+        )
+
+    customer = customer_create(
+        partner_id=partner_id,
+        name=name,
+        priceplan=priceplan,
+        realms=realms,
+        contact_email=contact_email,
+        notes=notes,
+        blocks_purchased=blocks_purchased,
+    )
+
+    return JSONResponse(content={"result": customer})
+
+
+@router.get("/admin/customers/{customer_id}")
+async def get_customer(
+    request: Request,
+    customer_id: str,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Get customer details.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["bofh"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    customer = customer_get(customer_id)
+
+    if not customer:
+        return JSONResponse(content={"error": "Customer not found"}, status_code=404)
+
+    return JSONResponse(content={"result": customer})
+
+
+@router.put("/admin/customers/{customer_id}")
+async def update_customer(
+    request: Request,
+    customer_id: str,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Update customer details.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["bofh"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    data = await request.json()
+    partner_id = data.get("partner_id")
+    name = data.get("name")
+    priceplan = data.get("priceplan")
+    realms = data.get("realms")
+    contact_email = data.get("contact_email")
+    notes = data.get("notes")
+    blocks_purchased = data.get("blocks_purchased")
+
+    customer = customer_update(
+        customer_id,
+        partner_id=partner_id,
+        name=name,
+        priceplan=priceplan,
+        realms=realms,
+        contact_email=contact_email,
+        notes=notes,
+        blocks_purchased=blocks_purchased,
+    )
+
+    if not customer:
+        return JSONResponse(content={"error": "Customer not found"}, status_code=404)
+
+    return JSONResponse(content={"result": customer})
+
+
+@router.delete("/admin/customers/{customer_id}")
+async def delete_customer(
+    request: Request,
+    customer_id: int,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Delete a customer.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["bofh"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    if not customer_delete(customer_id):
+        return JSONResponse(content={"error": "Customer not found"}, status_code=404)
+
+    return JSONResponse(content={"result": {"status": "OK"}})
+
+
+@router.get("/admin/realms")
+async def list_realms(
+    request: Request,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    List all unique realms.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["bofh"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    realms = get_all_realms()
+
+    return JSONResponse(content={"result": realms})
+
+
+@router.get("/admin/customers/{customer_id}/stats")
+async def customer_stats(
+    request: Request,
+    customer_id: str,
+    admin_user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Get detailed customer statistics.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["bofh"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    customer = customer_get(customer_id)
+    if not customer:
+        return JSONResponse(content={"error": "Customer not found"}, status_code=404)
+
+    stats = customer_get_statistics(customer_id)
+
+    return JSONResponse(content={"result": stats})
+
+
+@router.get("/admin/customers/export/csv")
+async def export_customers_csv(
+    request: Request,
+    admin_user_id: str = Depends(get_current_user_id),
+):
+    """
+    Export all customers with statistics to CSV format.
+    """
+
+    admin_user_id = await verify_user(request)
+
+    if not admin_user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"}, status_code=401
+        )
+
+    admin_user = user_get(admin_user_id)["user"]
+
+    if not admin_user["bofh"]:
+        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
+
+    csv_data = export_customers_to_csv().encode("utf-8")
+
+    if not csv_data:
+        return JSONResponse(
+            content={"error": "No customer data to export"}, status_code=404
+        )
+
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="customers_export.csv"'},
+    )

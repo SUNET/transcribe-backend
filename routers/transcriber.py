@@ -2,7 +2,7 @@ import shutil
 import aiofiles
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import JSONResponse, Response
 from db.job import (
     job_create,
     job_remove,
@@ -237,7 +237,7 @@ async def get_transcription_result(
     job_id: str,
     output_format: OutputFormatEnum,
     user_id: str = Depends(get_current_user_id),
-) -> FileResponse:
+) -> JSONResponse:
     """
     Get the transcription result.
     """
@@ -281,7 +281,7 @@ async def get_video_stream(
     job_id: str,
     range: str = Header(None),
     user_id: str = Depends(get_current_user_id),
-) -> FileResponse:
+) -> Response:
     """
     Get the video stream for a transcription job.
     """
