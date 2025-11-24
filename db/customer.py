@@ -66,14 +66,32 @@ def customer_get_by_partner_id(partner_id: str) -> Optional[dict]:
         return customer.as_dict()
 
 
-def customer_get_all() -> list[dict]:
+def customer_get_all(admin_user: dict) -> list[dict]:
     """
     Get all customers.
     """
 
     with get_session() as session:
-        customers = session.query(Customer).all()
-        return [customer.as_dict() for customer in customers]
+        if admin_user["bofh"]:
+            customers = session.query(Customer).all()
+            return [customer.as_dict() for customer in customers]
+        elif admin_user["admin"]:
+            realm = admin_user["realm"]
+            customers = session.query(Customer).all()
+            matching_customers = []
+
+            for customer in customers:
+                customer_realms = [
+                    r.strip() for r in customer.realms.split(",") if r.strip()
+                ]
+
+                if realm in customer_realms:
+                    matching_customers.append(customer.as_dict())
+
+            return matching_customers
+
+        else:
+            return []
 
 
 def customer_update(
@@ -322,7 +340,7 @@ def customer_list_by_realms(realms: list[str]) -> list[dict]:
         return matching_customers
 
 
-def export_customers_to_csv() -> str:
+def export_customers_to_csv(admin_user: dict) -> str:
     """
     Export all customers with their statistics to CSV format.
 
@@ -333,8 +351,7 @@ def export_customers_to_csv() -> str:
     import io
 
     output = io.StringIO()
-
-    customers = customer_get_all()
+    customers = customer_get_all(admin_user)
 
     if not customers:
         return ""

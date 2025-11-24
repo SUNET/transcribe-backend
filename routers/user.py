@@ -490,13 +490,13 @@ async def list_customers(
 
     admin_user = user_get(admin_user_id)["user"]
 
-    if not admin_user["bofh"]:
+    if not admin_user["bofh"] and not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    customers = customer_get_all()
+    customers = customer_get_all(admin_user)
 
-    # Add statistics to each customer
     result = []
+
     for customer in customers:
         stats = customer_get_statistics(customer["id"])
         customer["stats"] = stats
@@ -571,7 +571,7 @@ async def get_customer(
 
     admin_user = user_get(admin_user_id)["user"]
 
-    if not admin_user["bofh"]:
+    if not admin_user["bofh"] and not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     customer = customer_get(customer_id)
@@ -703,7 +703,7 @@ async def customer_stats(
 
     admin_user = user_get(admin_user_id)["user"]
 
-    if not admin_user["bofh"]:
+    if not admin_user["bofh"] and not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     customer = customer_get(customer_id)
@@ -733,10 +733,10 @@ async def export_customers_csv(
 
     admin_user = user_get(admin_user_id)["user"]
 
-    if not admin_user["bofh"]:
+    if not admin_user["bofh"] and not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    csv_data = export_customers_to_csv().encode("utf-8")
+    csv_data = export_customers_to_csv(admin_user).encode("utf-8")
 
     if not csv_data:
         return JSONResponse(
