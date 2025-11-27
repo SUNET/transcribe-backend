@@ -224,7 +224,6 @@ def users_statistics(
                 group = (
                     session.query(Group)
                     .filter(Group.id == group_id)
-                    .filter(Group.users.any(User.user_id == user_id))
                     .first()
                 )
 
