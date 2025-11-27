@@ -3,7 +3,7 @@ import calendar
 from auth.client_auth import dn_in_list
 from datetime import datetime, timedelta
 from db.job import job_get_all
-from db.models import Group
+from db.models import Group, GroupUserLink
 from db.models import Job, User
 from db.session import get_session
 from typing import Optional
@@ -104,12 +104,37 @@ def user_get_all(realm) -> list:
     """
     with get_session() as session:
         if realm == "*":
-            users = session.query(User).all()
+            q = (
+                session.query(User, Group)
+                .outerjoin(GroupUserLink, GroupUserLink.user_id == User.id)
+                .outerjoin(Group, Group.id == GroupUserLink.group_id)
+            )
+            rows = q.all()
+
         else:
-            users = session.query(User).filter(User.realm == realm).all()
+            q = (
+                session.query(User, Group)
+                .outerjoin(GroupUserLink, GroupUserLink.user_id == User.id)
+                .outerjoin(Group, Group.id == GroupUserLink.group_id)
+                .filter(User.realm == realm)
+            )
+            rows = q.all()
 
-        return [user.as_dict() for user in users]
+        group_map = {}
 
+        #Work out groups from the returned data.
+        for row in rows:
+            user_dict = row[0].as_dict()
+            group_dict = row[1].as_dict() if row[1] else []
+            if user_dict["id"] in group_map:
+                group_map[user_dict["id"]]["groups"] += f", {group_dict["name"]}"
+            else:
+                group_map[user_dict["id"]] = user_dict
+                group_map[user_dict["id"]]["groups"] = group_dict["name"] if group_dict else ""
+
+        result = list(group_map.values())
+
+        return result
 
 def user_get_quota_left(user_id: str) -> int:
     """
