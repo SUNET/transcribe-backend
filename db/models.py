@@ -472,8 +472,8 @@ class Group(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Group management
-    owner_user_id: Optional[int] = Field(
-        foreign_key="users.id", description="Owner or primary contact for this group"
+    owner_user_id: Optional[str] = Field(
+        description="Owner or primary contact for this group"
     )
     quota_seconds: Optional[int] = Field(
         default=None, description="Monthly quota in seconds"
