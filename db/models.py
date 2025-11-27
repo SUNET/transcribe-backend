@@ -517,7 +517,7 @@ class Customer(SQLModel, table=True):
     partner_id: str = Field(
         default=None,
         index=True,
-        unique=True,
+        unique=False,
         description="Partner ID associated with the customer",
     )
     name: str = Field(
