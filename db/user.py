@@ -271,14 +271,6 @@ def users_statistics(
             users = group.users
 
         customers = session.query(Customer).all()
-        realm_to_customer = {}
-
-        for customer in customers:
-            customer_realms = [
-                r.strip() for r in customer.realms.split(",") if r.strip()
-            ]
-            for realm_item in customer_realms:
-                realm_to_customer[realm_item] = customer.name
 
         total_transcribed_minutes = 0
         total_transcribed_minutes_last_month = 0
@@ -337,9 +329,6 @@ def users_statistics(
                     display_name = user.username
             else:
                 display_name = user.username
-
-            if user.realm in realm_to_customer:
-                display_name = realm_to_customer[user.realm]
 
             for job in jobs:
                 job_date = datetime.strptime(
