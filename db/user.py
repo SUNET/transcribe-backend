@@ -135,7 +135,7 @@ def user_get_all(realm) -> list:
 
         return result
 
-def user_get_quota_left(user_id: str) -> int:
+def user_get_quota_left(user_id: str) -> bool:
     """
     Get the transcription quota left for a user.
     """
@@ -146,21 +146,24 @@ def user_get_quota_left(user_id: str) -> int:
         )
 
         if not groups:
-            return 0
+            return True
 
         for group in groups:
             if group.quota_seconds == 0:
-                return 0
+                return True
 
-            group_statistics_res = group_statistics(group.id, group.realm)
+            group_statistics_res = group_statistics(group.id, user_id, group.realm)
 
             if not group_statistics_res:
-                return -1
+                return True
 
-            if group_statistics_res["month_seconds"] < group.quota_seconds:
-                return 0
+            if "total_transcribed_minutes" not in group_statistics_res:
+                return True
 
-    return -1
+            if group_statistics_res["total_transcribed_minutes"] < group.quota_seconds // 60:
+                return True
+
+    return False
 
 
 def user_update(
