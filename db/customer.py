@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from db.models import Customer, User
 from db.session import get_session
 from typing import Optional
+from db.job import job_get_all
 
 
 def customer_create(
@@ -152,7 +153,6 @@ def customer_get_statistics(customer_id: str) -> dict:
     Calculates transcription statistics for all users in the customer's realms.
     For fixed plan customers, calculates block usage and overages.
     """
-    from db.job import job_get_all
 
     MINUTES_PER_BLOCK = 4000
 
@@ -183,9 +183,9 @@ def customer_get_statistics(customer_id: str) -> dict:
                 "transcribed_files_last_month": 0,
                 "total_transcribed_minutes": 0,
                 "total_transcribed_minutes_last_month": 0,
-                "blocks_purchased": customer.blocks_purchased
-                if customer.blocks_purchased
-                else 0,
+                "blocks_purchased": (
+                    customer.blocks_purchased if customer.blocks_purchased else 0
+                ),
                 "blocks_consumed": 0,
                 "minutes_included": (
                     customer.blocks_purchased if customer.blocks_purchased else 0
@@ -199,6 +199,12 @@ def customer_get_statistics(customer_id: str) -> dict:
             }
 
         users = session.query(User).filter(User.realm.in_(realm_list)).all()
+
+        partner_users = (
+            session.query(User).filter(User.username == customer.partner_id).all()
+        )
+
+        users.extend(partner_users)
 
         total_transcribed_minutes_current = 0
         total_transcribed_minutes_last = 0
