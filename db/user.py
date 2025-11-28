@@ -1,14 +1,13 @@
 import calendar
+from datetime import datetime, timedelta
+from typing import Optional
 
 from auth.client_auth import dn_in_list
-from datetime import datetime, timedelta
-from db.job import job_get_all
-from db.models import Group, GroupUserLink
-from db.models import Job, User
-from db.session import get_session
-from typing import Optional
 from utils.log import get_logger
 
+from db.job import job_get_all
+from db.models import Customer, Group, GroupUserLink, Job, User
+from db.session import get_session
 
 log = get_logger()
 
@@ -268,11 +267,9 @@ def users_statistics(
 
             users = group.users
 
-        # Get all customers for realm-to-customer mapping
-        from db.models import Customer
-
         customers = session.query(Customer).all()
         realm_to_customer = {}
+
         for customer in customers:
             customer_realms = [
                 r.strip() for r in customer.realms.split(",") if r.strip()
@@ -325,8 +322,19 @@ def users_statistics(
             if not jobs:
                 continue
 
-            # Determine display name: customer name if available, otherwise username
-            display_name = user.username
+            if user.username.isdigit():
+                customer = (
+                    session.query(Customer)
+                    .filter(Customer.partner_id == user.username)
+                    .first()
+                )
+                if customer:
+                    display_name = "(REACH) " + customer.name
+                else:
+                    display_name = user.username
+            else:
+                display_name = user.username
+
             if user.realm in realm_to_customer:
                 display_name = realm_to_customer[user.realm]
 
