@@ -121,10 +121,20 @@ def user_get_all(realm) -> list:
 
         group_map = {}
 
-        #Work out groups from the returned data.
         for row in rows:
             user_dict = row[0].as_dict()
             group_dict = row[1].as_dict() if row[1] else []
+
+            if user_dict["username"].isdigit():
+                customer = (
+                    session.query(Customer)
+                    .filter(Customer.partner_id == user_dict["username"])
+                    .first()
+                )
+
+                if customer:
+                    user_dict["username"] = "(REACH) " + customer.name
+
             if user_dict["id"] in group_map:
                 group_map[user_dict["id"]]["groups"] += f", {group_dict["name"]}"
             else:
