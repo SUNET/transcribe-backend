@@ -4,7 +4,7 @@ from auth.client_auth import dn_in_list
 from datetime import datetime, timedelta
 from db.job import job_get_all
 from db.models import Group
-from db.models import Job, User
+from db.models import Job, User, Customer
 from db.session import get_session
 from typing import Optional
 from utils.log import get_logger
@@ -301,8 +301,19 @@ def users_statistics(
             if not jobs:
                 continue
 
-            # Determine display name: customer name if available, otherwise username
-            display_name = user.username
+            if user.username.isdigit():
+                customer = (
+                    session.query(Customer)
+                    .filter(Customer.partner_id == user.username)
+                    .first()
+                )
+                if customer:
+                    display_name = "(REACH) " + customer.name
+                else:
+                    display_name = user.username
+            else:
+                display_name = user.username
+
             if user.realm in realm_to_customer:
                 display_name = realm_to_customer[user.realm]
 
