@@ -136,8 +136,17 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
         groups_list.append(default_group)
 
     with get_session() as session:
+        admin_domains = (
+            session.query(User.admin_domains).filter(User.user_id == user_id).scalar()
+        )
+
         if realm == "*":
             groups = session.query(Group).all()
+        elif admin_domains:
+            domains = [
+                domain.strip() for domain in admin_domains.split(",") if domain.strip()
+            ]
+            groups = session.query(Group).filter(Group.realm.in_(domains)).all()
         else:
             groups = (
                 session.query(Group)
