@@ -534,6 +534,10 @@ class Customer(SQLModel, table=True):
         sa_column=Field(sa_column=SQLAlchemyEnum(PricePlanEnum)),
         description="Pricing plan type (fixed or variable)",
     )
+    base_fee: Optional[int] = Field(
+        default=0,
+        description="Base monthly fee for the customer",
+    )
     realms: str = Field(
         default="",
         description="Comma-separated list of realms associated with this customer",
@@ -563,6 +567,7 @@ class Customer(SQLModel, table=True):
             "name": self.name,
             "contact_email": self.contact_email,
             "priceplan": self.priceplan,
+            "base_fee": self.base_fee if self.base_fee else 0,
             "realms": self.realms,
             "notes": self.notes,
             "created_at": str(self.created_at),

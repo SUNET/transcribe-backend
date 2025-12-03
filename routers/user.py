@@ -529,6 +529,7 @@ async def create_customer(
     partner_id = data.get("partner_id")
     name = data.get("name")
     priceplan = data.get("priceplan", "variable")
+    base_fee = data.get("base_fee", 0)
     realms = data.get("realms", "")
     contact_email = data.get("contact_email", "")
     notes = data.get("notes", "")
@@ -543,6 +544,7 @@ async def create_customer(
         partner_id=partner_id,
         name=name,
         priceplan=priceplan,
+        base_fee=base_fee,
         realms=realms,
         contact_email=contact_email,
         notes=notes,
@@ -608,6 +610,7 @@ async def update_customer(
     partner_id = data.get("partner_id")
     name = data.get("name")
     priceplan = data.get("priceplan")
+    base_fee = data.get("base_fee")
     realms = data.get("realms")
     contact_email = data.get("contact_email")
     notes = data.get("notes")
@@ -618,6 +621,7 @@ async def update_customer(
         partner_id=partner_id,
         name=name,
         priceplan=priceplan,
+        base_fee=base_fee,
         realms=realms,
         contact_email=contact_email,
         notes=notes,

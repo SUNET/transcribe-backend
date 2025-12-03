@@ -1,16 +1,17 @@
 import calendar
 
 from datetime import datetime, timedelta
+from db.job import job_get_all
 from db.models import Customer, User
 from db.session import get_session
 from typing import Optional
-from db.job import job_get_all
 
 
 def customer_create(
     partner_id: str,
     name: str,
     priceplan: str,
+    base_fee: int,
     realms: str,
     contact_email: Optional[str] = None,
     notes: Optional[str] = None,
@@ -26,6 +27,7 @@ def customer_create(
             name=name,
             contact_email=contact_email,
             priceplan=priceplan,
+            base_fee=base_fee,
             realms=realms,
             notes=notes,
             blocks_purchased=blocks_purchased if blocks_purchased else 0,
@@ -101,6 +103,7 @@ def customer_update(
     name: Optional[str] = None,
     contact_email: Optional[str] = None,
     priceplan: Optional[str] = None,
+    base_fee: Optional[int] = None,
     realms: Optional[str] = None,
     notes: Optional[str] = None,
     blocks_purchased: Optional[int] = None,
@@ -123,6 +126,8 @@ def customer_update(
             customer.contact_email = contact_email
         if priceplan is not None:
             customer.priceplan = priceplan
+        if base_fee is not None:
+            customer.base_fee = base_fee
         if realms is not None:
             customer.realms = realms
         if notes is not None:
@@ -368,6 +373,7 @@ def export_customers_to_csv(admin_user: dict) -> str:
         "Customer Name",
         "Contact Email",
         "Price Plan",
+        "Base fee",
         "Blocks Purchased",
         "Realms",
         "Total Users",
@@ -394,6 +400,7 @@ def export_customers_to_csv(admin_user: dict) -> str:
             "Customer Name": customer.get("name", ""),
             "Contact Email": customer.get("contact_email", ""),
             "Price Plan": customer.get("priceplan", "").capitalize(),
+            "Base fee": customer.get("base_fee", 0),
             "Blocks Purchased": customer.get("blocks_purchased", 0),
             "Realms": customer.get("realms", ""),
             "Total Users": stats.get("total_users", 0),
