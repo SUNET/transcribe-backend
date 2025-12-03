@@ -45,6 +45,12 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
             if realm == "*":
                 group = session.query(Group).filter(Group.id == group_id).first()
             else:
+                admin_domains = (
+                    session.query(User.admin_domains)
+                    .filter(User.user_id == user_id)
+                    .scalar()
+                )
+
                 group = (
                     session.query(Group)
                     .filter(Group.id == group_id)
@@ -52,6 +58,9 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
                         or_(
                             Group.users.any(User.user_id == user_id),
                             Group.owner_user_id == user_id,
+                            Group.realm.in_(
+                                [domain.strip() for domain in admin_domains.split(",")]
+                            ),
                         )
                     )
                     .first()
@@ -146,6 +155,7 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
             domains = [
                 domain.strip() for domain in admin_domains.split(",") if domain.strip()
             ]
+
             groups = session.query(Group).filter(Group.realm.in_(domains)).all()
         else:
             groups = (
