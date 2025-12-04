@@ -32,10 +32,20 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1"
     API_SECRET_KEY: str = ""
     API_VERSION: str = "0.1.0"
+
+    # Client verification configuration.
     API_WORKER_CLIENT_DN: str = "CN=TranscriberWorker,O=SUNET,ST=Stockholm,C=SE"
     API_KALTURA_CLIENT_DN: str = "CN=KalturaAdaptor,O=SUNET,ST=Stockholm,C=SE"
     API_CLIENT_VERIFICATION_ENABLED: bool = True
     API_CLIENT_VERIFICATION_HEADER: str = "x-client-legacy"
+
+    # SMTP configuration.
+    API_SMTP_HOST: str = ""
+    API_SMTP_PORT: int = 25
+    API_SMTP_USERNAME: str = ""
+    API_SMTP_PASSWORD: str = ""
+    API_SMTP_SENDER: str = ""
+    API_SMTP_SSL: bool = False
 
     # OIDC configuration.
     OIDC_CLIENT_ID: str = ""

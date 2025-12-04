@@ -8,6 +8,7 @@ from utils.log import get_logger
 from db.job import job_get_all
 from db.models import Customer, Group, GroupUserLink, Job, User
 from db.session import get_session
+from utils.notifications import notification_send_email
 
 log = get_logger()
 
@@ -45,6 +46,14 @@ def user_create(
         log.info(f"User {user_id} created from {username}.")
 
         session.add(user)
+
+        notification_new_user = (
+            f"A new user has been created:\n\n"
+            f"Username: {username}\n"
+            f"User ID: {user_id}\n"
+            f"Realm: {realm}\n"
+            f"Created at: {user.created_at}\n"
+        )
 
         return user.dict()
 
