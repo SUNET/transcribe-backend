@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     # External job configuration.
     EXTERNAL_JOB_MODEL: str = "slower transcription (higher accuracy)"
 
+    # Customer config
+    CUSTOMER_MINUTES_PER_BLOCK: int = 4000
+
 
 @lru_cache
 def get_settings() -> Settings:

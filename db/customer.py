@@ -1,10 +1,11 @@
-import calendar
-
 from datetime import datetime, timedelta
 from db.job import job_get_all
 from db.models import Customer, User
 from db.session import get_session
 from typing import Optional
+from utils.settings import get_settings
+
+settings = get_settings()
 
 
 def customer_create(
@@ -159,8 +160,6 @@ def customer_get_statistics(customer_id: str) -> dict:
     For fixed plan customers, calculates block usage and overages.
     """
 
-    MINUTES_PER_BLOCK = 4000
-
     with get_session() as session:
         customer = session.query(Customer).filter(Customer.id == customer_id).first()
 
@@ -195,12 +194,12 @@ def customer_get_statistics(customer_id: str) -> dict:
                 "minutes_included": (
                     customer.blocks_purchased if customer.blocks_purchased else 0
                 )
-                * MINUTES_PER_BLOCK,
+                * settings.CUSTOMER_MINUTES_PER_BLOCK,
                 "overage_minutes": 0,
                 "remaining_minutes": (
                     customer.blocks_purchased if customer.blocks_purchased else 0
                 )
-                * MINUTES_PER_BLOCK,
+                * settings.CUSTOMER_MINUTES_PER_BLOCK,
             }
 
         users = session.query(User).filter(User.realm.in_(realm_list)).all()
@@ -249,7 +248,7 @@ def customer_get_statistics(customer_id: str) -> dict:
 
         # Calculate block usage for fixed plan customers
         blocks_purchased = customer.blocks_purchased if customer.blocks_purchased else 0
-        minutes_included = blocks_purchased * MINUTES_PER_BLOCK
+        minutes_included = blocks_purchased * settings.CUSTOMER_MINUTES_PER_BLOCK
 
         blocks_consumed = 0
         overage_minutes = 0
@@ -262,7 +261,10 @@ def customer_get_statistics(customer_id: str) -> dict:
                 remaining_minutes = 0
             else:
                 # Calculate partial blocks consumed
-                blocks_consumed = total_transcribed_minutes_current / MINUTES_PER_BLOCK
+                blocks_consumed = (
+                    total_transcribed_minutes_current
+                    / settings.CUSTOMER_MINUTES_PER_BLOCK
+                )
                 remaining_minutes = minutes_included - total_transcribed_minutes_current
 
         return {
