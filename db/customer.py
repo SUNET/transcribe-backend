@@ -168,6 +168,10 @@ def customer_get_statistics(customer_id: str) -> dict:
                 "total_users": 0,
                 "transcribed_files": 0,
                 "transcribed_files_last_month": 0,
+                "transcribed_minutes": 0,
+                "transcribed_minutes_external": 0,
+                "transcribed_minutes_last_month": 0,
+                "transcribed_minutes_external_last_month": 0,  # REACH etc
                 "total_transcribed_minutes": 0,
                 "total_transcribed_minutes_last_month": 0,
                 "blocks_purchased": 0,
@@ -184,6 +188,10 @@ def customer_get_statistics(customer_id: str) -> dict:
             return {
                 "total_users": 0,
                 "transcribed_files": 0,
+                "transcribed_minutes": 0,
+                "transcribed_minutes_external": 0,
+                "transcribed_minutes_last_month": 0,
+                "transcribed_minutes_external_last_month": 0,  # REACH etc
                 "transcribed_files_last_month": 0,
                 "total_transcribed_minutes": 0,
                 "total_transcribed_minutes_last_month": 0,
@@ -209,6 +217,11 @@ def customer_get_statistics(customer_id: str) -> dict:
         )
 
         users.extend(partner_users)
+
+        transcribed_minutes = 0
+        transcribed_minutes_external = 0
+        transcribed_minutes_last_month = 0
+        transcribed_minutes_external_last_month = 0  # REACH etc
 
         total_transcribed_minutes_current = 0
         total_transcribed_minutes_last = 0
@@ -242,9 +255,22 @@ def customer_get_statistics(customer_id: str) -> dict:
                     if job_date >= first_day_this_month:
                         total_files_current += 1
                         total_transcribed_minutes_current += transcribed_seconds // 60
+
+                        if job.get("external_id"):
+                            transcribed_minutes_external += transcribed_seconds // 60
+                        else:
+                            transcribed_minutes += transcribed_seconds // 60
+
                     elif first_day_prev_month <= job_date <= last_day_prev_month:
                         total_files_last += 1
                         total_transcribed_minutes_last += transcribed_seconds // 60
+
+                        if job.get("external_id"):
+                            transcribed_minutes_external_last_month += (
+                                transcribed_seconds // 60
+                            )
+                        else:
+                            transcribed_minutes_last_month += transcribed_seconds // 60
 
         # Calculate block usage for fixed plan customers
         blocks_purchased = customer.blocks_purchased if customer.blocks_purchased else 0
@@ -271,6 +297,10 @@ def customer_get_statistics(customer_id: str) -> dict:
             "total_users": len(users),
             "transcribed_files": int(total_files_current),
             "transcribed_files_last_month": int(total_files_last),
+            "transcribed_minutes": transcribed_minutes,
+            "transcribed_minutes_external": transcribed_minutes_external,
+            "transcribed_minutes_last_month": transcribed_minutes_last_month,
+            "transcribed_minutes_external_last_month": transcribed_minutes_external_last_month,
             "total_transcribed_minutes": int(total_transcribed_minutes_current),
             "total_transcribed_minutes_last_month": int(total_transcribed_minutes_last),
             "blocks_purchased": blocks_purchased,
@@ -381,8 +411,12 @@ def export_customers_to_csv(admin_user: dict) -> str:
         "Total Users",
         "Files (This Month)",
         "Files (Last Month)",
-        "Minutes (This Month)",
-        "Minutes (Last Month)",
+        "Total minutes (This Month)",
+        "Total minutes (Last Month)",
+        "Minutes via Sunet Play (This Month)",
+        "Minutes via Sunet Play (Last Month)",
+        "Minutes via web interface and API (This Month)",
+        "Minutes via web interface and API (Last Month)",
         "Blocks Consumed",
         "Minutes Included",
         "Overage Minutes",
@@ -408,9 +442,21 @@ def export_customers_to_csv(admin_user: dict) -> str:
             "Total Users": stats.get("total_users", 0),
             "Files (This Month)": stats.get("transcribed_files", 0),
             "Files (Last Month)": stats.get("transcribed_files_last_month", 0),
-            "Minutes (This Month)": stats.get("total_transcribed_minutes", 0),
-            "Minutes (Last Month)": stats.get(
+            "Total minutes (This Month)": stats.get("total_transcribed_minutes", 0),
+            "Total minutes (Last Month)": stats.get(
                 "total_transcribed_minutes_last_month", 0
+            ),
+            "Minutes via Sunet Play (This Month)": stats.get(
+                "transcribed_minutes_external", 0
+            ),
+            "Minutes via Sunet Play (Last Month)": stats.get(
+                "transcribed_minutes_external_last_month", 0
+            ),
+            "Minutes via web interface and API (This Month)": stats.get(
+                "transcribed_minutes", 0
+            ),
+            "Minutes via web interface and API (Last Month)": stats.get(
+                "transcribed_minutes_last_month", 0
             ),
             "Blocks Consumed": stats.get("blocks_consumed", 0),
             "Minutes Included": stats.get("minutes_included", 0),
