@@ -93,7 +93,6 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
                 )
                 .all()
             )
-
         group_dict = group.as_dict()
 
         for user in group_dict["users"]:
@@ -126,6 +125,7 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
     Get all groups with their users and models.
     """
 
+    all_users = []
     groups_list = []
 
     if realm == "*":
@@ -168,10 +168,28 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
                 )
                 .all()
             )
+
         for group in groups:
             group_dict = group.as_dict()
             group_dict["nr_users"] = len(group_dict["users"])
             groups_list.append(group_dict)
+
+            all_users.extend(group_dict["users"])
+
+        if realm != "*":
+            group_for_all_users = {
+                "id": 0,
+                "name": "All users",
+                "realm": realm,
+                "description": "Default group with all users",
+                "created_at": "",
+                "owner_user_id": None,
+                "quota_seconds": 0,
+                "users": [],
+                "nr_users": len(all_users),
+            }
+
+            groups_list.append(group_for_all_users)
 
     return groups_list
 
