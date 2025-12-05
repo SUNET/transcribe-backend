@@ -256,7 +256,7 @@ def customer_get_statistics(customer_id: str) -> dict:
                         total_files_current += 1
                         total_transcribed_minutes_current += transcribed_seconds // 60
 
-                        if job.get("external_id"):
+                        if user.username.isnumeric():
                             transcribed_minutes_external += transcribed_seconds // 60
                         else:
                             transcribed_minutes += transcribed_seconds // 60
@@ -265,7 +265,7 @@ def customer_get_statistics(customer_id: str) -> dict:
                         total_files_last += 1
                         total_transcribed_minutes_last += transcribed_seconds // 60
 
-                        if job.get("external_id"):
+                        if user.username.isnumeric():
                             transcribed_minutes_external_last_month += (
                                 transcribed_seconds // 60
                             )
@@ -297,10 +297,9 @@ def customer_get_statistics(customer_id: str) -> dict:
             "total_users": len(users),
             "transcribed_files": int(total_files_current),
             "transcribed_files_last_month": int(total_files_last),
-            "transcribed_minutes": transcribed_minutes - transcribed_minutes_external,
+            "transcribed_minutes": transcribed_minutes,
             "transcribed_minutes_external": transcribed_minutes_external,
-            "transcribed_minutes_last_month": transcribed_minutes_last_month
-            - transcribed_minutes_external_last_month,
+            "transcribed_minutes_last_month": transcribed_minutes_last_month,
             "transcribed_minutes_external_last_month": transcribed_minutes_external_last_month,
             "total_transcribed_minutes": int(total_transcribed_minutes_current),
             "total_transcribed_minutes_last_month": int(total_transcribed_minutes_last),
