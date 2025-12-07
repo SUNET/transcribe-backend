@@ -1,6 +1,6 @@
 import json
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from db.models import (
     Job,
     JobResult,
@@ -8,7 +8,6 @@ from db.models import (
     JobType,
     Jobs,
     OutputFormatEnum,
-    User,
 )
 from db.session import get_session
 from pathlib import Path
@@ -203,9 +202,8 @@ def job_remove(uuid: str) -> bool:
     with get_session() as session:
         job = (
             session.query(Job)
-            .filter(Job.uuid == uuid)
-            .filter(Job.filename != "")
-            .filter(Job.output_format != OutputFormatEnum.NONE)
+            .filter(Job.status != JobStatusEnum.DELETED)
+            .filter(Job.deletion_date <= datetime.now())
             .with_for_update()
             .first()
         )
@@ -224,15 +222,46 @@ def job_remove(uuid: str) -> bool:
         if file_path_mp4.exists():
             file_path_mp4.unlink()
 
-        job.job_type = "transcription"
-        job.language = ""
-        job.model_type = ""
-        job.filename = ""
-        job.error = ""
-        job.speakers = 0
-        job.output_format = OutputFormatEnum.NONE
+        if job.output_format != OutputFormatEnum.NONE:
+            job.job_type = "transcription"
+            job.language = ""
+            job.model_type = ""
+            job.filename = ""
+            job.error = ""
+            job.speakers = 0
+            job.output_format = OutputFormatEnum.NONE
 
-        log.info(f"Job {job.uuid} removed for user {job.user_id}.")
+            log.info(
+                f"Job {job.uuid} created at {job.created_at} removed for user {job.user_id}."
+            )
+
+        # Remove JobResult associated with the job
+        job_result = (
+            session.query(JobResult)
+            .filter(JobResult.job_id == uuid)
+            .with_for_update()
+            .all()
+        )
+
+        # Delete associated job results
+        for result in job_result:
+            log.info(
+                f"Job result for job {result.job_id} created at {result.created_at} removed for user {result.user_id}."
+            )
+            session.delete(result)
+
+        # Permanently delete all jobs older than 2 months
+        jobs_to_delete = (
+            session.query(Job)
+            .filter(Job.created_at <= datetime.now() - timedelta(days=62))
+            .all()
+        )
+
+        for job in jobs_to_delete:
+            log.info(
+                f"Permanently deleting job {job.uuid} created at {job.created_at} from database."
+            )
+            session.delete(job)
 
     return True
 
@@ -243,6 +272,7 @@ def job_cleanup() -> None:
     """
 
     with get_session() as session:
+        # Cleanup jobs older than deletion date
         jobs_to_cleanup = (
             session.query(Job).filter(Job.deletion_date <= datetime.now()).all()
         )
