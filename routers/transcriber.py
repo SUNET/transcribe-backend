@@ -83,7 +83,7 @@ async def transcribe_file(
         with open(dest_path, "wb") as f:
             await run_in_threadpool(shutil.copyfileobj, file.file, f, 1024 * 1024)
     except Exception as e:
-        job = job_update(job["uuid"], user_id, status=JobStatus.FAILED, error=str(e))
+        job = job_update(job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e))
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
