@@ -340,6 +340,39 @@ async def get_job_external(
 
     return JSONResponse(content={"result": res})
 
+@router.delete("/transcriber/external/{external_id}")
+async def delete_external_transcription_job(
+    request: Request,
+    external_id: str,
+) -> JSONResponse:
+    """
+    Delete an external transcription job.
+    Used by integrations to clean up completed/failed jobs.
+
+    """
+    client_dn = verify_client_dn(request)
+    job = job_get_by_external_id(external_id, client_dn)
+
+    if not job:
+        return JSONResponse(
+            content={"result": {"error": "Job not found"}}, status_code=404
+        )
+
+    # Delete the job from the database
+    status = job_remove(job["uuid"])
+
+    if status is False:
+        logger.debug(f"JOB REMOVE FALSE: {job}")
+
+    # Remove the video file if it exists
+    file_path = Path(api_file_storage_dir) / job["user_id"] / f"{job["uuid"]}.mp4"
+
+    if file_path.exists():
+        file_path.unlink()
+
+    return JSONResponse(content={"result": {"status": "OK"}})
+
+
 
 @router.post("/transcriber/external")
 async def transcribe_external_file(
