@@ -526,6 +526,7 @@ async def create_customer(
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     data = await request.json()
+    customer_abbr = data.get("customer_abbr")
     partner_id = data.get("partner_id")
     name = data.get("name")
     priceplan = data.get("priceplan", "variable")
@@ -541,6 +542,7 @@ async def create_customer(
         )
 
     customer = customer_create(
+        customer_abbr=customer_abbr,
         partner_id=partner_id,
         name=name,
         priceplan=priceplan,
@@ -607,6 +609,7 @@ async def update_customer(
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     data = await request.json()
+    customer_abbr = data.get("customer_abbr")
     partner_id = data.get("partner_id")
     name = data.get("name")
     priceplan = data.get("priceplan")
@@ -618,6 +621,7 @@ async def update_customer(
 
     customer = customer_update(
         customer_id,
+        customer_abbr=customer_abbr,
         partner_id=partner_id,
         name=name,
         priceplan=priceplan,

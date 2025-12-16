@@ -1,4 +1,8 @@
+import csv
+import io
+
 from datetime import datetime, timedelta
+
 from db.job import job_get_all
 from db.models import Customer, User
 from db.session import get_session
@@ -9,6 +13,7 @@ settings = get_settings()
 
 
 def customer_create(
+    customer_abbr: str,
     partner_id: str,
     name: str,
     priceplan: str,
@@ -24,6 +29,7 @@ def customer_create(
 
     with get_session() as session:
         customer = Customer(
+            customer_abbr=customer_abbr,
             partner_id=partner_id,
             name=name,
             contact_email=contact_email,
@@ -99,7 +105,8 @@ def customer_get_all(admin_user: dict) -> list[dict]:
 
 
 def customer_update(
-    customer_id: str,
+    customer_id: Optional[str] = None,
+    customer_abbr: Optional[str] = None,
     partner_id: Optional[str] = None,
     name: Optional[str] = None,
     contact_email: Optional[str] = None,
@@ -119,6 +126,8 @@ def customer_update(
         if not customer:
             return {}
 
+        if customer_abbr is not None:
+            customer.customer_abbr = customer_abbr
         if partner_id is not None:
             customer.partner_id = partner_id
         if name is not None:
@@ -390,9 +399,6 @@ def export_customers_to_csv(admin_user: dict) -> str:
     Returns:
         CSV string with customer data and statistics
     """
-    import csv
-    import io
-
     output = io.StringIO()
     customers = customer_get_all(admin_user)
 
@@ -401,11 +407,12 @@ def export_customers_to_csv(admin_user: dict) -> str:
 
     # Define CSV headers
     fieldnames = [
-        "Partner ID",
         "Customer Name",
+        "Customer Abbreviation",
+        "Partner ID",
         "Contact Email",
         "Price Plan",
-        "Base fee",
+        "Base Fee",
         "Blocks Purchased",
         "Realms",
         "Total Users",
@@ -432,11 +439,12 @@ def export_customers_to_csv(admin_user: dict) -> str:
         stats = customer_get_statistics(customer["id"])
 
         row = {
-            "Partner ID": customer.get("partner_id", ""),
             "Customer Name": customer.get("name", ""),
+            "Customer Abbreviation": customer.get("customer_abbr", ""),
+            "Partner ID": customer.get("partner_id", ""),
             "Contact Email": customer.get("contact_email", ""),
             "Price Plan": customer.get("priceplan", "").capitalize(),
-            "Base fee": customer.get("base_fee", 0),
+            "Base Fee": customer.get("base_fee", 0),
             "Blocks Purchased": customer.get("blocks_purchased", 0),
             "Realms": customer.get("realms", ""),
             "Total Users": stats.get("total_users", 0),

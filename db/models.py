@@ -514,6 +514,12 @@ class Customer(SQLModel, table=True):
     __tablename__ = "customer"
 
     id: Optional[int] = Field(default=None, primary_key=True, description="Primary key")
+    customer_abbr: str = Field(
+        default=None,
+        index=True,
+        unique=True,
+        description="Unique customer identifier",
+    )
     partner_id: str = Field(
         default=None,
         index=True,
@@ -563,6 +569,7 @@ class Customer(SQLModel, table=True):
         """
         return {
             "id": self.id,
+            "customer_abbr": self.customer_abbr,
             "partner_id": self.partner_id,
             "name": self.name,
             "contact_email": self.contact_email,
