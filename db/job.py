@@ -224,6 +224,7 @@ def job_remove(uuid: str) -> bool:
         job.filename = ""
         job.error = ""
         job.speakers = 0
+        job.status = JobStatusEnum.DELETED
         job.output_format = OutputFormatEnum.NONE
 
         log.info(
