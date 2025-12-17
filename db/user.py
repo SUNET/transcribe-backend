@@ -1,4 +1,5 @@
 import calendar
+
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -170,7 +171,7 @@ def user_get_quota_left(user_id: str) -> bool:
             if "total_transcribed_minutes" not in group_statistics_res:
                 return True
 
-            if group_statistics_res["total_transcribed_minutes"] < group.quota_seconds // 60:
+            if group_statistics_res["total_transcribed_minutes"] < group.quota_seconds / 60:
                 return True
 
     return False
@@ -199,7 +200,7 @@ def user_update(
             return {}
 
         if transcribed_seconds:
-            user.transcribed_seconds += int(transcribed_seconds)
+            user.transcribed_seconds += float(transcribed_seconds)
 
         user.last_login = datetime.utcnow()
 
@@ -280,8 +281,6 @@ def users_statistics(
 
             users = group.users
 
-        customers = session.query(Customer).all()
-
         total_transcribed_minutes = 0
         total_transcribed_minutes_last_month = 0
 
@@ -350,7 +349,7 @@ def users_statistics(
                 if job_date >= first_day_this_month:
                     if job["status"] == "completed":
                         transcribed_files += 1
-                        total_transcribed_minutes += job["transcribed_seconds"] // 60
+                        total_transcribed_minutes += job["transcribed_seconds"] / 60
 
                         transcribed_minutes_per_day[job_date_str] += (
                             job["transcribed_seconds"] / 60
@@ -423,8 +422,8 @@ def users_statistics(
             "active_users": [user.as_dict() for user in users],
             "transcribed_files": int(transcribed_files),
             "transcribed_files_last_month": int(transcribed_files_last_month),
-            "total_transcribed_minutes": int(total_transcribed_minutes),
-            "total_transcribed_minutes_last_month": int(
+            "total_transcribed_minutes": float(total_transcribed_minutes),
+            "total_transcribed_minutes_last_month": float(
                 total_transcribed_minutes_last_month
             ),
             "transcribed_minutes_per_day": transcribed_minutes_per_day,

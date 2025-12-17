@@ -263,23 +263,23 @@ def customer_get_statistics(customer_id: str) -> dict:
 
                     if job_date >= first_day_this_month:
                         total_files_current += 1
-                        total_transcribed_minutes_current += transcribed_seconds // 60
+                        total_transcribed_minutes_current += transcribed_seconds / 60
 
                         if user.username.isnumeric():
-                            transcribed_minutes_external += transcribed_seconds // 60
+                            transcribed_minutes_external += transcribed_seconds / 60
                         else:
-                            transcribed_minutes += transcribed_seconds // 60
+                            transcribed_minutes += transcribed_seconds / 60
 
                     elif first_day_prev_month <= job_date <= last_day_prev_month:
                         total_files_last += 1
-                        total_transcribed_minutes_last += transcribed_seconds // 60
+                        total_transcribed_minutes_last += transcribed_seconds / 60
 
                         if user.username.isnumeric():
                             transcribed_minutes_external_last_month += (
-                                transcribed_seconds // 60
+                                transcribed_seconds / 60
                             )
                         else:
-                            transcribed_minutes_last_month += transcribed_seconds // 60
+                            transcribed_minutes_last_month += transcribed_seconds / 60
 
         # Calculate block usage for fixed plan customers
         blocks_purchased = customer.blocks_purchased if customer.blocks_purchased else 0
@@ -310,13 +310,15 @@ def customer_get_statistics(customer_id: str) -> dict:
             "transcribed_minutes_external": transcribed_minutes_external,
             "transcribed_minutes_last_month": transcribed_minutes_last_month,
             "transcribed_minutes_external_last_month": transcribed_minutes_external_last_month,
-            "total_transcribed_minutes": int(total_transcribed_minutes_current),
-            "total_transcribed_minutes_last_month": int(total_transcribed_minutes_last),
+            "total_transcribed_minutes": float(total_transcribed_minutes_current),
+            "total_transcribed_minutes_last_month": float(
+                total_transcribed_minutes_last
+            ),
             "blocks_purchased": blocks_purchased,
             "blocks_consumed": round(blocks_consumed, 2),
             "minutes_included": minutes_included,
-            "overage_minutes": int(overage_minutes),
-            "remaining_minutes": int(remaining_minutes),
+            "overage_minutes": float(overage_minutes),
+            "remaining_minutes": float(remaining_minutes),
         }
 
 

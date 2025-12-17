@@ -1,7 +1,4 @@
-import calendar
-
-from datetime import datetime, timedelta
-from db.models import Group, GroupModelLink, GroupUserLink, Job, User
+from db.models import Group, GroupModelLink, GroupUserLink, User
 from db.session import get_session
 from sqlalchemy import or_
 from typing import Optional
