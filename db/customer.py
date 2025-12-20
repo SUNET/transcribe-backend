@@ -187,6 +187,7 @@ def customer_get_statistics(customer_id: str) -> dict:
                 "blocks_consumed": 0,
                 "minutes_included": 0,
                 "overage_minutes": 0,
+                "overage_minuts_last_month": 0,
                 "remaining_minutes": 0,
             }
 
@@ -213,6 +214,7 @@ def customer_get_statistics(customer_id: str) -> dict:
                 )
                 * settings.CUSTOMER_MINUTES_PER_BLOCK,
                 "overage_minutes": 0,
+                "overage_minuts_last_month": 0,
                 "remaining_minutes": (
                     customer.blocks_purchased if customer.blocks_purchased else 0
                 )
@@ -287,12 +289,16 @@ def customer_get_statistics(customer_id: str) -> dict:
 
         blocks_consumed = 0
         overage_minutes = 0
+        overage_minutes_last_month = 0
         remaining_minutes = 0
 
         if customer.priceplan == "fixed" and blocks_purchased > 0:
             if total_transcribed_minutes_current > minutes_included:
                 blocks_consumed = blocks_purchased
                 overage_minutes = total_transcribed_minutes_current - minutes_included
+                overage_minutes_last_month = (
+                    total_transcribed_minutes_last - minutes_included
+                )
                 remaining_minutes = 0
             else:
                 # Calculate partial blocks consumed
@@ -318,6 +324,7 @@ def customer_get_statistics(customer_id: str) -> dict:
             "blocks_consumed": round(blocks_consumed, 2),
             "minutes_included": minutes_included,
             "overage_minutes": float(overage_minutes),
+            "overage_minuts_last_month": float(overage_minutes_last_month),
             "remaining_minutes": float(remaining_minutes),
         }
 
