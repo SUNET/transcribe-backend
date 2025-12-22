@@ -260,7 +260,7 @@ def customer_get_statistics(customer_id: str) -> dict:
                 except (ValueError, KeyError):
                     continue
 
-                if job.get("status") == "completed":
+                if job.get("status") == "completed" or job.get("status") == "deleted":
                     transcribed_seconds = job.get("transcribed_seconds", 0)
 
                     if job_date >= first_day_this_month:
