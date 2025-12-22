@@ -347,7 +347,7 @@ def users_statistics(
                 job_date_str = job_date.isoformat()
 
                 if job_date >= first_day_this_month:
-                    if job["status"] == "completed":
+                    if job["status"] == "completed" or job["status"] == "deleted":
                         transcribed_files += 1
                         total_transcribed_minutes += job["transcribed_seconds"] / 60
 
@@ -378,7 +378,7 @@ def users_statistics(
 
                         job_queue.append(job_data)
                 elif first_day_prev_month <= job_date <= last_day_prev_month:
-                    if job["status"] == "completed":
+                    if job["status"] == "completed" or job["status"] == "deleted":
                         transcribed_files_last_month += 1
 
                         total_transcribed_minutes_last_month += (
