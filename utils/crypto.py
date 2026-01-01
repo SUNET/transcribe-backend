@@ -107,12 +107,13 @@ def validate_password(
     if not isinstance(password, bytes):
         password = password.encode("utf-8")
 
-    try:
-        if deserialize_private_key(private_key_pem, password.encode("utf-8")):
-            return True
-    except Exception as e:
-        print(e)
-        return False
+    if not isinstance(private_key_pem, bytes):
+        private_key_pem = private_key_pem.encode("utf-8")
+
+    if deserialize_private_key(private_key_pem, password):
+        return True
+
+    return False
 
 
 def encrypt_string(
