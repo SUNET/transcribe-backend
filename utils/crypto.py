@@ -2,10 +2,8 @@ import base64
 import os
 import struct
 
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from typing import Iterator, Optional, Tuple
 
@@ -105,6 +103,9 @@ def validate_password(
     Validate if the provided password can decrypt the private key.
     Returns True if the password is correct, False otherwise.
     """
+
+    if not isinstance(password, bytes):
+        password = password.encode("utf-8")
 
     try:
         if deserialize_private_key(private_key_pem, password.encode("utf-8")):

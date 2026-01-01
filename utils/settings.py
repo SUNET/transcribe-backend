@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     # Customer config
     CUSTOMER_MINUTES_PER_BLOCK: int = 4000
 
+    # Crypto configuration.
+    CRYPTO_KEY_SIZE: int = 4096
+    CRYPTO_CHUNK_SIZE: int = 64 * 1024  # 64KB
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -17,6 +17,7 @@ from db.user import (
     user_get_username_from_job,
     user_update,
     user_get,
+    user_get_public_key,
 )
 from db.models import JobStatusEnum
 from utils.settings import get_settings
@@ -154,17 +155,14 @@ async def put_video_file(
         file_path.mkdir(parents=True, exist_ok=True)
 
     file_bytes = await file.read()
-    public_key = deserialize_public_key(
-        bytes(user_get(user_id)["user"]["public_key"], "utf-8")
-    )
+    public_key = user_get_public_key(user_id)
+    public_key = deserialize_public_key(public_key)
 
     encrypt_file(
         public_key,
         file_bytes,
         str(file_path / filename),
     )
-
-    print("Saved encrypted file to {}".format(str(file_path / filename)))
 
     return JSONResponse(
         content={
@@ -200,8 +198,8 @@ async def put_transcription_result(
     data = await request.json()
 
     # Encrypt the data with the users public key
-    public_key = user_get(user_id)["user"]["public_key"]
-    public_key = deserialize_public_key(bytes(public_key, "utf-8"))
+    public_key = user_get_public_key(user_id)
+    public_key = deserialize_public_key(public_key)
 
     match data["format"]:
         case "srt":

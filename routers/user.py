@@ -1,6 +1,7 @@
 from auth.oidc import get_current_user_id, verify_user
 from db.user import (
     user_get,
+    user_get_private_key,
     user_update,
     users_statistics,
     user_get_all,
@@ -67,9 +68,9 @@ async def get_user_info(
         )
 
     if encryption_password:
-        private_key_pem = user["user"].get("private_key", "")
+        private_key = user_get_private_key(user_id)
 
-        if not validate_password(bytes(private_key_pem, "utf-8"), encryption_password):
+        if not validate_password(private_key, encryption_password):
             return JSONResponse(
                 content={"error": "Invalid encryption password"},
                 status_code=403,

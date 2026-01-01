@@ -98,6 +98,19 @@ def user_get(user_id: str) -> Optional[User]:
 
     return result
 
+def user_get_private_key(user_id: str) -> Optional[str]:
+    """
+    Get a users private key.
+    """
+
+    return user_get(user_id)["user"]["private_key"].encode("utf-8")
+
+def user_get_public_key(user_id: str) -> Optional[str]:
+    """
+    Get a users public key.
+    """
+
+    return user_get(user_id)["user"]["public_key"].encode("utf-8")
 
 def user_get_all(realm) -> list:
     """

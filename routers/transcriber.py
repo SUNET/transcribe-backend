@@ -1,5 +1,6 @@
 import shutil
 import aiofiles
+import requests
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -15,17 +16,15 @@ from db.job import (
     job_result_get_external,
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
-from db.user import user_get_quota_left, user_create, user_get
+from db.user import user_get_quota_left, user_create, user_get_private_key
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
 from fastapi.concurrency import run_in_threadpool
 from auth.oidc import get_current_user_id
 from auth.client_auth import verify_client_dn
-from utils.crypto import deserialize_private_key, decrypt_string
-import requests
+from utils.crypto import deserialize_private_key, decrypt_string, decrypt_file
 from utils.log import get_logger
-from utils.crypto import decrypt_file, deserialize_private_key
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
@@ -243,20 +242,11 @@ async def get_transcription_result(
     Get the transcription result.
     """
 
-    job = job_get(job_id, user_id)
-
     data = await request.form()
     encryption_password = data.get("encryption_password", "")
-    private_key = user_get(user_id)["user"]["private_key"]
+    private_key = user_get_private_key(user_id)
 
-    if not job:
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
-
-    job_result = job_result_get(user_id, job_id)
-
-    if not job_result:
+    if not (job_result := job_result_get(user_id, job_id)):
         return JSONResponse(
             content={"result": {"error": "Job result not found"}}, status_code=404
         )
@@ -308,20 +298,19 @@ async def get_video_stream(
 
     data = await request.form()
     encryption_password = data.get("encryption_password", "")
-    private_key = user_get(user_id)["user"]["private_key"]
+
+    private_key = user_get_private_key(user_id)
     private_key = deserialize_private_key(
         private_key,
         encryption_password
     )
 
     if not job:
-        print("Job not found")
         return JSONResponse({"result": {"error": "Job not found"}}, status_code=404)
 
     file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4.enc"
 
     if not file_path.exists():
-        print("File not found:", file_path)
         return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
 
     filesize = file_path.stat().st_size
@@ -335,13 +324,12 @@ async def get_video_stream(
         end = int(end_str) if end_str else filesize - 1
 
     # Determine which chunks correspond to the byte range
-    CHUNK_SIZE = 64 * 1024  # Must match encrypt_file
-    start_chunk = start // CHUNK_SIZE
-    end_chunk = end // CHUNK_SIZE
+    start_chunk = start // settings.CRYPTO_CHUNK_SIZE
+    end_chunk = end // settings.CRYPTO_CHUNK_SIZE
 
     def stream_chunks():
-        offset_in_first_chunk = start % CHUNK_SIZE
-        last_chunk_bytes = (end % CHUNK_SIZE) + 1
+        offset_in_first_chunk = start % settings.CRYPTO_CHUNK_SIZE
+        last_chunk_bytes = (end % settings.CRYPTO_CHUNK_SIZE) + 1
 
         for i, chunk in enumerate(decrypt_file(private_key, file_path, start_chunk, end_chunk)):
             if i == 0:
