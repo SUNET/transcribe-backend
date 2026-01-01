@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from utils.log import get_logger
 from utils.settings import get_settings
+from utils.crypto import validate_password
 from db.group import (
     group_get,
     group_get_all,
@@ -48,6 +49,9 @@ async def get_user_info(
     Used by the frontend to get user information.
     """
 
+    data = await request.form()
+    encryption_password = data.get("encryption_password", "")
+
     if not user_id:
         return JSONResponse(
             content={"error": "User not authenticated"},
@@ -62,7 +66,52 @@ async def get_user_info(
             status_code=404,
         )
 
+    if encryption_password:
+        private_key_pem = user["user"].get("private_key", "")
+
+        if not validate_password(bytes(private_key_pem, "utf-8"), encryption_password):
+            return JSONResponse(
+                content={"error": "Invalid encryption password"},
+                status_code=403,
+            )
+
     return JSONResponse(content={"result": user})
+
+
+@router.put("/me")
+async def set_user_info(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+) -> JSONResponse:
+    """
+    Set user information.
+    Used by the frontend to set user information.
+    """
+
+    if not user_id:
+        return JSONResponse(
+            content={"error": "User not authenticated"},
+            status_code=401,
+        )
+
+    # Get encryption_password as form data
+    data = await request.form()
+
+    encryption_settings = data.get("encryption", False)
+    encryption_password = data.get("encryption_password", "")
+
+    if encryption_settings and encryption_password:
+        print(
+            f"encryption_settings: {encryption_settings}, encryption_password: {encryption_password}"
+        )
+
+        user_update(
+            user_id,
+            encryption_settings=encryption_settings,
+            encryption_password=encryption_password,
+        )
+
+    return JSONResponse(content={"result": {"status": "OK"}})
 
 
 @router.get("/admin")

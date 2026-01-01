@@ -24,6 +24,8 @@ from utils.health import HealthStatus
 
 from pathlib import Path
 from utils.log import get_logger
+from utils.crypto import encrypt_string, deserialize_public_key
+import json
 
 log = get_logger()
 router = APIRouter(tags=["job"])
@@ -187,22 +189,24 @@ async def put_transcription_result(
 
     data = await request.json()
 
+    # Encrypt the data with the users public key
+    public_key = user_get(user_id)["user"]["public_key"]
+    public_key = deserialize_public_key(bytes(public_key, "utf-8"))
+
     match data["format"]:
         case "srt":
-            # if job.billing_id is not None:
-            #     file_path = Path(settings.API_FILE_STORAGE_DIR) / job.billing_id / f"{job_id}.srt"
-            #     async with aiofiles.open(file_path, "wb") as out_file:
-            #         await out_file.write(data)
+            encrypted_result = encrypt_string(public_key, data["result"])
             job_result_save(
                 job_id,
                 user_id,
-                result_srt=data["result"],
+                result_srt=encrypted_result,
                 external_id=job["external_id"],
-                # result_path = Path(settings.API_FILE_STORAGE_DIR) / job.billing_id / f"{job_id}.srt"
             )
         case "json":
+            json_str = json.dumps(data["result"])
+            encrypted_result = encrypt_string(public_key, json_str)
             job_result_save(
-                job_id, user_id, result=data["result"], external_id=job["external_id"]
+                job_id, user_id, result=encrypted_result, external_id=job["external_id"]
             )
         case "mp4":
             data = await request.body()

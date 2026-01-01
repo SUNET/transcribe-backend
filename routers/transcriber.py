@@ -15,15 +15,16 @@ from db.job import (
     job_result_get_external,
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
-from db.user import user_get_quota_left, user_create
+from db.user import user_get_quota_left, user_create, user_get
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
 from fastapi.concurrency import run_in_threadpool
 from auth.oidc import get_current_user_id
 from auth.client_auth import verify_client_dn
+from utils.crypto import deserialize_private_key, decrypt_string
 import requests
-
+import json
 from utils.log import get_logger
 
 router = APIRouter(tags=["transcriber"])
@@ -244,6 +245,10 @@ async def get_transcription_result(
 
     job = job_get(job_id, user_id)
 
+    data = await request.form()
+    encryption_password = data.get("encryption_password", "")
+    private_key = user_get(user_id)["user"]["private_key"]
+
     if not job:
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
@@ -256,11 +261,24 @@ async def get_transcription_result(
             content={"result": {"error": "Job result not found"}}, status_code=404
         )
 
+    deserialized_private_key = deserialize_private_key(
+        private_key,
+        encryption_password
+    )
+
     match output_format:
         case OutputFormatEnum.TXT:
-            content = job_result.get("result", "")
+            content = job_result.get("result", "")            
+            content = decrypt_string(
+                deserialized_private_key,
+                content
+            )
         case OutputFormatEnum.SRT:
             content = job_result.get("result_srt", "")
+            content = decrypt_string(
+                deserialized_private_key,
+                content
+            )            
         case OutputFormatEnum.CSV:
             pass
         case _:

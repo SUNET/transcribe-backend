@@ -9,6 +9,7 @@ from utils.log import get_logger
 from db.job import job_get_all
 from db.models import Customer, Group, GroupUserLink, Job, User
 from db.session import get_session
+from utils.crypto import generate_rsa_keypair, serialize_private_key, serialize_public_key
 
 log = get_logger()
 
@@ -178,11 +179,13 @@ def user_get_quota_left(user_id: str) -> bool:
 
 
 def user_update(
-    username: str,
+    user_id: str,
     transcribed_seconds: Optional[str] = "",
     active: Optional[bool] = None,
     admin: Optional[bool] = None,
     admin_domains: Optional[str] = None,
+    encryption_settings: Optional[bool] = None,
+    encryption_password: Optional[str] = None,
 ) -> dict:
     """
     Update a user's transcribed seconds.
@@ -191,7 +194,7 @@ def user_update(
     with get_session() as session:
         user = (
             session.query(User)
-            .filter(User.username == username)
+            .filter(User.user_id == user_id)
             .with_for_update()
             .first()
         )
@@ -213,10 +216,22 @@ def user_update(
         if admin_domains is not None:
             user.admin_domains = admin_domains
 
+        if encryption_settings and encryption_password != "":
+            user.encryption_settings = True
+            private_key, public_key = generate_rsa_keypair()
+            serialized_private_key = serialize_private_key(
+                private_key, encryption_password.encode("utf-8")
+            )
+
+            serialized_public_key = serialize_public_key(public_key)
+
+            user.private_key = serialized_private_key.decode("utf-8")
+            user.public_key = serialized_public_key.decode("utf-8")
+
         log.info(
             f"User {user.user_id} updated: "
             + f"transcribed_seconds={user.transcribed_seconds}, "
-            + f"active={user.active}, admin={user.admin}"
+            + f"active={user.active}, admin={user.admin}",
         )
 
         return user.as_dict() if user else {}

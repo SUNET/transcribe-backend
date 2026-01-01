@@ -371,6 +371,18 @@ class User(SQLModel, table=True):
     groups: List["Group"] = Relationship(
         back_populates="users", link_model=GroupUserLink
     )
+    encryption_settings: Optional[bool] = Field(
+        default=False,
+        description="Indicates if the user has encryption settings enabled",
+    )
+    private_key: Optional[str] = Field(
+        default=None,
+        description="User's private key for encryption, password protected",
+    )
+    public_key: Optional[str] = Field(
+        default=None,
+        description="User's public key for encryption",
+    )
 
     def as_dict(self) -> dict:
         """
@@ -380,15 +392,18 @@ class User(SQLModel, table=True):
         """
         return {
             "id": self.id,
-            "user_id": self.user_id,
-            "username": self.username,
-            "realm": self.realm,
+            "active": self.active,
             "admin": self.admin,
             "admin_domains": self.admin_domains,
-            "transcribed_seconds": self.transcribed_seconds,
-            "last_login": str(self.last_login),
-            "active": self.active,
             "bofh": self.bofh,
+            "encryption_settings": self.encryption_settings,
+            "last_login": str(self.last_login),
+            "private_key": self.private_key,
+            "public_key": self.public_key,
+            "realm": self.realm,
+            "transcribed_seconds": self.transcribed_seconds,
+            "user_id": self.user_id,
+            "username": self.username,
         }
 
 

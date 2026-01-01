@@ -227,10 +227,6 @@ def job_remove(uuid: str) -> bool:
         job.status = JobStatusEnum.DELETED
         job.output_format = OutputFormatEnum.NONE
 
-        log.info(
-            f"Job {job.uuid} created at {job.created_at} removed for user {job.user_id}."
-        )
-
         # Remove JobResult associated with the job
         job_results = (
             session.query(JobResult)
@@ -365,6 +361,6 @@ def job_result_save(
 
         session.add(job_result)
 
-        log.info(f"Job result for job {uuid} saved for user {user_id}.")
+        # log.info(f"Job result for job {uuid} saved for user {user_id}.")
 
         return job_result.as_dict()
