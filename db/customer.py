@@ -187,7 +187,7 @@ def customer_get_statistics(customer_id: str) -> dict:
                 "blocks_consumed": 0,
                 "minutes_included": 0,
                 "overage_minutes": 0,
-                "overage_minuts_last_month": 0,
+                "overage_minutes_last_month": 0,
                 "remaining_minutes": 0,
             }
 
@@ -214,7 +214,7 @@ def customer_get_statistics(customer_id: str) -> dict:
                 )
                 * settings.CUSTOMER_MINUTES_PER_BLOCK,
                 "overage_minutes": 0,
-                "overage_minuts_last_month": 0,
+                "overage_minutes_last_month": 0,
                 "remaining_minutes": (
                     customer.blocks_purchased if customer.blocks_purchased else 0
                 )
@@ -324,7 +324,7 @@ def customer_get_statistics(customer_id: str) -> dict:
             "blocks_consumed": round(blocks_consumed, 2),
             "minutes_included": minutes_included,
             "overage_minutes": float(overage_minutes),
-            "overage_minuts_last_month": float(overage_minutes_last_month),
+            "overage_minutes_last_month": float(overage_minutes_last_month),
             "remaining_minutes": float(remaining_minutes),
         }
 
@@ -436,6 +436,7 @@ def export_customers_to_csv(admin_user: dict) -> str:
         "Blocks Consumed",
         "Minutes Included",
         "Overage Minutes",
+        "Overage Minutes (Last Month)",
         "Remaining Minutes",
         "Notes",
         "Created At",
@@ -478,6 +479,7 @@ def export_customers_to_csv(admin_user: dict) -> str:
             "Blocks Consumed": stats.get("blocks_consumed", 0),
             "Minutes Included": stats.get("minutes_included", 0),
             "Overage Minutes": stats.get("overage_minutes", 0),
+            "Overage Minutes (Last Month)": stats.get("overage_minutes_last_month", 0),
             "Remaining Minutes": stats.get("remaining_minutes", 0),
             "Notes": customer.get("notes", ""),
             "Created At": customer.get("created_at", ""),
