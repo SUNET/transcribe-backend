@@ -21,7 +21,7 @@ def verify_client_dn(
     if settings.API_CLIENT_VERIFICATION_ENABLED is False:
         return "bypass-client-cert"
 
-    if not client_dn.strip() in dn_list:
+    if client_dn.strip() not in dn_list:
         logger.info(f"Client failed to authenticate with {client_dn}")
         raise HTTPException(status_code=403, detail="Invalid request")
 
@@ -29,4 +29,12 @@ def verify_client_dn(
 
 
 def dn_in_list(dn):
+    """
+    Check if the given DN is in the allowed DN list.
+    """
+
+    # Bypass check if verification is disabled
+    if settings.API_CLIENT_VERIFICATION_ENABLED is False:
+        return True
+
     return dn in dn_list

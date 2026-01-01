@@ -1,4 +1,4 @@
-import aiofiles
+import os
 from fastapi import APIRouter, UploadFile, Request, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, JSONResponse
@@ -43,6 +43,7 @@ async def update_transcription_status(
     """
 
     verify_client_dn(request)
+
     data = await request.json()
     user_id = user_get_from_job(job_id)
     username = user_get_username_from_job(job_id)
@@ -66,7 +67,8 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
-        # Check if the user exists or if the user_id is in the dn list (used by integrations)
+        # Check if the user exists or if the user_id is in the dn list (used
+        # by integrations)
         if not user_update(
             username,
             transcribed_seconds=data["transcribed_seconds"],
@@ -76,6 +78,8 @@ async def update_transcription_status(
                 content={"result": {"error": "User not found"}}, status_code=404
             )
 
+    # We don't want to keep files for failed or completed jobs
+    # for security and storage reasons. Remove them.
     if (
         job["status"] == JobStatusEnum.FAILED
         or job["status"] == JobStatusEnum.COMPLETED

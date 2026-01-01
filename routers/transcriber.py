@@ -125,7 +125,7 @@ async def delete_transcription_job(
     job_remove(job_id)
 
     # Remove the video file if it exists
-    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4.enc"
 
     if file_path.exists():
         file_path.unlink()
