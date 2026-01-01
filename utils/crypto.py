@@ -1,13 +1,13 @@
-import os
-
 import base64
+import os
+import struct
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from typing import Optional, Tuple
+from typing import Iterator, Optional, Tuple
 
 
 def generate_rsa_keypair(
@@ -97,6 +97,23 @@ def deserialize_public_key(
     return public_key
 
 
+def validate_password(
+    private_key_pem: bytes,
+    password: bytes,
+) -> bool:
+    """
+    Validate if the provided password can decrypt the private key.
+    Returns True if the password is correct, False otherwise.
+    """
+
+    try:
+        if deserialize_private_key(private_key_pem, password.encode("utf-8")):
+            return True
+    except Exception as e:
+        print(e)
+        return False
+
+
 def encrypt_string(
     public_key: rsa.RSAPublicKey,
     plaintext: str,
@@ -168,38 +185,82 @@ def decrypt_string(
     return plaintext.decode("utf-8")
 
 
-def validate_password(
-    private_key_pem: bytes,
-    password: bytes,
-) -> bool:
+def encrypt_file(
+    public_key: rsa.RSAPublicKey,
+    input_bytes: bytes,
+    output_filepath: str,
+    chunk_size: int = 64 * 1024,
+) -> None:
     """
-    Validate if the provided password can decrypt the private key.
-    Returns True if the password is correct, False otherwise.
+    Split a file into chunks and encrypt each chunk using encrypt_string().
     """
 
-    try:
-        if deserialize_private_key(private_key_pem, password.encode("utf-8")):
-            return True
-    except Exception as e:
-        print(e)
-        return False
+    def write_chunk(chunk: bytes, fout):
+        # Binary → base64 text
+        chunk_b64 = base64.b64encode(chunk).decode("ascii")
+
+        # Encrypt base64 text
+        encrypted_b64 = encrypt_string(public_key, chunk_b64)
+
+        # Write length-prefixed encrypted chunk
+        fout.write(struct.pack(">I", len(encrypted_b64)))
+        fout.write(encrypted_b64.encode("ascii"))
+
+    i = 0
+    with open(output_filepath, "wb") as fout:
+        while True:
+            chunk = input_bytes[i : i + chunk_size]
+            if not chunk:
+                break
+
+            write_chunk(chunk, fout)
+            i += chunk_size
+            print(f"Encrypted chunk {i // chunk_size} written to {output_filepath}")
+
+        fout.flush()
 
 
-if __name__ == "__main__":
-    # Example usage
-    private_key, public_key = generate_rsa_keypair()
-    password = b"my_secure_password"
+def decrypt_file(
+    private_key: rsa.RSAPrivateKey,
+    input_filepath: str,
+    start_chunk: int = 0,
+    end_chunk: Optional[int] = None,
+) -> Iterator[bytes]:
+    """
+    Decrypt a file encrypted by encrypt_file().
+    Yields binary chunks.
+    Supports optional start_chunk and end_chunk (0-based, inclusive).
+    """
 
-    serialized_private = serialize_private_key(private_key, password)
-    serialized_public = serialize_public_key(public_key)
-    deserialized_private = deserialize_private_key(serialized_private, password)
-    deserialized_public = deserialize_public_key(serialized_public)
+    chunk_index = 0
 
-    message = """1\n00:00:00,000 --> 00:00:05,600\nRedan innan man vaknar på\nmorgonen känner man att här...\n\n2\n00:00:05,600 --> 00:00:11,760\nkommer ännu en dag fylld av\nmotgångar. Jag vet inte om jag orkar.\n\n3\n00:00:11,760 --> 00:00:17,360\nSå där känner alla av och till.\nDet finns faktiskt ett bra knep\n\n4\n00:00:17,360 --> 00:00:23,240\nför att slippa just det där\neländet och få tillbaka motivationen.\n\n5\n00:00:23,240 --> 00:00:26,240\nSka jag berätta? Ja, gärna.\n\n6\n00:00:26,240 --> 00:00:30,000\nDu börjar på morgonen\noch tar en stadig whisky.\n\n7\n00:00:30,000 --> 00:00:33,000\nSen klarar du dig fram till tiotiden.\n\n8\n00:00:33,000 --> 00:00:35,960\nDu måste ha\nhalstabletter. Det får inte lukta.\n\n9\n00:00:35,960 --> 00:00:39,800\nSen kan du köra en\nFenebranka. Det är jättebra.\n\n10\n00:00:39,800 --> 00:00:42,640\nDå klarar du dig fram till lunch.\n\n11\n00:00:42,640 --> 00:00:47,800\nOch på lunchen är det inte\nsärskilt svårt att få en starköl\n\n12\n00:00:47,800 --> 00:00:52,040\natt se ut som en lättöl. Då\ntar du en tre, fyra lättöl.\n\n13\n00:00:52,040 --> 00:00:55,000\nMan kan inte gå omkring på\njobbet och vara packad hela dagarna.\n\n14\n00:00:55,000 --> 00:01:00,000\nDet är bättre än att gå\nomkring och må dåligt hela tiden.\n\n15\n00:01:00,000 --> 00:01:04,560\nSen på eftermiddagen vid tretiden\nkan du gå tillbaka till whisky igen.\n\n16\n00:01:04,560 --> 00:01:08,800\nDet går bra. Och rätt vad\ndet är, så är klockan fem.\n\n17\n00:01:08,800 --> 00:01:13,760\nOch du har inte märkt\nett dugg. Det funkar. Skål.\n\n"""
+    print(f"Decrypting file: {input_filepath}, chunks {start_chunk} to {end_chunk}")
 
-    ciphertext = encrypt_string(deserialized_public, message)
-    decrypted_message = decrypt_string(deserialized_private, ciphertext)
+    with open(input_filepath, "rb") as fin:
+        while True:
+            length_bytes = fin.read(4)
+            if not length_bytes:
+                break  # EOF
 
-    assert message == decrypted_message
+            (chunk_length,) = struct.unpack(">I", length_bytes)
+            encrypted_chunk = fin.read(chunk_length)
+            if len(encrypted_chunk) != chunk_length:
+                raise ValueError("Unexpected end of file while reading encrypted chunk")
 
-    print("Encryption and decryption successful!")
+            # Skip chunks before start_chunk
+            if chunk_index < start_chunk:
+                chunk_index += 1
+                continue
+
+            # Stop after end_chunk
+            if end_chunk is not None and chunk_index > end_chunk:
+                break
+
+            # Decrypt
+            decrypted_b64 = decrypt_string(private_key, encrypted_chunk.decode("utf-8"))
+
+            # Convert base64 back to binary
+            decrypted_bytes = base64.b64decode(decrypted_b64)
+
+            yield decrypted_bytes
+            chunk_index += 1

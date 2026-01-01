@@ -2,7 +2,7 @@ import shutil
 import aiofiles
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, StreamingResponse
 from db.job import (
     job_create,
     job_remove,
@@ -24,8 +24,8 @@ from auth.oidc import get_current_user_id
 from auth.client_auth import verify_client_dn
 from utils.crypto import deserialize_private_key, decrypt_string
 import requests
-import json
 from utils.log import get_logger
+from utils.crypto import decrypt_file, deserialize_private_key
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
@@ -299,42 +299,65 @@ async def get_video_stream(
     job_id: str,
     range: str = Header(None),
     user_id: str = Depends(get_current_user_id),
-) -> Response:
+) -> StreamingResponse:
     """
-    Get the video stream for a transcription job.
+    Stream an encrypted video for a transcription job.
     """
 
     job = job_get(job_id, user_id)
 
-    if not job:
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
+    data = await request.form()
+    encryption_password = data.get("encryption_password", "")
+    private_key = user_get(user_id)["user"]["private_key"]
+    private_key = deserialize_private_key(
+        private_key,
+        encryption_password
+    )
 
-    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+    if not job:
+        print("Job not found")
+        return JSONResponse({"result": {"error": "Job not found"}}, status_code=404)
+
+    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4.enc"
 
     if not file_path.exists():
+        print("File not found:", file_path)
         return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
 
+    filesize = file_path.stat().st_size
+
     if not range or not range.startswith("bytes="):
-        return JSONResponse(
-            {"result": {"error": "Invalid or missing Range header"}}, status_code=416
-        )
+        start = 0
+        end = filesize - 1
+    else:
+        start_str, end_str = range.replace("bytes=", "").split("-")
+        start = int(start_str)
+        end = int(end_str) if end_str else filesize - 1
 
-    filesize = int(file_path.stat().st_size)
-    start, end = range.replace("bytes=", "").split("-")
-    start = int(start)
-    end = int(end) if end else filesize - 1
+    # Determine which chunks correspond to the byte range
+    CHUNK_SIZE = 64 * 1024  # Must match encrypt_file
+    start_chunk = start // CHUNK_SIZE
+    end_chunk = end // CHUNK_SIZE
 
-    with open(file_path, "rb") as video:
-        video.seek(start)
-        data = video.read(end - start + 1)
-        headers = {
-            "Content-Range": f"bytes {str(start)}-{str(end)}/{filesize}",
-            "Accept-Ranges": "bytes",
-        }
+    def stream_chunks():
+        offset_in_first_chunk = start % CHUNK_SIZE
+        last_chunk_bytes = (end % CHUNK_SIZE) + 1
 
-        return Response(data, status_code=206, headers=headers, media_type="video/mp4")
+        for i, chunk in enumerate(decrypt_file(private_key, file_path, start_chunk, end_chunk)):
+            if i == 0:
+                # First chunk: apply start offset
+                chunk = chunk[offset_in_first_chunk:]
+            if i == (end_chunk - start_chunk):
+                # Last chunk: trim to end
+                chunk = chunk[:last_chunk_bytes]
+            yield chunk
+
+    headers = {
+        "Content-Range": f"bytes {start}-{end}/{filesize}",
+        "Accept-Ranges": "bytes",
+    }
+
+    return StreamingResponse(stream_chunks(), status_code=206, headers=headers, media_type="video/mp4")
 
 
 @router.get("/transcriber/external/{external_id}")

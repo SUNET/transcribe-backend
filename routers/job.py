@@ -24,7 +24,7 @@ from utils.health import HealthStatus
 
 from pathlib import Path
 from utils.log import get_logger
-from utils.crypto import encrypt_string, deserialize_public_key
+from utils.crypto import encrypt_string, deserialize_public_key, encrypt_file
 import json
 
 log = get_logger()
@@ -137,7 +137,7 @@ async def put_video_file(
     """
 
     verify_client_dn(request)
-    filename = file.filename
+    filename = file.filename + ".enc"
 
     if not job_get(job_id, user_id):
         return JSONResponse(
@@ -149,12 +149,18 @@ async def put_video_file(
     if not file_path.exists():
         file_path.mkdir(parents=True, exist_ok=True)
 
-    async with aiofiles.open(file_path / filename, "wb") as out_file:
-        while True:
-            chunk = await file.read(1024)
-            if not chunk:
-                break
-            await out_file.write(chunk)
+    file_bytes = await file.read()
+    public_key = deserialize_public_key(
+        bytes(user_get(user_id)["user"]["public_key"], "utf-8")
+    )
+
+    encrypt_file(
+        public_key,
+        file_bytes,
+        str(file_path / filename),
+    )
+
+    print("Saved encrypted file to {}".format(str(file_path / filename)))
 
     return JSONResponse(
         content={
@@ -209,10 +215,11 @@ async def put_transcription_result(
                 job_id, user_id, result=encrypted_result, external_id=job["external_id"]
             )
         case "mp4":
-            data = await request.body()
-            file_path = Path(settings.API_FILE_STORAGE_DIR) / user_id / f"{job_id}.mp4"
-            async with aiofiles.open(file_path, "wb") as out_file:
-                await out_file.write(data)
+            pass
+        case _:
+            return JSONResponse(
+                content={"result": {"error": "Unsupported format"}}, status_code=400
+            )
 
     job = job_update(
         job_id,
