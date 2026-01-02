@@ -6,7 +6,7 @@ from typing import Optional
 from auth.client_auth import dn_in_list
 from utils.log import get_logger
 
-from db.job import job_get_all
+from db.job import job_get_all, job_remove
 from db.models import Customer, Group, GroupUserLink, Job, User
 from db.session import get_session
 from utils.crypto import generate_rsa_keypair, serialize_private_key, serialize_public_key
@@ -199,6 +199,7 @@ def user_update(
     admin_domains: Optional[str] = None,
     encryption_settings: Optional[bool] = None,
     encryption_password: Optional[str] = None,
+    reset_encryption: Optional[bool] = False,
 ) -> dict:
     """
     Update a user's transcribed seconds.
@@ -240,6 +241,17 @@ def user_update(
 
             user.private_key = serialized_private_key.decode("utf-8")
             user.public_key = serialized_public_key.decode("utf-8")
+
+        if reset_encryption:
+            user.encryption_settings = False
+            user.private_key = None
+            user.public_key = None
+
+            # Remove all files encrypted with the previous key
+            jobs = session.query(Job).filter(Job.user_id == user.user_id).all()
+
+            for job in jobs:
+                job_remove(job.uuid)        
 
         log.info(
             f"User {user.user_id} updated: "

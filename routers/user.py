@@ -101,16 +101,16 @@ async def set_user_info(
     encryption_settings = data.get("encryption", False)
     encryption_password = data.get("encryption_password", "")
 
-    if encryption_settings and encryption_password:
-        print(
-            f"encryption_settings: {encryption_settings}, encryption_password: {encryption_password}"
-        )
+    reset_password = data.get("reset_password", False)
 
+    if encryption_settings and encryption_password:
         user_update(
             user_id,
             encryption_settings=encryption_settings,
             encryption_password=encryption_password,
         )
+    elif reset_password:
+        user_update(user_id, reset_encryption=True)
 
     return JSONResponse(content={"result": {"status": "OK"}})
 
@@ -266,7 +266,6 @@ async def list_groups(
         realm = admin_user["realm"]
 
     groups = group_get_all(admin_user_id, realm=realm)
-
     result = []
 
     for g in groups:
