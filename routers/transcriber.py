@@ -16,15 +16,16 @@ from db.job import (
     job_result_get_external,
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
-from db.user import user_get_quota_left, user_create, user_get_private_key
+from db.user import user_get_quota_left, user_create, user_get_private_key, user_get, user_get_public_key
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
 from fastapi.concurrency import run_in_threadpool
 from auth.oidc import get_current_user_id
 from auth.client_auth import verify_client_dn
-from utils.crypto import deserialize_private_key, decrypt_string, decrypt_file
+from utils.crypto import deserialize_private_key, decrypt_string, decrypt_file, encrypt_file
 from utils.log import get_logger
+from utils.crypto import deserialize_public_key
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
@@ -73,6 +74,16 @@ async def transcribe_file(
         filename=file.filename,
     )
 
+    api_user = user_get(username="api_user")
+
+    if not api_user:
+        return JSONResponse(
+            content={"result": {"error": "API user not found"}}, status_code=500
+        )
+
+    public_key = user_get_public_key(api_user["user"]["user_id"])
+    public_key = deserialize_public_key(public_key)
+
     try:
         file_path = Path(api_file_storage_dir + "/" + user_id)
         dest_path = file_path / job["uuid"]
@@ -80,13 +91,18 @@ async def transcribe_file(
         if not file_path.exists():
             file_path.mkdir(parents=True, exist_ok=True)
 
-        with open(dest_path, "wb") as f:
-            await run_in_threadpool(shutil.copyfileobj, file.file, f, 1024 * 1024)
+        file_bytes = await file.read()
+
+        encrypt_file(
+            public_key,
+            file_bytes,
+            dest_path,
+        )
+    
+        job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
     except Exception as e:
         job = job_update(job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e))
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
-
-    job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
 
     return JSONResponse(
         content={

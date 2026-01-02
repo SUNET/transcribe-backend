@@ -50,6 +50,15 @@ def user_create(
 
         return user.dict()
 
+def user_exists(username: str) -> bool:
+    """
+    Check if a user exists by user_id.
+    """
+    with get_session() as session:
+        user = session.query(User).filter(User.username == username).first()
+
+        return user is not None
+
 
 def user_get_from_job(job_id: str) -> Optional[User]:
     """
@@ -84,12 +93,19 @@ def user_get_username_from_job(job_id: str) -> Optional[User]:
         return user.as_dict()["username"] if user else None
 
 
-def user_get(user_id: str) -> Optional[User]:
+def user_get(user_id: Optional[str] = "", username: Optional[str] = "") -> Optional[User]:
     """
     Get a user by user_id.
     """
+
+    if not user_id and not username:
+        return {}
+
     with get_session() as session:
-        user = session.query(User).filter(User.user_id == user_id).first()
+        if user_id:
+            user = session.query(User).filter(User.user_id == user_id).first()
+        else:
+            user = session.query(User).filter(User.username == username).first()
 
         result = {
             "user": user.as_dict(),

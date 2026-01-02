@@ -8,6 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from auth.oidc import RefreshToken, oauth, verify_user
 from db.job import job_cleanup
+from db.user import user_create, user_exists, user_update
 from routers.job import router as job_router
 from routers.transcriber import router as transcriber_router
 from routers.user import router as user_router
@@ -60,6 +61,21 @@ app.include_router(transcriber_router, prefix=settings.API_PREFIX, tags=["transc
 app.include_router(job_router, prefix=settings.API_PREFIX, tags=["job"])
 app.include_router(video_router, prefix=settings.API_PREFIX, tags=["video"])
 app.include_router(user_router, prefix=settings.API_PREFIX, tags=["user"])
+
+
+# Create API user with RSA keypair
+@app.on_event("startup")
+async def create_api_user() -> None:
+    if user_exists("api_user"):
+        return
+
+    # Create user and add RSA keypair
+    user = user_create("api_user", realm="none", user_id="api_user")
+    user_update(
+        user["user_id"],
+        encryption_password=settings.API_PRIVATE_KEY_PASSWORD,
+        encryption_settings=True,
+    )
 
 
 @app.get("/api/auth")

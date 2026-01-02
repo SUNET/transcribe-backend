@@ -217,7 +217,6 @@ def encrypt_file(
 
             write_chunk(chunk, fout)
             i += chunk_size
-            print(f"Encrypted chunk {i // chunk_size} written to {output_filepath}")
 
         fout.flush()
 
@@ -235,8 +234,6 @@ def decrypt_file(
     """
 
     chunk_index = 0
-
-    print(f"Decrypting file: {input_filepath}, chunks {start_chunk} to {end_chunk}")
 
     with open(input_filepath, "rb") as fin:
         while True:

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     API_KALTURA_CLIENT_DN: str = "CN=KalturaAdaptor,O=SUNET,ST=Stockholm,C=SE"
     API_CLIENT_VERIFICATION_ENABLED: bool = True
     API_CLIENT_VERIFICATION_HEADER: str = "x-client-legacy"
+    API_PRIVATE_KEY_PASSWORD: str = ""
 
     # OIDC configuration.
     OIDC_CLIENT_ID: str = ""

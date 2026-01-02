@@ -1,7 +1,6 @@
-import os
 from fastapi import APIRouter, UploadFile, Request, Depends
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 
 from auth.client_auth import dn_in_list, verify_client_dn
 from auth.oidc import get_current_user_id
@@ -18,6 +17,7 @@ from db.user import (
     user_update,
     user_get,
     user_get_public_key,
+    user_get_private_key,
 )
 from db.models import JobStatusEnum
 from utils.settings import get_settings
@@ -25,7 +25,13 @@ from utils.health import HealthStatus
 
 from pathlib import Path
 from utils.log import get_logger
-from utils.crypto import encrypt_string, deserialize_public_key, encrypt_file
+from utils.crypto import (
+    encrypt_string,
+    deserialize_public_key,
+    encrypt_file,
+    decrypt_file,
+    deserialize_private_key,
+)
 import json
 
 log = get_logger()
@@ -108,7 +114,7 @@ async def get_transcription_file(
     request: Request,
     user_id: str,
     job_id: str,
-) -> FileResponse:
+) -> StreamingResponse:
     """
     Get the data to transcribe.
     """
@@ -127,7 +133,28 @@ async def get_transcription_file(
             content={"result": {"error": "File not found"}}, status_code=404
         )
 
-    return FileResponse(file_path)
+    api_user = user_get(username="api_user")
+
+    if not api_user:
+        return JSONResponse(
+            content={"result": {"error": "API user not found"}}, status_code=500
+        )
+
+    private_key = user_get_private_key(api_user["user"]["user_id"])
+    private_key = deserialize_private_key(
+        private_key, settings.API_PRIVATE_KEY_PASSWORD
+    )
+
+    stream = decrypt_file(
+        private_key,
+        str(file_path),
+    )
+
+    return StreamingResponse(
+        stream,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{job_id}.bin"'},
+    )
 
 
 @router.put("/job/{user_id}/{job_id}/file")
