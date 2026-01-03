@@ -361,6 +361,6 @@ def job_result_save(
 
         session.add(job_result)
 
-        # log.info(f"Job result for job {uuid} saved for user {user_id}.")
+        log.info(f"Job result for job {uuid} saved for user {user_id}.")
 
         return job_result.as_dict()

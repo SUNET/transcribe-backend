@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from utils.log import get_logger
 from utils.settings import get_settings
-from utils.crypto import validate_password
+from utils.crypto import validate_private_key_password
 from db.group import (
     group_get,
     group_get_all,
@@ -70,7 +70,7 @@ async def get_user_info(
     if encryption_password:
         private_key = user_get_private_key(user_id)
 
-        if not validate_password(private_key, encryption_password):
+        if not validate_private_key_password(private_key, encryption_password):
             return JSONResponse(
                 content={"error": "Invalid encryption password"},
                 status_code=403,
@@ -114,7 +114,7 @@ async def set_user_info(
     elif verify_password:
         private_key = user_get_private_key(user_id)
 
-        if not validate_password(private_key, encryption_password):
+        if not validate_private_key_password(private_key, encryption_password):
             return JSONResponse(
                 content={"error": "Invalid encryption password"},
                 status_code=403,

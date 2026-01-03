@@ -3,6 +3,10 @@ from db.session import get_session
 from sqlalchemy import or_
 from typing import Optional
 
+from utils.log import get_logger
+
+log = get_logger()
+
 
 def group_create(
     name: str,
@@ -26,6 +30,8 @@ def group_create(
 
         session.add(group)
         session.flush()
+
+        log.info(f"Group {group.id} created with name {name}.")
 
         return group.as_dict()
 
@@ -246,6 +252,8 @@ def group_delete(group_id: int) -> bool:
             for link in links:
                 session.delete(link)
 
+        log.info(f"Group {group_id} deleted.")
+
         return True
 
     return False
@@ -309,6 +317,7 @@ def group_update(
                     )
 
                     session.add(link)
+        log.info(f"Group {group.id} updated.")
 
         return group.as_dict()
 
@@ -330,6 +339,9 @@ def group_add_user(group_id: int, username: str, role: str = "member") -> dict:
         if not link:
             link = GroupUserLink(group_id=group_id, user_id=user_id, role=role)
             session.add(link)
+
+        log.info(f"User {username} added to group {group_id} with role {role}.")
+
         return {"group_id": group_id, "user_id": user_id, "role": role}
 
 
@@ -347,7 +359,11 @@ def group_remove_user(group_id: int, user_id: int) -> bool:
         )
         if not link:
             return False
+
         session.delete(link)
+
+        log.info(f"User {user_id} removed from group {group_id}.")
+
         return True
 
 
@@ -363,9 +379,11 @@ def group_add_model(group_id: int, model_id: int) -> dict:
             )
             .first()
         )
+
         if not link:
             link = GroupModelLink(group_id=group_id, model_id=model_id)
             session.add(link)
+
         return {"group_id": group_id, "model_id": model_id}
 
 
@@ -381,9 +399,12 @@ def group_remove_model(group_id: int, model_id: int) -> bool:
             )
             .first()
         )
+
         if not link:
             return False
+
         session.delete(link)
+
         return True
 
 

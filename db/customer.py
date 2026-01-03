@@ -7,9 +7,11 @@ from db.job import job_get_all
 from db.models import Customer, User
 from db.session import get_session
 from typing import Optional
+from utils.log import get_logger
 from utils.settings import get_settings
 
 settings = get_settings()
+log = get_logger()
 
 
 def customer_create(
@@ -42,6 +44,8 @@ def customer_create(
 
         session.add(customer)
         session.flush()
+
+        log.info(f"Customer {customer.name} created with ID {customer.id}.")
 
         return customer.as_dict()
 
@@ -145,6 +149,8 @@ def customer_update(
         if blocks_purchased is not None:
             customer.blocks_purchased = blocks_purchased
 
+        log.info(f"Customer {customer.name} (ID: {customer.id}) updated.")
+
         return customer.as_dict()
 
 
@@ -159,7 +165,10 @@ def customer_delete(customer_id: int) -> bool:
             return False
 
         session.delete(customer)
-        return True
+
+    log.info(f"Customer {customer.name} (ID: {customer.id}) deleted.")
+
+    return True
 
 
 def customer_get_statistics(customer_id: str) -> dict:

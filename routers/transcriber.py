@@ -15,16 +15,27 @@ from db.job import (
     job_result_get_external,
 )
 from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
-from db.user import user_get_quota_left, user_create, user_get_private_key, user_get, user_get_public_key
+from db.user import (
+    user_get_quota_left,
+    user_create,
+    user_get_private_key,
+    user_get,
+    user_get_public_key,
+)
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
 from fastapi.concurrency import run_in_threadpool
 from auth.oidc import get_current_user_id
 from auth.client_auth import verify_client_dn
-from utils.crypto import deserialize_private_key, decrypt_string, decrypt_file, encrypt_file
+from utils.crypto import (
+    deserialize_public_key_from_pem,
+    deserialize_private_key_from_pem,
+    decrypt_string,
+    decrypt_data_from_file,
+    encrypt_data_to_file,
+)
 from utils.log import get_logger
-from utils.crypto import deserialize_public_key
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
@@ -81,7 +92,7 @@ async def transcribe_file(
         )
 
     public_key = user_get_public_key(api_user["user"]["user_id"])
-    public_key = deserialize_public_key(public_key)
+    public_key = deserialize_public_key_from_pem(public_key)
 
     try:
         file_path = Path(api_file_storage_dir + "/" + user_id)
@@ -92,15 +103,17 @@ async def transcribe_file(
 
         file_bytes = await file.read()
 
-        encrypt_file(
+        encrypt_data_to_file(
             public_key,
             file_bytes,
             dest_path,
         )
-    
+
         job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
     except Exception as e:
-        job = job_update(job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e))
+        job = job_update(
+            job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e)
+        )
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     return JSONResponse(
@@ -266,24 +279,17 @@ async def get_transcription_result(
             content={"result": {"error": "Job result not found"}}, status_code=404
         )
 
-    deserialized_private_key = deserialize_private_key(
-        private_key,
-        encryption_password
+    deserialized_private_key = deserialize_private_key_from_pem(
+        private_key, encryption_password
     )
 
     match output_format:
         case OutputFormatEnum.TXT:
-            content = job_result.get("result", "")            
-            content = decrypt_string(
-                deserialized_private_key,
-                content
-            )
+            content = job_result.get("result", "")
+            content = decrypt_string(deserialized_private_key, content)
         case OutputFormatEnum.SRT:
             content = job_result.get("result_srt", "")
-            content = decrypt_string(
-                deserialized_private_key,
-                content
-            )            
+            content = decrypt_string(deserialized_private_key, content)
         case OutputFormatEnum.CSV:
             pass
         case _:
@@ -315,10 +321,7 @@ async def get_video_stream(
     encryption_password = data.get("encryption_password", "")
 
     private_key = user_get_private_key(user_id)
-    private_key = deserialize_private_key(
-        private_key,
-        encryption_password
-    )
+    private_key = deserialize_private_key_from_pem(private_key, encryption_password)
 
     if not job:
         return JSONResponse({"result": {"error": "Job not found"}}, status_code=404)
@@ -346,7 +349,9 @@ async def get_video_stream(
         offset_in_first_chunk = start % settings.CRYPTO_CHUNK_SIZE
         last_chunk_bytes = (end % settings.CRYPTO_CHUNK_SIZE) + 1
 
-        for i, chunk in enumerate(decrypt_file(private_key, file_path, start_chunk, end_chunk)):
+        for i, chunk in enumerate(
+            decrypt_data_from_file(private_key, file_path, start_chunk, end_chunk)
+        ):
             if i == 0:
                 # First chunk: apply start offset
                 chunk = chunk[offset_in_first_chunk:]
@@ -360,7 +365,9 @@ async def get_video_stream(
         "Accept-Ranges": "bytes",
     }
 
-    return StreamingResponse(stream_chunks(), status_code=206, headers=headers, media_type="video/mp4")
+    return StreamingResponse(
+        stream_chunks(), status_code=206, headers=headers, media_type="video/mp4"
+    )
 
 
 @router.get("/transcriber/external/{external_id}")
@@ -383,6 +390,7 @@ async def get_job_external(
         res["result_srt"] = job_result["result_srt"]
 
     return JSONResponse(content={"result": res})
+
 
 @router.delete("/transcriber/external/{external_id}")
 async def delete_external_transcription_job(
@@ -414,7 +422,6 @@ async def delete_external_transcription_job(
         file_path.unlink()
 
     return JSONResponse(content={"result": {"status": "OK"}})
-
 
 
 @router.post("/transcriber/external")

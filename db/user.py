@@ -9,7 +9,7 @@ from utils.log import get_logger
 from db.job import job_get_all, job_remove
 from db.models import Customer, Group, GroupUserLink, Job, User
 from db.session import get_session
-from utils.crypto import generate_rsa_keypair, serialize_private_key, serialize_public_key
+from utils.crypto import generate_rsa_keypair, serialize_private_key_to_pem, serialize_public_key_to_pem
 
 log = get_logger()
 
@@ -47,6 +47,8 @@ def user_create(
         log.info(f"User {user_id} created from {username}.")
 
         session.add(user)
+
+        log.info(f"Created user {user_id} in realm {realm}.")
 
         return user.dict()
 
@@ -118,6 +120,7 @@ def user_get_private_key(user_id: str) -> Optional[str]:
     """
     Get a users private key.
     """
+    log.info(f"Fetching private key for user {user_id}")
 
     return user_get(user_id)["user"]["private_key"].encode("utf-8")
 
@@ -238,27 +241,39 @@ def user_update(
         user.last_login = datetime.utcnow()
 
         if active is not None:
+            log.info(f"Setting user {user.user_id} active status to {active}")
             user.active = active
 
         if admin is not None:
+            log.info(f"Setting user {user.user_id} admin status to {admin}")
             user.admin = admin
 
         if admin_domains is not None:
+            log.info(f"Setting user {user.user_id} admin domains to {admin_domains}")
             user.admin_domains = admin_domains
 
         if encryption_settings and encryption_password != "":
+            log.info(f"Updating encryption settings for user {user.user_id}")
+
             user.encryption_settings = True
+
+            # Generate RSA key pair
             private_key, public_key = generate_rsa_keypair()
-            serialized_private_key = serialize_private_key(
+
+            # Serialize keys to PEM format
+            serialized_private_key = serialize_private_key_to_pem(
                 private_key, encryption_password.encode("utf-8")
             )
+            serialized_public_key = serialize_public_key_to_pem(public_key)
 
-            serialized_public_key = serialize_public_key(public_key)
-
+            # Store keys as UTF-8 strings
             user.private_key = serialized_private_key.decode("utf-8")
             user.public_key = serialized_public_key.decode("utf-8")
 
         if reset_encryption:
+            # Wipe the keys and disable encryption
+            log.info(f"Resetting encryption settings for user {user.user_id}")
+
             user.encryption_settings = False
             user.private_key = None
             user.public_key = None

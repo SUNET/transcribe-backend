@@ -26,10 +26,10 @@ from utils.log import get_logger
 from utils.settings import get_settings
 
 from utils.crypto import (
-    decrypt_file,
-    deserialize_private_key,
-    deserialize_public_key,
-    encrypt_file,
+    decrypt_data_from_file,
+    deserialize_private_key_from_pem,
+    deserialize_public_key_from_pem,
+    encrypt_data_to_file,
     encrypt_string,
 )
 
@@ -140,11 +140,11 @@ async def get_transcription_file(
         )
 
     private_key = user_get_private_key(api_user["user"]["user_id"])
-    private_key = deserialize_private_key(
+    private_key = deserialize_private_key_from_pem(
         private_key, settings.API_PRIVATE_KEY_PASSWORD
     )
 
-    stream = decrypt_file(
+    stream = decrypt_data_from_file(
         private_key,
         str(file_path),
     )
@@ -182,9 +182,9 @@ async def put_video_file(
 
     file_bytes = await file.read()
     public_key = user_get_public_key(user_id)
-    public_key = deserialize_public_key(public_key)
+    public_key = deserialize_public_key_from_pem(public_key)
 
-    encrypt_file(
+    encrypt_data_to_file(
         public_key,
         file_bytes,
         str(file_path / filename),
@@ -225,7 +225,7 @@ async def put_transcription_result(
 
     # Encrypt the data with the users public key
     public_key = user_get_public_key(user_id)
-    public_key = deserialize_public_key(public_key)
+    public_key = deserialize_public_key_from_pem(public_key)
 
     match data["format"]:
         case "srt":

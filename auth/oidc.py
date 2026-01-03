@@ -78,6 +78,7 @@ async def verify_token(id_token: str):
 
     if exp < datetime.now():
         raise UnauthenticatedError("Token expired.")
+
     return decoded_jwt
 
 
