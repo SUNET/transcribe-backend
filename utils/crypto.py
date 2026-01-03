@@ -25,7 +25,7 @@ def generate_rsa_keypair(
     return private_key, public_key
 
 
-def serialize_private_key(
+def serialize_private_key_to_pem(
     private_key: rsa.RSAPrivateKey,
     password: bytes,
 ) -> bytes:
@@ -45,7 +45,7 @@ def serialize_private_key(
     return pem
 
 
-def serialize_public_key(
+def serialize_public_key_to_pem(
     public_key: rsa.RSAPublicKey,
 ) -> bytes:
     """
@@ -60,7 +60,7 @@ def serialize_public_key(
     return pem
 
 
-def deserialize_private_key(
+def deserialize_private_key_from_pem(
     pem_data: bytes,
     password: bytes,
 ) -> rsa.RSAPrivateKey:
@@ -82,7 +82,7 @@ def deserialize_private_key(
     return private_key
 
 
-def deserialize_public_key(
+def deserialize_public_key_from_pem(
     pem_data: bytes,
 ) -> rsa.RSAPublicKey:
     """
@@ -95,7 +95,7 @@ def deserialize_public_key(
     return public_key
 
 
-def validate_password(
+def validate_private_key_password(
     private_key_pem: bytes,
     password: bytes,
 ) -> bool:
@@ -110,7 +110,7 @@ def validate_password(
     if not isinstance(private_key_pem, bytes):
         private_key_pem = private_key_pem.encode("utf-8")
 
-    if deserialize_private_key(private_key_pem, password):
+    if deserialize_private_key_from_pem(private_key_pem, password):
         return True
 
     return False
@@ -132,7 +132,13 @@ def encrypt_string(
 
     # 2. Encrypt plaintext with AES-GCM
     nonce = os.urandom(12)  # 96-bit nonce (recommended)
-    plaintext_bytes = plaintext.encode("utf-8")
+
+    # Convert to bytes if necessary
+    if isinstance(plaintext, str):
+        plaintext_bytes = plaintext.encode("utf-8")
+    else:
+        plaintext_bytes = plaintext
+
     ciphertext = aesgcm.encrypt(nonce, plaintext_bytes, None)
 
     # 3. Encrypt AES key with RSA
@@ -187,7 +193,7 @@ def decrypt_string(
     return plaintext.decode("utf-8")
 
 
-def encrypt_file(
+def encrypt_data_to_file(
     public_key: rsa.RSAPublicKey,
     input_bytes: bytes,
     output_filepath: str,
@@ -221,7 +227,7 @@ def encrypt_file(
         fout.flush()
 
 
-def decrypt_file(
+def decrypt_data_from_file(
     private_key: rsa.RSAPrivateKey,
     input_filepath: str,
     start_chunk: int = 0,
