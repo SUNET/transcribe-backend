@@ -50,7 +50,7 @@ async def get_user_info(
     Used by the frontend to get user information.
     """
 
-    data = await request.form()
+    data = await request.json()
     encryption_password = data.get("encryption_password", "")
 
     if not user_id:
@@ -95,13 +95,13 @@ async def set_user_info(
             status_code=401,
         )
 
-    # Get encryption_password as form data
-    data = await request.form()
+    # Get json data
+    data = await request.json()
 
     encryption_settings = data.get("encryption", False)
     encryption_password = data.get("encryption_password", "")
-
     reset_password = data.get("reset_password", False)
+    verify_password = data.get("verify_password", "")
 
     if encryption_settings and encryption_password:
         user_update(
@@ -111,6 +111,14 @@ async def set_user_info(
         )
     elif reset_password:
         user_update(user_id, reset_encryption=True)
+    elif verify_password:
+        private_key = user_get_private_key(user_id)
+
+        if not validate_password(private_key, encryption_password):
+            return JSONResponse(
+                content={"error": "Invalid encryption password"},
+                status_code=403,
+            )
 
     return JSONResponse(content={"result": {"status": "OK"}})
 

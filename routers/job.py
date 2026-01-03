@@ -1,38 +1,37 @@
-from fastapi import APIRouter, UploadFile, Request, Depends
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import StreamingResponse, JSONResponse
+import json
 
 from auth.client_auth import dn_in_list, verify_client_dn
 from auth.oidc import get_current_user_id
-
+from fastapi import APIRouter, UploadFile, Request, Depends
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import StreamingResponse, JSONResponse
 from db.job import (
     job_get,
-    job_update,
     job_get_next,
     job_result_save,
+    job_update,
 )
 from db.user import (
+    user_get,
     user_get_from_job,
+    user_get_private_key,
+    user_get_public_key,
     user_get_username_from_job,
     user_update,
-    user_get,
-    user_get_public_key,
-    user_get_private_key,
 )
 from db.models import JobStatusEnum
-from utils.settings import get_settings
-from utils.health import HealthStatus
-
 from pathlib import Path
+from utils.health import HealthStatus
 from utils.log import get_logger
+from utils.settings import get_settings
+
 from utils.crypto import (
-    encrypt_string,
-    deserialize_public_key,
-    encrypt_file,
     decrypt_file,
     deserialize_private_key,
+    deserialize_public_key,
+    encrypt_file,
+    encrypt_string,
 )
-import json
 
 log = get_logger()
 router = APIRouter(tags=["job"])

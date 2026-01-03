@@ -1,4 +1,3 @@
-import shutil
 import aiofiles
 import requests
 
@@ -258,7 +257,7 @@ async def get_transcription_result(
     Get the transcription result.
     """
 
-    data = await request.form()
+    data = await request.json()
     encryption_password = data.get("encryption_password", "")
     private_key = user_get_private_key(user_id)
 
@@ -312,7 +311,7 @@ async def get_video_stream(
 
     job = job_get(job_id, user_id)
 
-    data = await request.form()
+    data = await request.json()
     encryption_password = data.get("encryption_password", "")
 
     private_key = user_get_private_key(user_id)
@@ -393,7 +392,6 @@ async def delete_external_transcription_job(
     """
     Delete an external transcription job.
     Used by integrations to clean up completed/failed jobs.
-
     """
     client_dn = verify_client_dn(request)
     job = job_get_by_external_id(external_id, client_dn)
