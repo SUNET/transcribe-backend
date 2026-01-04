@@ -2,7 +2,7 @@ import aiofiles
 import requests
 
 from fastapi import APIRouter, UploadFile, Request, Header, Depends
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, Response
 from db.job import (
     job_create,
     job_remove,
@@ -329,17 +329,28 @@ async def get_transcription_result(
             content={"result": {"error": "Job result not found"}}, status_code=404
         )
 
-    deserialized_private_key = deserialize_private_key_from_pem(
-        private_key, encryption_password
-    )
+    try:
+        deserialized_private_key = deserialize_private_key_from_pem(
+            private_key, encryption_password
+        )
+    except ValueError:
+        # If we can't deserialize the private key, assume the
+        # data is not encrypted yet.
+        encrypted_result = False
+    else:
+        encrypted_result = True
 
     match output_format:
         case OutputFormatEnum.TXT:
             content = job_result.get("result", "")
-            content = decrypt_string(deserialized_private_key, content)
+
+            if encrypted_result:
+                content = decrypt_string(deserialized_private_key, content)
         case OutputFormatEnum.SRT:
             content = job_result.get("result_srt", "")
-            content = decrypt_string(deserialized_private_key, content)
+
+            if encrypted_result:
+                content = decrypt_string(deserialized_private_key, content)
         case OutputFormatEnum.CSV:
             pass
         case _:
@@ -375,12 +386,16 @@ async def get_video_stream(
     """
 
     job = job_get(job_id, user_id)
-
     data = await request.json()
     encryption_password = data.get("encryption_password", "")
 
-    private_key = user_get_private_key(user_id)
-    private_key = deserialize_private_key_from_pem(private_key, encryption_password)
+    try:
+        private_key = user_get_private_key(user_id)
+        private_key = deserialize_private_key_from_pem(private_key, encryption_password)
+    except ValueError:
+        encrypted_media = False
+    else:
+        encrypted_media = True
 
     if not job:
         return JSONResponse({"result": {"error": "Job not found"}}, status_code=404)
@@ -393,40 +408,59 @@ async def get_video_stream(
     filesize = file_path.stat().st_size
 
     if not range or not range.startswith("bytes="):
-        start = 0
-        end = filesize - 1
+        range_start = 0
+        range_end = filesize - 1
     else:
-        start_str, end_str = range.replace("bytes=", "").split("-")
-        start = int(start_str)
-        end = int(end_str) if end_str else filesize - 1
+        range_start_str, range_end_str = range.replace("bytes=", "").split("-")
+        range_start = int(range_start_str)
+        range_end = int(range_end_str) if range_end_str else filesize - 1
 
-    # Determine which chunks correspond to the byte range
-    start_chunk = start // settings.CRYPTO_CHUNK_SIZE
-    end_chunk = end // settings.CRYPTO_CHUNK_SIZE
+    # New way to serve encrypted video files
+    if encrypted_media:
+        # Determine which chunks correspond to the byte range
+        start_chunk = range_start // settings.CRYPTO_CHUNK_SIZE
+        end_chunk = range_end // settings.CRYPTO_CHUNK_SIZE
 
-    def stream_chunks():
-        offset_in_first_chunk = start % settings.CRYPTO_CHUNK_SIZE
-        last_chunk_bytes = (end % settings.CRYPTO_CHUNK_SIZE) + 1
+        def stream_chunks():
+            offset_in_first_chunk = range_start % settings.CRYPTO_CHUNK_SIZE
+            last_chunk_bytes = (range_end % settings.CRYPTO_CHUNK_SIZE) + 1
 
-        for i, chunk in enumerate(
-            decrypt_data_from_file(private_key, file_path, start_chunk, end_chunk)
-        ):
-            if i == 0:
-                # First chunk: apply start offset
-                chunk = chunk[offset_in_first_chunk:]
-            if i == (end_chunk - start_chunk):
-                # Last chunk: trim to end
-                chunk = chunk[:last_chunk_bytes]
-            yield chunk
+            for i, chunk in enumerate(
+                decrypt_data_from_file(private_key, file_path, start_chunk, end_chunk)
+            ):
+                if i == 0:
+                    # First chunk: apply range_start offset
+                    chunk = chunk[offset_in_first_chunk:]
+                if i == (end_chunk - start_chunk):
+                    # Last chunk: trim to range_end
+                    chunk = chunk[:last_chunk_bytes]
+                yield chunk
+        headers = {
+            "Content-Range": f"bytes {range_start}-{range_end}/{filesize}",
+            "Accept-Ranges": "bytes",
+        }
 
-    headers = {
-        "Content-Range": f"bytes {start}-{end}/{filesize}",
-        "Accept-Ranges": "bytes",
-    }
+        return StreamingResponse(
+            stream_chunks(), status_code=206, headers=headers, media_type="video/mp4"
+        )
 
-    return StreamingResponse(
-        stream_chunks(), status_code=206, headers=headers, media_type="video/mp4"
-    )
+    # Old way to serve unencrypted video files
+    else:
+        filesize = int(file_path.stat().st_size)
+        range_start, range_end = range.replace("bytes=", "").split("-")
+        range_start = int(range_start)
+        range_end = int(range_end) if range_end else filesize - 1
+
+        with open(file_path, "rb") as video:
+            video.seek(range_start)
+            data = video.read(range_end - range_start + 1)
+            headers = {
+                "Content-Range": f"bytes {str(range_start)}-{str(range_end)}/{filesize}",
+                "Accept-Ranges": "bytes",
+            }
+
+            return Response(data, status_code=206, headers=headers, media_type="video/mp4")
+
 
 
 @router.get("/transcriber/external/{external_id}")
