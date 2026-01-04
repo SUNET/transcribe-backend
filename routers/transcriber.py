@@ -324,33 +324,43 @@ async def get_transcription_result(
     encryption_password = data.get("encryption_password", "")
     private_key = user_get_private_key(user_id)
 
+    if encryption_password == "":
+        encrypted_result = False
+
     if not (job_result := job_result_get(user_id, job_id)):
         return JSONResponse(
             content={"result": {"error": "Job result not found"}}, status_code=404
         )
 
-    try:
-        deserialized_private_key = deserialize_private_key_from_pem(
-            private_key, encryption_password
-        )
-    except ValueError:
-        # If we can't deserialize the private key, assume the
-        # data is not encrypted yet.
-        encrypted_result = False
-    else:
+    if encryption_password != "" and encryption_password is not None:
         encrypted_result = True
+
+        try:
+            deserialized_private_key = deserialize_private_key_from_pem(
+                private_key, encryption_password
+            )
+        except Exception:
+            encrypted_result = False
+    else:
+        encrypted_result = False
 
     match output_format:
         case OutputFormatEnum.TXT:
             content = job_result.get("result", "")
 
             if encrypted_result:
-                content = decrypt_string(deserialized_private_key, content)
+                try:
+                    content = decrypt_string(deserialized_private_key, content)
+                except ValueError:
+                    content = job_result.get("result", "")
         case OutputFormatEnum.SRT:
             content = job_result.get("result_srt", "")
 
             if encrypted_result:
-                content = decrypt_string(deserialized_private_key, content)
+                try:
+                    content = decrypt_string(deserialized_private_key, content)
+                except ValueError:
+                    content = job_result.get("result_srt", "")
         case OutputFormatEnum.CSV:
             pass
         case _:
@@ -389,21 +399,26 @@ async def get_video_stream(
     data = await request.json()
     encryption_password = data.get("encryption_password", "")
 
-    try:
+    if encryption_password != "" and encryption_password is not None:
         private_key = user_get_private_key(user_id)
         private_key = deserialize_private_key_from_pem(private_key, encryption_password)
-    except ValueError:
-        encrypted_media = False
-    else:
+        file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4.enc"
         encrypted_media = True
+
+        if not file_path.exists():
+            file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+            encrypted_media = False
+    else:
+        file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+        encrypted_media = False
 
     if not job:
         return JSONResponse({"result": {"error": "Job not found"}}, status_code=404)
 
-    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4.enc"
-
     if not file_path.exists():
-        return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
+        return JSONResponse(
+            {"result": {"error": "Video file not found"}}, status_code=404
+        )
 
     filesize = file_path.stat().st_size
 
@@ -414,6 +429,18 @@ async def get_video_stream(
         range_start_str, range_end_str = range.replace("bytes=", "").split("-")
         range_start = int(range_start_str)
         range_end = int(range_end_str) if range_end_str else filesize - 1
+
+    # Try to decrypt the first chunk of the file to verify the password
+    if encrypted_media:
+        try:
+            decrypt_data_from_file(
+                private_key,
+                file_path,
+                start_chunk=0,
+                end_chunk=0,
+            )
+        except Exception:
+            encrypted_media = False
 
     # New way to serve encrypted video files
     if encrypted_media:
