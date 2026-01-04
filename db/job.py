@@ -33,6 +33,21 @@ def job_create(
 ) -> dict:
     """
     Create a new job in the database.
+
+    Parameters:
+        user_id (str): The ID of the user creating the job.
+        job_type (JobType): The type of job being created.
+        language (str): The language of the job.
+        model_type (str): The model type for the job.
+        filename (str): The filename associated with the job.
+        output_format (OutputFormatEnum): The desired output format for the job.
+        external_id (str): An external ID associated with the job.
+        external_user_id (str): An external user ID associated with the job.
+        billing_id (str): A billing ID associated with the job.
+        client_dn (str): The client distinguished name.
+
+    Returns:
+        dict: The created job as a dictionary.
     """
 
     with get_session() as session:
@@ -60,6 +75,13 @@ def job_create(
 def job_get(uuid: str, user_id: str) -> Optional[Job]:
     """
     Get a job by UUID.
+
+    Parameters:
+        uuid (str): The UUID of the job to retrieve.
+        user_id (str): The ID of the user requesting the job.
+
+    Returns:
+        dict: The job as a dictionary if found, otherwise an empty dictionary.
     """
 
     with get_session() as session:
@@ -76,6 +98,13 @@ def job_get(uuid: str, user_id: str) -> Optional[Job]:
 def job_get_by_external_id(external_id: str, client_dn: str) -> Optional[Job]:
     """
     Get a job by External ID.
+
+    Parameters:
+        external_id (str): The external ID of the job to retrieve.
+        client_dn (str): The client distinguished name.
+
+    Returns:
+        dict: The job as a dictionary if found, otherwise an empty dictionary.
     """
     with get_session() as session:
         job = (
@@ -90,6 +119,9 @@ def job_get_by_external_id(external_id: str, client_dn: str) -> Optional[Job]:
 def job_get_next() -> dict:
     """
     Get the next available job from the database.
+
+    Returns:
+        dict: The next job as a dictionary if found, otherwise an empty dictionary.
     """
 
     with get_session() as session:
@@ -109,6 +141,13 @@ def job_get_next() -> dict:
 def job_get_all(user_id: str, cleaned: Optional[bool] = False) -> list[Job]:
     """
     Get all jobs from the database.
+
+    Parameters:
+        user_id (str): The ID of the user requesting the jobs.
+        cleaned (bool): Whether to include jobs with empty filenames.
+
+    Returns:
+        dict: A dictionary containing a list of jobs.
     """
 
     with get_session() as session:
@@ -137,6 +176,12 @@ def job_get_all(user_id: str, cleaned: Optional[bool] = False) -> list[Job]:
 def job_get_status(user_id: str) -> dict:
     """
     Get all job UUIDs together with statuses from the database.
+
+    Parameters:
+        user_id (str): The ID of the user requesting the jobs.
+
+    Returns:
+        dict: A dictionary containing a list of jobs with their statuses.
     """
 
     with get_session() as session:
@@ -164,6 +209,20 @@ def job_update(
 ) -> Optional[Job]:
     """
     Update a job by UUID.
+
+    Parameters:
+        uuid (str): The UUID of the job to update.
+        user_id (str): The ID of the user associated with the job.
+        status (JobStatusEnum): The new status of the job.
+        language (str): The language of the job.
+        model_type (str): The model type for the job.
+        speakers (int): The number of speakers in the job.
+        error (str): An error message associated with the job.
+        output_format (OutputFormatEnum): The desired output format for the job.
+        transcribed_seconds (int): The number of transcribed seconds.
+
+    Returns:
+        dict: The updated job as a dictionary if found, otherwise None.
     """
 
     with get_session() as session:
@@ -197,6 +256,12 @@ def job_update(
 def job_remove(uuid: str) -> bool:
     """
     Delete a job by UUID.
+
+    Parameters:
+        uuid (str): The UUID of the job to delete.
+
+    Returns:
+        bool: True if the job was deleted, False otherwise.
     """
 
     with get_session() as session:
@@ -248,6 +313,15 @@ def job_remove(uuid: str) -> bool:
 def job_cleanup() -> None:
     """
     Remove all jobs from the database.
+
+    This function performs two main tasks:
+    1. It cleans up jobs that have reached their deletion date by invoking the
+       `job_remove` function for each of these jobs.
+    2. It permanently deletes jobs that were created more than approximately
+         two months ago (62 days) from the database.
+
+    Returns:
+        None
     """
 
     with get_session() as session:
@@ -281,6 +355,13 @@ def job_result_get(
 ) -> Optional[JobResult]:
     """
     Get the transcription result for a job by UUID.
+
+    Parameters:
+        user_id (str): The ID of the user requesting the job result.
+        job_id (str): The UUID of the job.
+
+    Returns:
+        dict: The job result as a dictionary if found, otherwise an empty dictionary.
     """
 
     with get_session() as session:
@@ -303,6 +384,12 @@ def job_result_get_external(
 ) -> Optional[JobResult]:
     """
     Get the transcription result for a job by UUID.
+
+    Parameters:
+        external_id (str): The external ID of the job.
+
+    Returns:
+        dict: The job result as a dictionary if found, otherwise an empty dictionary.
     """
 
     with get_session() as session:
@@ -327,6 +414,17 @@ def job_result_save(
 ) -> JobResult:
     """
     Save the transcription result for a job.
+
+    Parameters:
+        uuid (str): The UUID of the job.
+        user_id (str): The ID of the user associated with the job.
+        result_srt (str): The transcription result in SRT format.
+        result (str): The transcription result in JSON format.
+        external_id (str): An external ID associated with the job.
+        result_path (str): The path to the result file.
+
+    Returns:
+        dict: The saved job result as a dictionary.
     """
 
     with get_session() as session:

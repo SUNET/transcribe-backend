@@ -48,6 +48,13 @@ async def get_user_info(
     """
     Get user information.
     Used by the frontend to get user information.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        user_id (str): The ID of the current user.
+
+    Returns:
+        JSONResponse: The user information.
     """
 
     data = await request.json()
@@ -87,6 +94,13 @@ async def set_user_info(
     """
     Set user information.
     Used by the frontend to set user information.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        user_id (str): The ID of the current user.
+
+    Returns:
+        JSONResponse: The result of the operation.
     """
 
     if not user_id:
@@ -131,6 +145,13 @@ async def statistics(
     """
     Get user statistics.
     Used by the frontend to get user statistics.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        user_id (str): The ID of the current user.
+
+    Returns:
+        JSONResponse: The user statistics.
     """
 
     if not user_id:
@@ -167,6 +188,13 @@ async def list_users(
     """
     List all users with statistics.
     Used by the frontend to list all users.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The list of users with statistics.
     """
 
     admin_user_id = await verify_user(request)
@@ -204,6 +232,14 @@ async def modify_user(
     """
     Modify a user's active status.
     Used by the frontend to modify a user's active status.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        username (str): The username of the user to modify.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The result of the operation.
     """
     admin_user_id = await verify_user(request)
 
@@ -254,6 +290,13 @@ async def list_groups(
 ) -> JSONResponse:
     """
     List all groups with statistics and member counts.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The list of groups with statistics and member counts.
     """
 
     admin_user_id = await verify_user(request)
@@ -305,7 +348,15 @@ async def create_group(
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
-    Create a new group."""
+    Create a new group.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The result of the operation.
+    """
 
     admin_user_id = await verify_user(request)
     if not admin_user_id:
@@ -345,6 +396,14 @@ async def get_group(
 ) -> JSONResponse:
     """
     Get group details.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        group_id (str): The ID of the group.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The group details.
     """
 
     admin_user_id = await verify_user(request)
@@ -380,6 +439,14 @@ async def update_group(
 ) -> JSONResponse:
     """
     Update group details (name/description).
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        group_id (str): The ID of the group.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The result of the operation.
     """
 
     admin_user_id = await verify_user(request)
@@ -423,6 +490,14 @@ async def delete_group(
 ) -> JSONResponse:
     """
     Delete a group.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        group_id (int): The ID of the group.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The result of the operation.
     """
 
     admin_user_id = await verify_user(request)
@@ -472,7 +547,18 @@ async def remove_user_from_group(
     username: str,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
-    """Remove a user from a group."""
+    """
+    Remove a user from a group.
+
+    Parameters:
+        admin_user_id = await verify_user(request)
+        request (Request): The incoming HTTP request.
+        group_id (int): The ID of the group.
+        username (str): The username of the user to remove.
+
+    Returns:
+        JSONResponse: The result of the operation.
+    """
     admin_user_id = await verify_user(request)
     if not admin_user_id:
         return JSONResponse(
@@ -495,6 +581,14 @@ async def group_stats(
 ) -> JSONResponse:
     """
     Get group statistics.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        group_id (str): The ID of the group.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The group statistics.
     """
 
     admin_user_id = await verify_user(request)
@@ -536,6 +630,13 @@ async def list_customers(
 ) -> JSONResponse:
     """
     List all customers with statistics.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The list of customers with statistics.
     """
 
     admin_user_id = await verify_user(request)
@@ -569,6 +670,13 @@ async def create_customer(
 ) -> JSONResponse:
     """
     Create a new customer.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The result of the operation.
     """
 
     admin_user_id = await verify_user(request)
@@ -621,6 +729,14 @@ async def get_customer(
 ) -> JSONResponse:
     """
     Get customer details.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        customer_id (str): The ID of the customer.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The customer details.
     """
 
     admin_user_id = await verify_user(request)
@@ -651,6 +767,14 @@ async def update_customer(
 ) -> JSONResponse:
     """
     Update customer details.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        customer_id (str): The ID of the customer.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The updated customer details.
     """
 
     admin_user_id = await verify_user(request)
@@ -703,6 +827,14 @@ async def delete_customer(
 ) -> JSONResponse:
     """
     Delete a customer.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        customer_id (int): The ID of the customer.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The result of the operation.
     """
 
     admin_user_id = await verify_user(request)
@@ -730,6 +862,13 @@ async def list_realms(
 ) -> JSONResponse:
     """
     List all unique realms.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The list of unique realms.
     """
 
     admin_user_id = await verify_user(request)
@@ -757,6 +896,14 @@ async def customer_stats(
 ) -> JSONResponse:
     """
     Get detailed customer statistics.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        customer_id (str): The ID of the customer.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        JSONResponse: The customer statistics.
     """
 
     admin_user_id = await verify_user(request)
@@ -787,6 +934,13 @@ async def export_customers_csv(
 ):
     """
     Export all customers with statistics to CSV format.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user_id (str): The ID of the admin user.
+
+    Returns:
+        Response: The CSV file response.
     """
 
     admin_user_id = await verify_user(request)

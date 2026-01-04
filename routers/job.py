@@ -46,6 +46,13 @@ async def update_transcription_status(
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job to update.
+
+    Returns:
+        JSONResponse: The updated job status.
     """
 
     verify_client_dn(request)
@@ -102,6 +109,12 @@ async def get_transcription_job(
 ) -> JSONResponse:
     """
     Get the next available job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        JSONResponse: The next available job.
     """
     verify_client_dn(request)
     job = job_get_next()
@@ -116,6 +129,14 @@ async def get_transcription_file(
 ) -> StreamingResponse:
     """
     Get the data to transcribe.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        user_id (str): The ID of the user.
+        job_id (str): The ID of the job.
+
+    Returns:
+        StreamingResponse: The encrypted file stream.
     """
     verify_client_dn(request)
     job = job_get(job_id, user_id)
@@ -165,6 +186,15 @@ async def put_video_file(
 ) -> JSONResponse:
     """
     Upload the video file to transcribe.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        user_id (str): The ID of the user.
+        job_id (str): The ID of the job.
+        file (UploadFile): The uploaded file.
+
+    Returns:
+        JSONResponse: The result of the upload.
     """
 
     verify_client_dn(request)
@@ -210,6 +240,14 @@ async def put_transcription_result(
 ) -> JSONResponse:
     """
     Upload the transcription result.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        user_id (str): The ID of the user.
+        job_id (str): The ID of the job.
+
+    Returns:
+        JSONResponse: The result of the upload.
     """
 
     verify_client_dn(request)
@@ -270,6 +308,12 @@ async def put_transcription_result(
 async def healthcheck(request: Request) -> JSONResponse:
     """
     Recevice a JSON blob with system data from the GPU workers.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        JSONResponse: The result of the health check.
     """
 
     verify_client_dn(request)
@@ -288,6 +332,13 @@ async def get_healthcheck(
 ) -> JSONResponse:
     """
     Get the health status of all workers.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        user_id (str): The ID of the user.
+
+    Returns:
+        JSONResponse: The health status of all workers.
     """
 
     if not user_id:

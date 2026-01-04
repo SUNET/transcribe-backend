@@ -62,6 +62,9 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """
     Get the settings for the application.
+
+    Returns:
+        Settings: The application settings.
     """
     if not os.path.exists(Settings().API_FILE_STORAGE_DIR):
         os.makedirs(Settings().API_FILE_STORAGE_DIR)

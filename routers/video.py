@@ -17,6 +17,14 @@ async def get_video(
 ):
     """
     Endpoint to retrieve video information.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job.
+        user_id (str): The ID of the current user.
+
+    Returns:
+        FileResponse: The video file response.
     """
 
     path = f"{settings.API_FILE_STORAGE_DIR}/{user_id}/{job_id}.mp4"

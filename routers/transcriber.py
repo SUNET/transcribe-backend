@@ -56,6 +56,15 @@ async def transcribe(
     Transcribe audio file.
 
     Used by the frontend to get the status of a transcription job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job to get. If empty, get all jobs for the user.
+        status (Optional[JobStatus]): Filter jobs by status.
+        user_id (str): The ID of the current user.
+
+    Returns:
+        JSONResponse: The job status or list of jobs.
     """
 
     if job_id:
@@ -76,6 +85,14 @@ async def transcribe_file(
     Transcribe audio file.
 
     Used by the frontend to upload an audio file for transcription.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        file (UploadFile): The uploaded audio file.
+        user_id (str): The ID of the current user.
+
+    Returns:
+        JSONResponse: The job status.
     """
 
     job = job_create(
@@ -139,6 +156,14 @@ async def delete_transcription_job(
     Delete a transcription job.
 
     Used by the frontend to delete a transcription job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job to delete.
+        user_id (str): The ID of the current user.
+
+    Returns:
+        JSONResponse: The result of the deletion.
     """
 
     job = job_get(job_id, user_id)
@@ -170,6 +195,14 @@ async def update_transcription_status(
     Update the status of a transcription job.
 
     Used by the frontend and worker to update the status of a transcription job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job to update.
+        user_id (str): The ID of the current user.
+
+    Returns:
+        JSONResponse: The updated job status.
     """
 
     quota_left = user_get_quota_left(user_id)
@@ -232,6 +265,14 @@ async def put_transcription_result(
 ) -> JSONResponse:
     """
     Upload the transcription result.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job.
+        user_id (str): The ID of the user.
+
+    Returns:
+        JSONResponse: The result of the upload.
     """
     json_data = await request.json()
 
@@ -268,6 +309,15 @@ async def get_transcription_result(
 ) -> JSONResponse:
     """
     Get the transcription result.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job.
+        output_format (OutputFormatEnum): The desired output format.
+        user_id (str): The ID of the user.
+
+    Returns:
+        JSONResponse: The transcription result.
     """
 
     data = await request.json()
@@ -313,6 +363,15 @@ async def get_video_stream(
 ) -> StreamingResponse:
     """
     Stream an encrypted video for a transcription job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job.
+        range (str): The byte range for streaming.
+        user_id (str): The ID of the user.
+
+    Returns:
+        StreamingResponse: The video stream response.
     """
 
     job = job_get(job_id, user_id)
@@ -380,6 +439,14 @@ async def get_job_external(
     Get job by external id.
 
     Used by external integrations.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        external_id (str): The external ID of the job.
+        status (Optional[JobStatus]): Filter jobs by status.
+
+    Returns:
+        JSONResponse: The job status.
     """
 
     client_dn = verify_client_dn(request)
@@ -400,6 +467,13 @@ async def delete_external_transcription_job(
     """
     Delete an external transcription job.
     Used by integrations to clean up completed/failed jobs.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        external_id (str): The external ID of the job to delete.
+
+    Returns:
+        JSONResponse: The result of the deletion.
     """
     client_dn = verify_client_dn(request)
     job = job_get_by_external_id(external_id, client_dn)
@@ -432,6 +506,12 @@ async def transcribe_external_file(
     Transcribe audio file.
 
     Used by external integrations to upload files.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        JSONResponse: The job status.
     """
 
     client_dn = verify_client_dn(request)

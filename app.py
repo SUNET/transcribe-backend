@@ -66,6 +66,13 @@ app.include_router(user_router, prefix=settings.API_PREFIX, tags=["user"])
 # Create API user with RSA keypair
 @app.on_event("startup")
 async def create_api_user() -> None:
+    """
+    Create the API user with RSA keypair on startup if it does not exist.
+
+    Returns:
+        None
+    """
+
     if user_exists("api_user"):
         return
 
@@ -80,6 +87,16 @@ async def create_api_user() -> None:
 
 @app.get("/api/auth")
 async def auth(request: Request):
+    """
+    OIDC authentication endpoint.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: Redirects to the frontend with tokens.
+    """
+
     token = await oauth.auth0.authorize_access_token(request)
     userinfo = token.get("userinfo")
     if not userinfo:
@@ -100,16 +117,47 @@ async def auth(request: Request):
 
 @app.get("/api/login")
 async def login(request: Request):
+    """
+    OIDC login endpoint.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: Redirects to the OIDC provider for authentication.
+    """
+
     return await oauth.auth0.authorize_redirect(request, settings.OIDC_REDIRECT_URI)
 
 
 @app.get("/api/logout")
 async def logout(request: Request):
+    """
+    OIDC logout endpoint.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: Redirects to the frontend after logout.
+    """
+
     return RedirectResponse(url=settings.OIDC_FRONTEND_URI)
 
 
 @app.post("/api/refresh")
 async def refresh(request: Request, refresh_token: RefreshToken):
+    """
+    OIDC token refresh endpoint.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        refresh_token (RefreshToken): The refresh token model.
+
+    Returns:
+        JSONResponse: The new access token.
+    """
+
     data = {
         "client_id": settings.OIDC_CLIENT_ID,
         "client_secret": settings.OIDC_CLIENT_SECRET,
@@ -131,6 +179,16 @@ async def refresh(request: Request, refresh_token: RefreshToken):
 
 @app.get("/api/docs")
 async def docs(request: Request) -> RedirectResponse:
+    """
+    Redirect to the API documentation after verifying the user.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: Redirects to the API documentation.
+    """
+
     await verify_user(request)
 
     return RedirectResponse(url="/docs")
@@ -139,4 +197,11 @@ async def docs(request: Request) -> RedirectResponse:
 @app.on_event("startup")
 @repeat_every(seconds=60 * 60)
 def remove_old_jobs() -> None:
+    """
+    Periodic task to remove old jobs from the database.
+
+    Returns:
+        None
+    """
+
     job_cleanup()

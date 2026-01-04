@@ -17,6 +17,16 @@ def group_create(
 ) -> dict:
     """
     Create a new group in the database.
+
+    Parameters:
+        name (str): The name of the group.
+        realm (str): The realm/domain of the group.
+        description (Optional[str]): A description of the group.
+        owner_user_id (Optional[int]): The user ID of the group owner.
+        quota_seconds (Optional[int]): The quota in seconds for the group.
+
+    Returns:
+        dict: The created group as a dictionary.
     """
 
     with get_session() as session:
@@ -39,21 +49,33 @@ def group_create(
 def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optional[dict]:
     """
     Get a group by id with its users and models.
+
+    Parameters:
+        group_id (str): The ID of the group to retrieve.
+        realm (str): The realm/domain to filter users.
+        user_id (Optional[str]): The user ID of the requester for permission checks.
+
+    Returns:
+        Optional[dict]: The group as a dictionary, or None if not found.
     """
 
     with get_session() as session:
         if group_id == "0":
+            # Default group with all users
             group = Group(name="All users", realm=realm)
         else:
             if realm == "*":
+                # Admin requesting from all realms
                 group = session.query(Group).filter(Group.id == group_id).first()
             else:
+                # Check if user has access to the group
                 admin_domains = (
                     session.query(User.admin_domains)
                     .filter(User.user_id == user_id)
                     .scalar()
                 )
 
+                # If no admin domains, only allow if user is in group or is owner
                 group = (
                     session.query(Group)
                     .filter(Group.id == group_id)
@@ -73,10 +95,12 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
             return {}
 
         if realm == "*":
+            # Admin requesting from all realms
             other_users = (
                 session.query(User).filter(~User.groups.any(Group.id == group_id)).all()
             )
         else:
+            # Check admin domains for additional users
             admin_domains = (
                 session.query(User.admin_domains)
                 .filter(User.user_id == user_id)
@@ -86,6 +110,7 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
             if not admin_domains:
                 return group.as_dict()
 
+            # Get users not in the group but in the admin domains
             other_users = (
                 session.query(User)
                 .filter(~User.groups.any(Group.id == group_id))
@@ -113,6 +138,12 @@ def group_get(group_id: str, realm: str, user_id: Optional[str] = "") -> Optiona
 def group_get_from_user_id(user_id: str) -> list[dict]:
     """
     Get all groups for a specific user id.
+
+    Parameters:
+        user_id (str): The user ID to retrieve groups for.
+
+    Returns:
+        list[dict]: A list of groups the user belongs to.
     """
 
     with get_session() as session:
@@ -126,6 +157,13 @@ def group_get_from_user_id(user_id: str) -> list[dict]:
 def group_get_all(user_id: str, realm: str) -> list[dict]:
     """
     Get all groups with their users and models.
+
+    Parameters:
+        user_id (str): The user ID of the requester for permission checks.
+        realm (str): The realm/domain to filter users.
+
+    Returns:
+        list[dict]: A list of groups with their metadata.
     """
 
     all_users = []
@@ -200,6 +238,12 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
 def group_get_quota_left(group_id: int) -> int:
     """
     Get the remaining quota seconds for a group.
+
+    Parameters:
+        group_id (int): The ID of the group.
+
+    Returns:
+        int: The remaining quota seconds for the group.
     """
 
     with get_session() as session:
@@ -222,6 +266,12 @@ def group_get_quota_left(group_id: int) -> int:
 def group_delete(group_id: int) -> bool:
     """
     Delete a group by id.
+
+    Parameters:
+        group_id (int): The ID of the group to delete.
+
+    Returns:
+        bool: True if the group was deleted, False otherwise.
     """
     with get_session() as session:
         group = session.query(Group).filter(Group.id == group_id).first()
@@ -268,6 +318,16 @@ def group_update(
 ) -> Optional[dict]:
     """
     Update group metadata.
+
+    Parameters:
+        group_id (str): The ID of the group to update.
+        name (Optional[str]): The new name of the group.
+        description (Optional[str]): The new description of the group.
+        usernames (Optional[list[int]]): List of usernames to set as group members.
+        quota_seconds (Optional[int]): The new quota in seconds for the group.
+
+    Returns:
+        Optional[dict]: The updated group as a dictionary, or None if not found.
     """
 
     with get_session() as session:
@@ -325,6 +385,14 @@ def group_update(
 def group_add_user(group_id: int, username: str, role: str = "member") -> dict:
     """
     Add a user to a group with a given role.
+
+    Parameters:
+        group_id (int): The ID of the group.
+        username (str): The username of the user to add.
+        role (str): The role of the user in the group.
+
+    Returns:
+        dict: The group-user link as a dictionary.
     """
     with get_session() as session:
         user_id = session.query(User.id).filter(User.username == username).scalar()
@@ -348,6 +416,13 @@ def group_add_user(group_id: int, username: str, role: str = "member") -> dict:
 def group_remove_user(group_id: int, user_id: int) -> bool:
     """
     Remove a user from a group.
+
+    Parameters:
+        group_id (int): The ID of the group.
+        user_id (int): The ID of the user to remove.
+
+    Returns:
+        bool: True if the user was removed, False otherwise.
     """
     with get_session() as session:
         link = (
@@ -370,6 +445,13 @@ def group_remove_user(group_id: int, user_id: int) -> bool:
 def group_add_model(group_id: int, model_id: int) -> dict:
     """
     Link a model to a group.
+
+    Parameters:
+        group_id (int): The ID of the group.
+        model_id (int): The ID of the model to link.
+
+    Returns:
+        dict: The group-model link as a dictionary.
     """
     with get_session() as session:
         link = (
@@ -390,6 +472,13 @@ def group_add_model(group_id: int, model_id: int) -> dict:
 def group_remove_model(group_id: int, model_id: int) -> bool:
     """
     Unlink a model from a group.
+
+    Parameters:
+        group_id (int): The ID of the group.
+        model_id (int): The ID of the model to unlink.
+
+    Returns:
+        bool: True if the model was unlinked, False otherwise.
     """
     with get_session() as session:
         link = (
@@ -411,6 +500,9 @@ def group_remove_model(group_id: int, model_id: int) -> bool:
 def group_list() -> list[dict]:
     """
     List all groups with their metadata.
+
+    Returns:
+        list[dict]: A list of groups as dictionaries.
     """
     with get_session() as session:
         groups = session.query(Group).all()
@@ -420,6 +512,13 @@ def group_list() -> list[dict]:
 def group_get_users(group_id: str, realm: str) -> list[dict]:
     """
     Get all users in a group.
+
+    Parameters:
+        group_id (str): The ID of the group.
+        realm (str): The realm/domain to filter users.
+
+    Returns:
+        list[dict]: A list of users in the group as dictionaries.
     """
     with get_session() as session:
         group = (

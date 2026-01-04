@@ -14,12 +14,21 @@ def generate_rsa_keypair(
     """
     Generate an RSA key pair.
     Returns a tuple of (private_key, public_key).
+
+    Parameters:
+        key_size (Optional[int]): Size of the RSA key in bits. Default is 4096.
+
+    Returns:
+        Tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]: The generated RSA private and public keys.
     """
 
+    # Generate private key
     private_key = rsa.generate_private_key(
-        public_exponent=65537,
+        public_exponent=65537,  # Commonly used public exponent
         key_size=key_size,
     )
+
+    # Derive public key
     public_key = private_key.public_key()
 
     return private_key, public_key
@@ -32,10 +41,19 @@ def serialize_private_key_to_pem(
     """
     Serialize the private key to PEM format.
     If a password is provided, the key will be encrypted.
+
+    Parameters:
+        private_key (rsa.RSAPrivateKey): The RSA private key to serialize.
+        password (bytes): The password to encrypt the private key.
+
+    Returns:
+        bytes: The PEM-formatted private key.
     """
 
+    # Set up encryption algorithm, should default to AES if password is provided
     encryption_algorithm = serialization.BestAvailableEncryption(password)
 
+    # Serialize private key to PEM
     pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -50,6 +68,12 @@ def serialize_public_key_to_pem(
 ) -> bytes:
     """
     Serialize the public key to PEM format.
+
+    Parameters:
+        public_key (rsa.RSAPublicKey): The RSA public key to serialize.
+
+    Returns:
+        bytes: The PEM-formatted public key.
     """
 
     pem = public_key.public_bytes(
@@ -67,8 +91,16 @@ def deserialize_private_key_from_pem(
     """
     Deserialize a PEM-formatted private key.
     If the key is encrypted, provide the password.
+
+    Parameters:
+        pem_data (bytes): The PEM-formatted private key data.
+        password (bytes): The password to decrypt the private key.
+
+    Returns:
+        rsa.RSAPrivateKey: The deserialized RSA private key.
     """
 
+    # Convert to bytes if necessary
     if not isinstance(password, bytes):
         password = password.encode("utf-8")
     if not isinstance(pem_data, bytes):
@@ -87,6 +119,12 @@ def deserialize_public_key_from_pem(
 ) -> rsa.RSAPublicKey:
     """
     Deserialize a PEM-formatted public key.
+
+    Parameters:
+        pem_data (bytes): The PEM-formatted public key data.
+
+    Returns:
+        rsa.RSAPublicKey: The deserialized RSA public key.
     """
     public_key = serialization.load_pem_public_key(
         pem_data,
@@ -101,7 +139,13 @@ def validate_private_key_password(
 ) -> bool:
     """
     Validate if the provided password can decrypt the private key.
-    Returns True if the password is correct, False otherwise.
+
+    Parameters:
+        private_key_pem (bytes): The PEM-formatted private key data.
+        password (bytes): The password to validate.
+
+    Returns:
+        bool: True if the password is correct, False otherwise.
     """
 
     if not isinstance(password, bytes):
@@ -122,8 +166,13 @@ def encrypt_string(
 ) -> bytes:
     """
     Encrypt arbitrarily large strings using hybrid RSA + AES-GCM.
-    Returns a binary blob containing:
-    [ RSA-encrypted AES key | nonce | AES-GCM ciphertext ]
+
+    Parameters:
+        public_key (rsa.RSAPublicKey): The RSA public key for encrypting the AES key.
+        plaintext (str): The plaintext string to encrypt.
+
+    Returns:
+        bytes: The encrypted data, base64-encoded.
     """
 
     # 1. Generate symmetric key
@@ -163,6 +212,13 @@ def decrypt_string(
 ) -> str:
     """
     Decrypt data encrypted by encrypt_string().
+
+    Parameters:
+        private_key (rsa.RSAPrivateKey): The RSA private key for decrypting the AES key.
+        blob (str): The encrypted data, base64-encoded.
+
+    Returns:
+        str: The decrypted plaintext string.
     """
     blob = base64.b64decode(blob)
 
@@ -201,6 +257,15 @@ def encrypt_data_to_file(
 ) -> None:
     """
     Split a file into chunks and encrypt each chunk using encrypt_string().
+
+    Parameters:
+        public_key (rsa.RSAPublicKey): The RSA public key for encrypting the data.
+        input_bytes (bytes): The binary data to encrypt.
+        output_filepath (str): The output file path to write the encrypted data.
+        chunk_size (int): The size of each chunk in bytes. Default is 64KB.
+
+    Returns:
+        None
     """
 
     def write_chunk(chunk: bytes, fout):
@@ -237,6 +302,15 @@ def decrypt_data_from_file(
     Decrypt a file encrypted by encrypt_file().
     Yields binary chunks.
     Supports optional start_chunk and end_chunk (0-based, inclusive).
+
+    Parameters:
+        private_key (rsa.RSAPrivateKey): The RSA private key for decrypting the data.
+        input_filepath (str): The input file path to read the encrypted data.
+        start_chunk (int): The starting chunk index (0-based). Default is 0.
+        end_chunk (Optional[int]): The ending chunk index (0-based, inclusive). Default is None (no limit).
+
+    Returns:
+        Iterator[bytes]: An iterator yielding decrypted binary chunks.
     """
 
     chunk_index = 0

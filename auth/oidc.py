@@ -29,6 +29,15 @@ oauth.register(
 async def get_current_user_id(request: Request) -> str:
     """
     Get the current user ID from the request.
+
+    1. Verify the user.
+    2. Return the user ID.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        str: The current user ID.
     """
 
     return await verify_user(request)
@@ -37,11 +46,26 @@ async def get_current_user_id(request: Request) -> str:
 class UnauthenticatedError(HTTPException):
     """
     Exception raised when the user is not authenticated.
+
+    Parameters:
+        error (Optional[str]): Additional error message.
+
+    Raises:
+        HTTPException: 401 Unauthorized with the error message.
+
+    Returns:
+        None
     """
 
     def __init__(self, error: Optional[str] = "") -> None:
         """
         Initialize the exception.
+
+        Parameters:
+            error (Optional[str]): Additional error message.
+
+        Raises:
+            HTTPException: 401 Unauthorized with the error message.
         """
         super().__init__(status_code=401, detail="You are not authenticated: " + error)
 
@@ -49,34 +73,46 @@ class UnauthenticatedError(HTTPException):
 class RefreshToken(BaseModel):
     """
     Refresh token model.
+
+    Parameters:
+        token (str): The refresh token.
     """
 
     token: str
 
 
-async def verify_token(id_token: str):
+async def verify_token(id_token: str) -> dict:
     """
     Verify the given ID token.
     1. Fetch the JWKS from the OIDC provider.
     2. Decode and verify the JWT using the JWKS.
     3. Check the issuer and expiration time.
+
+    Parameters:
+        id_token (str): The ID token to verify.
+
+    Returns:
+        dict: The decoded JWT payload.
     """
 
+    # Fetch the JWKS from the OIDC provider
     jwks = await oauth.auth0.fetch_jwk_set()
 
+    # Decode and verify the JWT
     try:
         decoded_jwt = jwt.decode(s=id_token, key=jwks)
     except Exception as e:
         raise UnauthenticatedError("Invalid token.") from e
 
+    # Validate issuer and expiration
     metadata = await oauth.auth0.load_server_metadata()
 
+    # Validate issuer
     if decoded_jwt["iss"] != metadata["issuer"]:
         raise UnauthenticatedError("Invalid issuer.")
 
-    exp = datetime.fromtimestamp(decoded_jwt["exp"])
-
-    if exp < datetime.now():
+    # Check if the token is expired
+    if datetime.fromtimestamp(decoded_jwt["exp"]) < datetime.now():
         raise UnauthenticatedError("Token expired.")
 
     return decoded_jwt
@@ -89,16 +125,26 @@ async def verify_user(request: Request):
     2. Verify the ID token.
     3. Create or update the user in the database.
     4. Return the user ID.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        str: The verified user ID.
     """
 
+    # Extract the Authorization header
     auth_header = request.headers.get("Authorization")
 
+    # Check if the Authorization header is present
     if auth_header is None:
         raise UnauthenticatedError("No authorization header found.")
 
+    # Check if the Authorization header is in the correct format
     if not auth_header.startswith("Bearer "):
         raise UnauthenticatedError("Invalid authorization header format.")
 
+    # Extract the ID token
     id_token = auth_header.split(" ")[1]
 
     if id_token is None:
@@ -106,6 +152,7 @@ async def verify_user(request: Request):
 
     decoded_jwt = await verify_token(id_token=id_token)
 
+    # Create or update the user in the database
     user_id = decoded_jwt["sub"]
     username = decoded_jwt.get("preferred_username")
     realm = decoded_jwt.get("realm", username.split("@")[-1])
@@ -116,6 +163,7 @@ async def verify_user(request: Request):
         user_id=user_id,
     )
 
+    # Check if the user is active
     if not user["active"]:
         log.error(f"User {user_id} is not active.")
         raise HTTPException(status_code=403, detail="User is not active.")

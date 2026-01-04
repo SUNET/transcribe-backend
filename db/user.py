@@ -21,6 +21,14 @@ def user_create(
 ) -> dict:
     """
     Create a new user in the database.
+
+    Parameters:
+        username (str): The username of the user.
+        realm (str): The realm/domain of the user.
+        user_id (Optional[str]): The unique identifier of the user.
+
+    Returns:
+        dict: The created user as a dictionary.
     """
 
     if not user_id or not realm:
@@ -55,6 +63,12 @@ def user_create(
 def user_exists(username: str) -> bool:
     """
     Check if a user exists by user_id.
+
+    Parameters:
+        username (str): The username of the user.
+
+    Returns:
+        bool: True if the user exists, False otherwise.
     """
     with get_session() as session:
         user = session.query(User).filter(User.username == username).first()
@@ -65,6 +79,12 @@ def user_exists(username: str) -> bool:
 def user_get_from_job(job_id: str) -> Optional[User]:
     """
     Get a user by job_user_id.
+
+    Parameters:
+        job_id (str): The job ID.
+
+    Returns:
+        Optional[User]: The user associated with the job, or None if not found.
     """
     with get_session() as session:
         job = session.query(Job).filter(Job.uuid == job_id).first()
@@ -83,6 +103,12 @@ def user_get_from_job(job_id: str) -> Optional[User]:
 def user_get_username_from_job(job_id: str) -> Optional[User]:
     """
     Get a user by job_user_id.
+
+    Parameters:
+        job_id (str): The job ID.
+
+    Returns:
+        Optional[User]: The user associated with the job, or None if not found.
     """
     with get_session() as session:
         job = session.query(Job).filter(Job.uuid == job_id).first()
@@ -98,6 +124,13 @@ def user_get_username_from_job(job_id: str) -> Optional[User]:
 def user_get(user_id: Optional[str] = "", username: Optional[str] = "") -> Optional[User]:
     """
     Get a user by user_id.
+
+    Parameters:
+        user_id (Optional[str]): The user ID.
+        username (Optional[str]): The username.
+
+    Returns:
+        Optional[User]: The user associated with the user_id, or None if not found.
     """
 
     if not user_id and not username:
@@ -119,6 +152,12 @@ def user_get(user_id: Optional[str] = "", username: Optional[str] = "") -> Optio
 def user_get_private_key(user_id: str) -> Optional[str]:
     """
     Get a users private key.
+
+    Parameters:
+        user_id (str): The user ID.
+    
+    Returns:
+        Optional[str]: The user's private key, or None if not found.
     """
     log.info(f"Fetching private key for user {user_id}")
 
@@ -127,6 +166,12 @@ def user_get_private_key(user_id: str) -> Optional[str]:
 def user_get_public_key(user_id: str) -> Optional[str]:
     """
     Get a users public key.
+
+    Parameters:
+        user_id (str): The user ID.
+
+    Returns:
+        Optional[str]: The user's public key, or None if not found.
     """
 
     return user_get(user_id)["user"]["public_key"].encode("utf-8")
@@ -134,6 +179,12 @@ def user_get_public_key(user_id: str) -> Optional[str]:
 def user_get_all(realm) -> list:
     """
     Get all users in a realm.
+
+    Parameters:
+        realm (str): The realm/domain to filter users by. Use "*" to get all users.
+
+    Returns:
+        list: A list of users in the specified realm.
     """
     with get_session() as session:
         if realm == "*":
@@ -182,6 +233,12 @@ def user_get_all(realm) -> list:
 def user_get_quota_left(user_id: str) -> bool:
     """
     Get the transcription quota left for a user.
+
+    Parameters:
+        user_id (str): The user ID.
+
+    Returns:
+        bool: True if the user has quota left, False otherwise.
     """
 
     with get_session() as session:
@@ -221,7 +278,20 @@ def user_update(
     reset_encryption: Optional[bool] = False,
 ) -> dict:
     """
-    Update a user's transcribed seconds.
+    Update a user in the database.
+
+    Parameters:
+        user_id (str): The user ID.
+        transcribed_seconds (Optional[str]): The number of transcribed seconds to add.
+        active (Optional[bool]): The active status to set.
+        admin (Optional[bool]): The admin status to set.
+        admin_domains (Optional[str]): The admin domains to set.
+        encryption_settings (Optional[bool]): Whether to enable encryption settings.
+        encryption_password (Optional[str]): The password for encryption.
+        reset_encryption (Optional[bool]): Whether to reset encryption settings.
+
+    Returns:
+        dict: The updated user as a dictionary.
     """
 
     with get_session() as session:
@@ -296,6 +366,12 @@ def user_update(
 def get_username_from_id(user_id: str) -> Optional[str]:
     """
     Get a username by user_id.
+
+    Parameters:
+        user_id (str): The user ID.
+
+    Returns:
+        Optional[str]: The username associated with the user_id, or None if not found.
     """
 
     with get_session() as session:
@@ -313,6 +389,15 @@ def users_statistics(
     """
     Get user statistics for the last 'days' days.
     Shows customer names instead of usernames when available.
+
+    Parameters:
+        group_id (Optional[str]): The group ID to filter users by.
+        realm (Optional[str]): The realm/domain to filter users by.
+        days (Optional[int]): The number of days to look back for statistics.
+        user_id (Optional[str]): The user ID of the requesting user.
+
+    Returns:
+        dict: A dictionary containing user statistics.
     """
 
     with get_session() as session:
@@ -508,6 +593,14 @@ def users_statistics(
 def group_statistics(group_id: str, user_id: str, realm: str) -> dict:
     """
     Get group statistics for a user.
+
+    Parameters:
+        group_id (str): The group ID.
+        user_id (str): The user ID of the requesting user.
+        realm (str): The realm/domain to filter users by.
+
+    Returns:
+        dict: A dictionary containing group statistics.
     """
 
     stats = users_statistics(group_id=group_id, user_id=user_id, realm=realm)
@@ -529,6 +622,15 @@ def user_can_transcribe(user_id: str) -> int:
     """
     Check which group a user belongs to and check whether the user have
     quota left or not.
+
+    Parameters:
+        user_id (str): The user ID.
+
+    Returns:
+        int: 
+            -1 if the user has unlimited quota,
+            0 if the user has no quota left,
+            >0 indicating the number of seconds left in the quota.
     """
 
     with get_session() as session:

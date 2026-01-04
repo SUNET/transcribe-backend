@@ -4,6 +4,13 @@ from logging import FileHandler, Logger, getLogger
 
 
 def get_logger() -> Logger:
+    """
+    Get the Uvicorn logger and configure it based on environment variables.
+
+    Returns:
+        Logger: Configured Uvicorn logger.
+    """
+
     logger = getLogger("uvicorn")
 
     if os.environ.get("LOG_LEVEL"):
