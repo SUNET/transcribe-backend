@@ -3,13 +3,17 @@ import calendar
 from datetime import datetime, timedelta
 from typing import Optional
 
-from auth.client_auth import dn_in_list
+from auth.client import dn_in_list
 from utils.log import get_logger
 
 from db.job import job_get_all, job_remove
 from db.models import Customer, Group, GroupUserLink, Job, User
 from db.session import get_session
-from utils.crypto import generate_rsa_keypair, serialize_private_key_to_pem, serialize_public_key_to_pem
+from utils.crypto import (
+    generate_rsa_keypair,
+    serialize_private_key_to_pem,
+    serialize_public_key_to_pem,
+)
 
 log = get_logger()
 
@@ -59,6 +63,7 @@ def user_create(
         log.info(f"Created user {user_id} in realm {realm}.")
 
         return user.dict()
+
 
 def user_exists(username: str) -> bool:
     """
@@ -121,7 +126,9 @@ def user_get_username_from_job(job_id: str) -> Optional[User]:
         return user.as_dict()["username"] if user else None
 
 
-def user_get(user_id: Optional[str] = "", username: Optional[str] = "") -> Optional[User]:
+def user_get(
+    user_id: Optional[str] = "", username: Optional[str] = ""
+) -> Optional[User]:
     """
     Get a user by user_id.
 
@@ -149,19 +156,21 @@ def user_get(user_id: Optional[str] = "", username: Optional[str] = "") -> Optio
 
     return result
 
+
 def user_get_private_key(user_id: str) -> Optional[str]:
     """
     Get a users private key.
 
     Parameters:
         user_id (str): The user ID.
-    
+
     Returns:
         Optional[str]: The user's private key, or None if not found.
     """
     log.info(f"Fetching private key for user {user_id}")
 
     return user_get(user_id)["user"]["private_key"].encode("utf-8")
+
 
 def user_get_public_key(user_id: str) -> Optional[str]:
     """
@@ -175,6 +184,7 @@ def user_get_public_key(user_id: str) -> Optional[str]:
     """
 
     return user_get(user_id)["user"]["public_key"].encode("utf-8")
+
 
 def user_get_all(realm) -> list:
     """
@@ -224,11 +234,14 @@ def user_get_all(realm) -> list:
                 group_map[user_dict["id"]]["groups"] += f", {group_dict["name"]}"
             else:
                 group_map[user_dict["id"]] = user_dict
-                group_map[user_dict["id"]]["groups"] = group_dict["name"] if group_dict else ""
+                group_map[user_dict["id"]]["groups"] = (
+                    group_dict["name"] if group_dict else ""
+                )
 
         result = list(group_map.values())
 
         return result
+
 
 def user_get_quota_left(user_id: str) -> bool:
     """
@@ -261,7 +274,10 @@ def user_get_quota_left(user_id: str) -> bool:
             if "total_transcribed_minutes" not in group_statistics_res:
                 return True
 
-            if group_statistics_res["total_transcribed_minutes"] < group.quota_seconds / 60:
+            if (
+                group_statistics_res["total_transcribed_minutes"]
+                < group.quota_seconds / 60
+            ):
                 return True
 
     return False
@@ -352,7 +368,7 @@ def user_update(
             jobs = session.query(Job).filter(Job.user_id == user.user_id).all()
 
             for job in jobs:
-                job_remove(job.uuid)        
+                job_remove(job.uuid)
 
         log.info(
             f"User {user.user_id} updated: "
@@ -415,11 +431,7 @@ def users_statistics(
             if realm == "*":
                 group = session.query(Group).filter(Group.id == group_id).first()
             else:
-                group = (
-                    session.query(Group)
-                    .filter(Group.id == group_id)
-                    .first()
-                )
+                group = session.query(Group).filter(Group.id == group_id).first()
 
             if not group:
                 return {
@@ -627,7 +639,7 @@ def user_can_transcribe(user_id: str) -> int:
         user_id (str): The user ID.
 
     Returns:
-        int: 
+        int:
             -1 if the user has unlimited quota,
             0 if the user has no quota left,
             >0 indicating the number of seconds left in the quota.

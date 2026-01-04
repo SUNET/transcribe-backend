@@ -178,8 +178,6 @@ def encrypt_string(
     # 1. Generate symmetric key
     aes_key = AESGCM.generate_key(bit_length=256)
     aesgcm = AESGCM(aes_key)
-
-    # 2. Encrypt plaintext with AES-GCM
     nonce = os.urandom(12)  # 96-bit nonce (recommended)
 
     # Convert to bytes if necessary
@@ -188,6 +186,7 @@ def encrypt_string(
     else:
         plaintext_bytes = plaintext
 
+    # 2. Encrypt message with AES
     ciphertext = aesgcm.encrypt(nonce, plaintext_bytes, None)
 
     # 3. Encrypt AES key with RSA
