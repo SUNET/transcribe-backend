@@ -90,9 +90,11 @@ async def update_transcription_status(
                 content={"result": {"error": "User not found"}}, status_code=404
             )
 
-        # Send notification email
         if email := user_get_email(user_id):
             notifications.send_transcription_finished(email)
+    elif job["status"] == JobStatusEnum.FAILED:
+        if email := user_get_email(user_id):
+            notifications.send_transcription_failed(email)
 
     # We don't want to keep files for failed or completed jobs
     # for security and storage reasons. Remove them.
@@ -102,10 +104,6 @@ async def update_transcription_status(
     ):
         if file_path.exists():
             file_path.unlink()
-
-        # Send notification email
-        if email := user_get_email(user_id):
-            notifications.send_transcription_failed(email)
 
     return JSONResponse(content={"result": job})
 
