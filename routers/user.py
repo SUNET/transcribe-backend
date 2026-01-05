@@ -94,6 +94,7 @@ async def set_user_info(
     encryption_password = data.get("encryption_password", "")
     reset_password = data.get("reset_password", False)
     verify_password = data.get("verify_password", "")
+    email = data.get("email", "")
 
     if encryption_settings and encryption_password:
         user_update(
@@ -111,5 +112,7 @@ async def set_user_info(
                 content={"error": "Invalid encryption password"},
                 status_code=403,
             )
+    elif email:
+        user_update(user_id, email=email)
 
     return JSONResponse(content={"result": {"status": "OK"}})

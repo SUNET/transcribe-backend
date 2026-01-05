@@ -14,9 +14,9 @@ from utils.crypto import (
     serialize_private_key_to_pem,
     serialize_public_key_to_pem,
 )
+from utils.notifications import notifications
 
 log = get_logger()
-
 
 def user_create(
     username: str,
@@ -292,6 +292,7 @@ def user_update(
     encryption_settings: Optional[bool] = None,
     encryption_password: Optional[str] = None,
     reset_encryption: Optional[bool] = False,
+    email: Optional[str] = None,
 ) -> dict:
     """
     Update a user in the database.
@@ -370,6 +371,13 @@ def user_update(
             for job in jobs:
                 job_remove(job.uuid)
 
+        if email:
+            log.info(f"Updating email for user {user.user_id} to {email}")
+            user.email = email
+
+            if email != "" and email is not None:
+                notifications.send_email_verification(email)
+
         log.info(
             f"User {user.user_id} updated: "
             + f"transcribed_seconds={user.transcribed_seconds}, "
@@ -378,6 +386,21 @@ def user_update(
 
         return user.as_dict() if user else {}
 
+def user_get_email(user_id: str) -> Optional[str]:
+    """
+    Get a user's email by user_id.
+
+    Parameters:
+        user_id (str): The user ID.
+
+    Returns:
+        Optional[str]: The email associated with the user_id, or None if not found.
+    """
+
+    with get_session() as session:
+        user = session.query(User).filter(User.user_id == user_id).first()
+
+        return user.email if user else None
 
 def get_username_from_id(user_id: str) -> Optional[str]:
     """

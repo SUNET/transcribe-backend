@@ -383,6 +383,10 @@ class User(SQLModel, table=True):
         default=None,
         description="User's public key for encryption",
     )
+    email: Optional[str] = Field(
+        default=None,
+        description="User's email address",
+    )
 
     def as_dict(self) -> dict:
         """
@@ -404,6 +408,7 @@ class User(SQLModel, table=True):
             "transcribed_seconds": self.transcribed_seconds,
             "user_id": self.user_id,
             "username": self.username,
+            "email": self.email,
         }
 
 

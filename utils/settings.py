@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     API_CLIENT_VERIFICATION_HEADER: str = "x-client-legacy"
     API_PRIVATE_KEY_PASSWORD: str = ""
 
+    # SMTP configuration.
+    API_SMTP_HOST: str = ""
+    API_SMTP_PORT: int = 25
+    API_SMTP_USERNAME: str = ""
+    API_SMTP_PASSWORD: str = ""
+    API_SMTP_SENDER: str = ""
+    API_SMTP_SSL: bool = False
+
     # OIDC configuration.
     OIDC_CLIENT_ID: str = ""
     OIDC_SCOPE: list[str] = []
