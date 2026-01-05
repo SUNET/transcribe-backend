@@ -121,5 +121,27 @@ class Notifications:
             message=message,
         )
 
+    def send_transcription_failed(self, to_email: str) -> None:
+        """
+        Send a transcription failed notification.
+        """
+
+        subject = "Your transcription job has failed"
+        message = """\
+        Hello,
+
+        Unfortunately, your transcription job has failed.
+        Please try again later or contact support if the problem persists.
+
+        Best regards,
+        Sunet Scribe Team
+        """
+
+        self.add(
+            to_emails=[to_email],
+            subject=subject,
+            message=message,
+        )
+
 
 notifications = Notifications()
