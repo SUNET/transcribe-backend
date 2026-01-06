@@ -164,19 +164,19 @@ async def modify_user(
 
     if active is not None:
         user_update(
-            username,
+            admin_user_id,
             active=active,
         )
 
     if admin is not None:
         user_update(
-            username,
+            admin_user_id,
             admin=admin,
         )
 
     if admin_domains is not None:
         user_update(
-            username,
+            admin_user_id,
             admin_domains=admin_domains,
         )
 
