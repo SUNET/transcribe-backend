@@ -1,4 +1,4 @@
-from auth.oidc import get_current_user_id, verify_user
+from auth.oidc import get_current_user_id
 from db.user import (
     user_get,
     user_get_private_key,
@@ -6,7 +6,7 @@ from db.user import (
 )
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse
 from utils.log import get_logger
 from utils.settings import get_settings
 from utils.crypto import validate_private_key_password
