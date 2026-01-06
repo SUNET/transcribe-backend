@@ -112,13 +112,13 @@ class Notifications:
 
         subject = "Your e-mail address have been updated"
         message = """\
-        Hello,
+Hello,
 
-        Your e-mail address have been updated in Sunet Scribe.
-        If you did not perform this action, please contact support.
+Your e-mail address have been updated in Sunet Scribe.
+If you did not perform this action, please contact support.
 
-        Best regards,
-        Sunet Scribe Team
+Best regards,
+Sunet Scribe Team
         """
 
         self.add(
@@ -140,13 +140,13 @@ class Notifications:
 
         subject = "Your transcription job is finished"
         message = """\
-        Hello,
+Hello,
 
-        Your transcription job is finished.
-        You can now log in to Sunet Scribe to see your transcription.
+Your transcription job is finished.
+You can now log in to Sunet Scribe to see your transcription.
 
-        Best regards,
-        Sunet Scribe Team
+Best regards,
+Sunet Scribe Team
         """
 
         self.add(
@@ -168,13 +168,13 @@ class Notifications:
 
         subject = "Your transcription job has failed"
         message = """\
-        Hello,
+Hello,
 
-        Unfortunately, your transcription job has failed.
-        Please try again later or contact support if the problem persists.
+Unfortunately, your transcription job has failed.
+Please try again later or contact support if the problem persists.
 
-        Best regards,
-        Sunet Scribe Team
+Best regards,
+Sunet Scribe Team
         """
 
         self.add(
@@ -196,14 +196,14 @@ class Notifications:
 
         subject = "Your transcription job has been deleted"
         message = """\
-        Hello,
+Hello,
 
-        One of your transcription job has been deleted from Sunet Scribe since it was
-        older than 7 days. Sunet Scribe don't keep transcription jobs for more than 7
-        days for security and storage reasons.
+One of your transcription job has been deleted from Sunet Scribe since it was
+older than 7 days. Sunet Scribe don't keep transcription jobs for more than 7
+days for security and storage reasons.
 
-        Best regards,
-        Sunet Scribe Team
+Best regards,
+Sunet Scribe Team
         """
 
         self.add(
@@ -225,14 +225,14 @@ class Notifications:
 
         subject = "Your transcription job will be deleted soon"
         message = """\
-        Hello,
+Hello,
 
-        One of your transcription job will be deleted from Sunet Scribe in 24 hours since it
-        is older than 7 days. Sunet Scribe don't keep transcription jobs for more than 7
-        days for security and storage reasons.
+One of your transcription job will be deleted from Sunet Scribe in 24 hours since it
+is older than 7 days. Sunet Scribe don't keep transcription jobs for more than 7
+days for security and storage reasons.
 
-        Best regards,
-        Sunet Scribe Team
+Best regards,
+Sunet Scribe Team
         """
 
         self.add(
@@ -254,13 +254,13 @@ class Notifications:
 
         subject = "A new user has been created"
         message = f"""\
-        Hello,
+Hello,
 
-        A new user {username} has been created in Sunet Scribe.
-        Please review the new user and take any necessary actions.
+A new user {username} has been created in Sunet Scribe.
+Please review the new user and take any necessary actions.
 
-        Best regards,
-        Sunet Scribe Team
+Best regards,
+Sunet Scribe Team
         """
 
         self.add(
