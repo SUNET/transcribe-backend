@@ -16,6 +16,11 @@ class Notifications:
     def __init__(self) -> None:
         """
         Initialize the Notifications system.
+
+        Starts a background thread that processes the email notification queue
+
+        Returns:
+            None
         """
 
         self.__queue = collections.deque()
@@ -42,6 +47,14 @@ class Notifications:
     def add(self, to_emails: list, subject: str, message: str) -> None:
         """
         Queue an email notification to be sent later.
+
+        Parameters:
+            to_emails (list): List of recipient email addresses.
+            subject (str): The subject of the email.
+            message (str): The body of the email.
+
+        Returns:
+            None
         """
 
         if not settings.API_SMTP_HOST:
@@ -63,24 +76,38 @@ class Notifications:
     ) -> None:
         """
         Send an email notification.
+
+        Parameters:
+            to_emails (list): List of recipient email addresses.
+            subject (str): The subject of the email.
+            message (str): The body of the email.
+
+        Returns:
+            None
         """
-        context = ssl.create_default_context()
-        server = smtplib.SMTP(settings.API_SMTP_HOST, settings.API_SMTP_PORT)
-        server.starttls(context=context)
-        server.login(settings.API_SMTP_USERNAME, settings.API_SMTP_PASSWORD)
 
-        for email in to_emails:
-            mail_to_send = f"From: Sunet Scribe <{settings.API_SMTP_SENDER}>\nTo: {email}\nSubject: {subject}\n\n{message}"
+        try:
+            context = ssl.create_default_context()
+            server = smtplib.SMTP(settings.API_SMTP_HOST, settings.API_SMTP_PORT)
+            server.starttls(context=context)
+            server.login(settings.API_SMTP_USERNAME, settings.API_SMTP_PASSWORD)
 
-            try:
+            for email in to_emails:
+                mail_to_send = f"From: Sunet Scribe <{settings.API_SMTP_SENDER}>\nTo: {email}\nSubject: {subject}\n\n{message}"
                 server.sendmail(settings.API_SMTP_SENDER, to_emails, mail_to_send)
                 logger.info(f"Email sent to {', '.join(to_emails)}")
-            except Exception as e:
-                logger.error(f"Error sending email to {", ".join(to_emails)}: {e}")
+        except Exception as e:
+            logger.error(f"Error sending email to {", ".join(to_emails)}: {e}")
 
     def send_email_verification(self, to_email: str) -> None:
         """
         Send an email verification notification.
+
+        Parameters:
+            to_email (str): The recipient's email address.
+
+        Returns:
+            None
         """
 
         subject = "Your e-mail address have been updated"
@@ -103,6 +130,12 @@ class Notifications:
     def send_transcription_finished(self, to_email: str) -> None:
         """
         Send a transcription finished notification.
+
+        Parameters:
+            to_email (str): The recipient's email address.
+
+        Returns:
+            None
         """
 
         subject = "Your transcription job is finished"
@@ -125,6 +158,12 @@ class Notifications:
     def send_transcription_failed(self, to_email: str) -> None:
         """
         Send a transcription failed notification.
+
+        Parameters:
+            to_email (str): The recipient's email address.
+
+        Returns:
+            None
         """
 
         subject = "Your transcription job has failed"
@@ -147,6 +186,12 @@ class Notifications:
     def send_job_deleted(self, to_email: str) -> None:
         """
         Send a job deleted notification.
+
+        Parameters:
+            to_email (str): The recipient's email address.
+
+        Returns:
+            None
         """
 
         subject = "Your transcription job has been deleted"
@@ -170,6 +215,12 @@ class Notifications:
     def send_job_to_be_deleted(self, to_email: str) -> None:
         """
         Send a job to be deleted notification.
+
+        Parameters:
+            to_email (str): The recipient's email address.
+
+        Returns:
+            None
         """
 
         subject = "Your transcription job will be deleted soon"

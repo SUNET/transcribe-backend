@@ -350,14 +350,18 @@ def job_cleanup() -> None:
             if "deletion" not in user.notifications.split(","):
                 continue
 
-            if user.email != "" and not notification_sent_record_exists(
-                user.user_id, job.uuid, "deletion"
-            ):
-                log.info(
-                    f"Sending transcription deletion notification to user {user.user_id} for job {job.uuid}."
-                )
-                notifications.send_transcription_finished(user.email)
-                notification_sent_record_add(user.user_id, job.uuid, "deletion")
+            if user.email == "":
+                continue
+
+            if notification_sent_record_exists(user.user_id, job.uuid, "deletion"):
+                continue
+
+            log.info(
+                f"Sending transcription deletion notification to user {user.user_id} for job {job.uuid}."
+            )
+
+            notifications.send_transcription_finished(user.email)
+            notification_sent_record_add(user.user_id, job.uuid, "deletion")
 
         # Permanently delete all jobs older than ~2 months
         jobs_to_delete = (
@@ -391,16 +395,20 @@ def job_cleanup() -> None:
                 continue
 
             if user.email != "":
-                if not notification_sent_record_exists(
-                    user.user_id, job.uuid, "deletion_warning"
-                ):
-                    log.info(
-                        f"Sending transcription deletion warning notification to user {user.user_id} for job {job.uuid}."
-                    )
-                    notifications.send_job_to_be_deleted(user.email)
-                    notification_sent_record_add(
-                        user.user_id, job.uuid, "deletion_warning"
-                    )
+                continue
+
+            if notification_sent_record_exists(
+                user.user_id, job.uuid, "deletion_warning"
+            ):
+                continue
+
+            log.info(
+                f"Sending transcription deletion warning notification to user {user.user_id} for job {job.uuid}."
+            )
+
+            # Send the notification
+            notifications.send_job_to_be_deleted(user.email)
+            notification_sent_record_add(user.user_id, job.uuid, "deletion_warning")
 
 
 def job_result_get(

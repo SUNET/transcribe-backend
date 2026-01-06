@@ -31,6 +31,7 @@ from utils.crypto import (
     encrypt_data_to_file,
     encrypt_string,
 )
+from utils.notifications import notifications
 
 log = get_logger()
 router = APIRouter(tags=["job"])
