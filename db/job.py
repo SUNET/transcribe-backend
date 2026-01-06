@@ -8,12 +8,18 @@ from db.models import (
     JobType,
     Jobs,
     OutputFormatEnum,
+    User,
 )
 from db.session import get_session
 from pathlib import Path
 from typing import Optional
 from utils.log import get_logger
 from utils.settings import get_settings
+from utils.notifications import (
+    notifications,
+    notification_sent_record_add,
+    notification_sent_record_exists,
+)
 
 log = get_logger()
 settings = get_settings()
@@ -333,6 +339,26 @@ def job_cleanup() -> None:
         for job in jobs_to_cleanup:
             job_remove(job.uuid)
 
+            if job.status == JobStatusEnum.DELETED:
+                continue
+
+            user = session.query(User).filter(User.user_id == job.user_id).first()
+
+            if not user or not user.notifications:
+                continue
+
+            if "deletion" not in user.notifications.split(","):
+                continue
+
+            if user.email != "" and not notification_sent_record_exists(
+                user.user_id, job.uuid, "deletion"
+            ):
+                log.info(
+                    f"Sending transcription deletion notification to user {user.user_id} for job {job.uuid}."
+                )
+                notifications.send_transcription_finished(user.email)
+                notification_sent_record_add(user.user_id, job.uuid, "deletion")
+
         # Permanently delete all jobs older than ~2 months
         jobs_to_delete = (
             session.query(Job)
@@ -347,6 +373,34 @@ def job_cleanup() -> None:
                 f"Permanently deleting job {job.uuid} created at {job.created_at} from database."
             )
             session.delete(job)
+
+        # Notify about jobs that will be deleted tomorrow
+        jobs_to_notify = (
+            session.query(Job)
+            .filter(Job.deletion_date <= datetime.now() + timedelta(days=1))
+            .all()
+        )
+
+        for job in jobs_to_notify:
+            user = session.query(User).filter(User.user_id == job.user_id).first()
+
+            if not user or not user.notifications:
+                continue
+
+            if "deletion" not in user.notifications.split(","):
+                continue
+
+            if user.email != "":
+                if not notification_sent_record_exists(
+                    user.user_id, job.uuid, "deletion_warning"
+                ):
+                    log.info(
+                        f"Sending transcription deletion warning notification to user {user.user_id} for job {job.uuid}."
+                    )
+                    notifications.send_job_to_be_deleted(user.email)
+                    notification_sent_record_add(
+                        user.user_id, job.uuid, "deletion_warning"
+                    )
 
 
 def job_result_get(

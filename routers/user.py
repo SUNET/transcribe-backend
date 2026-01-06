@@ -90,11 +90,12 @@ async def set_user_info(
     # Get json data
     data = await request.json()
 
-    encryption_settings = data.get("encryption", False)
+    email = data.get("email", "")
     encryption_password = data.get("encryption_password", "")
+    encryption_settings = data.get("encryption", False)
+    notifications = data.get("notifications", "")
     reset_password = data.get("reset_password", False)
     verify_password = data.get("verify_password", "")
-    email = data.get("email", "")
 
     if encryption_settings and encryption_password:
         user_update(
@@ -114,5 +115,20 @@ async def set_user_info(
             )
     elif email:
         user_update(user_id, email=email)
+    elif notifications:
+        notify_on_job = notifications.get("notify_on_job", False)
+        notify_on_deletion = notifications.get("notify_on_deletion", False)
+        notify_on_user = notifications.get("notify_on_user", False)
+
+        notifications_str = ""
+
+        if notify_on_job:
+            notifications_str += "job,"
+        if notify_on_deletion:
+            notifications_str += "deletion,"
+        if notify_on_user:
+            notifications_str += "user,"
+
+        user_update(user_id, notifications_str=notifications_str)
 
     return JSONResponse(content={"result": {"status": "OK"}})

@@ -14,9 +14,15 @@ from utils.crypto import (
     serialize_private_key_to_pem,
     serialize_public_key_to_pem,
 )
-from utils.notifications import notifications
+from utils.notifications import (
+    notifications,
+    notification_sent_record_add,
+    notification_sent_record_exists,
+)
+
 
 log = get_logger()
+
 
 def user_create(
     username: str,
@@ -62,6 +68,22 @@ def user_create(
 
         log.info(f"Created user {user_id} in realm {realm}.")
 
+        # Figure out which users we should send a notification
+        # email to about the new user creation.
+        admins = users_admin_domains_from_realm(realm)
+
+        for admin in admins:
+            # Check if the admin has the user notifications enabled
+            if admin_email := user_get_notifications(admin["user_id"], "user"):
+                # Check if we have already sent a notification for this user creation
+                if not notification_sent_record_exists(
+                    admin["user_id"], user.user_id, "user_creation"
+                ):
+                    notifications.send_new_user_created(admin_email, user)
+                    notification_sent_record_add(
+                        admin["user_id"], user.user_id, "user_creation"
+                    )
+
         return user.dict()
 
 
@@ -92,9 +114,7 @@ def user_get_from_job(job_id: str) -> Optional[User]:
         Optional[User]: The user associated with the job, or None if not found.
     """
     with get_session() as session:
-        job = session.query(Job).filter(Job.uuid == job_id).first()
-
-        if not job:
+        if not (job := session.query(Job).filter(Job.uuid == job_id).first()):
             return None
 
         user = session.query(User).filter(User.user_id == job.user_id).first()
@@ -116,9 +136,7 @@ def user_get_username_from_job(job_id: str) -> Optional[User]:
         Optional[User]: The user associated with the job, or None if not found.
     """
     with get_session() as session:
-        job = session.query(Job).filter(Job.uuid == job_id).first()
-
-        if not job:
+        if not (job := session.query(Job).filter(Job.uuid == job_id).first()):
             return None
 
         user = session.query(User).filter(User.user_id == job.user_id).first()
@@ -231,7 +249,7 @@ def user_get_all(realm) -> list:
                     user_dict["username"] = "(REACH) " + customer.name
 
             if user_dict["id"] in group_map:
-                group_map[user_dict["id"]]["groups"] += f", {group_dict["name"]}"
+                group_map[user_dict["id"]]["groups"] += ", " + group_dict["name"]
             else:
                 group_map[user_dict["id"]] = user_dict
                 group_map[user_dict["id"]]["groups"] = (
@@ -292,6 +310,7 @@ def user_update(
     encryption_settings: Optional[bool] = None,
     encryption_password: Optional[str] = None,
     reset_encryption: Optional[bool] = False,
+    notifications_str: Optional[str] = None,
     email: Optional[str] = None,
 ) -> dict:
     """
@@ -378,6 +397,12 @@ def user_update(
             if email != "" and email is not None:
                 notifications.send_email_verification(email)
 
+        if notifications_str is not None:
+            log.info(
+                f"Updating notifications for user {user.user_id} to {notifications_str}"
+            )
+            user.notifications = notifications_str
+
         log.info(
             f"User {user.user_id} updated: "
             + f"transcribed_seconds={user.transcribed_seconds}, "
@@ -385,6 +410,7 @@ def user_update(
         )
 
         return user.as_dict() if user else {}
+
 
 def user_get_email(user_id: str) -> Optional[str]:
     """
@@ -401,6 +427,7 @@ def user_get_email(user_id: str) -> Optional[str]:
         user = session.query(User).filter(User.user_id == user_id).first()
 
         return user.email if user else None
+
 
 def get_username_from_id(user_id: str) -> Optional[str]:
     """
@@ -669,9 +696,7 @@ def user_can_transcribe(user_id: str) -> int:
     """
 
     with get_session() as session:
-        user = session.query(User).filter(User.user_id == user_id).first()
-
-        if not user:
+        if not (user := session.query(User).filter(User.user_id == user_id).first()):
             return 0
 
         groups = (
@@ -689,3 +714,44 @@ def user_can_transcribe(user_id: str) -> int:
                 return group.transcription_quota - user.transcribed_seconds
 
         return 0
+
+
+def user_get_notifications(user_id: str, notification: str) -> Optional[str]:
+    """
+    Get a user's notification settings by user_id.
+
+    Parameters:
+        user_id (str): The user ID.
+
+    Returns:
+        Optional[str]: The email associated with the user_id if the notification
+        setting is enabled, or None if not found.
+    """
+
+    with get_session() as session:
+        user = session.query(User).filter(User.user_id == user_id).first()
+
+        if not user.notifications:
+            return None
+
+        if notification in user.notifications.split(","):
+            return user.email
+
+        return None
+
+
+def users_admin_domains_from_realm(realm: str) -> list:
+    """
+    Get all users which have the ralm in their list of admin_domains.
+
+    Parameters:
+        realm (str): The realm/domain to filter users by.
+
+    Returns:
+        list: A list of users which have the realm in their admin_domains.
+    """
+
+    with get_session() as session:
+        users = session.query(User).filter(User.admin_domains.ilike(f"%{realm}%")).all()
+
+        return [user.as_dict() for user in users]

@@ -3,9 +3,10 @@ import smtplib
 import ssl
 import threading
 
+from db.models import NotificationsSent
+from db.session import get_session
 from utils.log import get_logger
 from utils.settings import get_settings
-
 
 logger = get_logger()
 settings = get_settings()
@@ -143,5 +144,105 @@ class Notifications:
             message=message,
         )
 
+    def send_job_deleted(self, to_email: str) -> None:
+        """
+        Send a job deleted notification.
+        """
+
+        subject = "Your transcription job has been deleted"
+        message = """\
+        Hello,
+
+        One of your transcription job has been deleted from Sunet Scribe since it was
+        older than 7 days. Sunet Scribe don't keep transcription jobs for more than 7
+        days for security and storage reasons.
+
+        Best regards,
+        Sunet Scribe Team
+        """
+
+        self.add(
+            to_emails=[to_email],
+            subject=subject,
+            message=message,
+        )
+
+    def send_job_to_be_deleted(self, to_email: str) -> None:
+        """
+        Send a job to be deleted notification.
+        """
+
+        subject = "Your transcription job will be deleted soon"
+        message = """\
+        Hello,
+
+        One of your transcription job will be deleted from Sunet Scribe in 24 hours since it
+        is older than 7 days. Sunet Scribe don't keep transcription jobs for more than 7
+        days for security and storage reasons.
+
+        Best regards,
+        Sunet Scribe Team
+        """
+
+        self.add(
+            to_emails=[to_email],
+            subject=subject,
+            message=message,
+        )
+
 
 notifications = Notifications()
+
+
+def notification_sent_record_add(
+    user_id: str, uuid: str, notification_type: str
+) -> None:
+    """
+    Record that a notification has been sent to avoid duplicates.
+
+    Parameters:
+        user_id (str): The ID of the user.
+        uuid (str): The UUID of the job or entity.
+        notification_type (str): The type of notification sent.
+
+    Returns:
+        None
+    """
+
+    with get_session() as session:
+        notification = NotificationsSent(
+            user_id=user_id,
+            uuid=uuid,
+            notification_type=notification_type,
+        )
+        session.add(notification)
+        session.commit()
+
+
+def notification_sent_record_exists(
+    user_id: str, uuid: str, notification_type: str
+) -> bool:
+    """
+    Check if a notification has already been sent.
+
+    Parameters:
+        user_id (str): The ID of the user.
+        uuid (str): The UUID of the job or entity.
+        notification_type (str): The type of notification sent.
+
+    Returns:
+        bool: True if the notification has been sent, False otherwise.
+    """
+
+    with get_session() as session:
+        record = (
+            session.query(NotificationsSent)
+            .filter_by(
+                user_id=user_id,
+                uuid=uuid,
+                notification_type=notification_type,
+            )
+            .first()
+        )
+
+        return record is not None

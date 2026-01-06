@@ -387,6 +387,10 @@ class User(SQLModel, table=True):
         default=None,
         description="User's email address",
     )
+    notifications: Optional[str] = Field(
+        default=None,
+        description="User's notification preferences",
+    )
 
     def as_dict(self) -> dict:
         """
@@ -400,15 +404,16 @@ class User(SQLModel, table=True):
             "admin": self.admin,
             "admin_domains": self.admin_domains,
             "bofh": self.bofh,
+            "email": self.email,
             "encryption_settings": self.encryption_settings,
             "last_login": str(self.last_login),
+            "notifications": self.notifications,
             "private_key": self.private_key,
             "public_key": self.public_key,
             "realm": self.realm,
             "transcribed_seconds": self.transcribed_seconds,
             "user_id": self.user_id,
             "username": self.username,
-            "email": self.email,
         }
 
 
@@ -599,4 +604,46 @@ class Customer(SQLModel, table=True):
             "notes": self.notes,
             "created_at": str(self.created_at),
             "blocks_purchased": self.blocks_purchased if self.blocks_purchased else 0,
+        }
+
+
+class NotificationsSent(SQLModel, table=True):
+    """
+    Model representing notifications sent to users.
+    """
+
+    __tablename__ = "notifications_sent"
+
+    id: Optional[int] = Field(default=None, primary_key=True, description="Primary key")
+    user_id: str = Field(
+        default=None,
+        index=True,
+        description="User ID who received the notification",
+    )
+    notification_type: str = Field(
+        default=None,
+        description="Type of notification sent",
+    )
+    sent_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Timestamp when the notification was sent",
+    )
+    uuid: str = Field(
+        default=None,
+        index=True,
+        description="UUID of for example a job we've sent notification about",
+    )
+
+    def as_dict(self) -> dict:
+        """
+        Convert the notification object to a dictionary.
+        Returns:
+            dict: The notification object as a dictionary.
+        """
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "notification_type": self.notification_type,
+            "sent_at": str(self.sent_at),
+            "uuid": self.uuid,
         }

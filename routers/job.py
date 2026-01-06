@@ -17,7 +17,7 @@ from db.user import (
     user_get_public_key,
     user_get_username_from_job,
     user_update,
-    user_get_email,
+    user_get_notifications,
 )
 from db.models import JobStatusEnum
 from pathlib import Path
@@ -31,7 +31,6 @@ from utils.crypto import (
     encrypt_data_to_file,
     encrypt_string,
 )
-from utils.notifications import notifications
 
 log = get_logger()
 router = APIRouter(tags=["job"])
@@ -90,10 +89,10 @@ async def update_transcription_status(
                 content={"result": {"error": "User not found"}}, status_code=404
             )
 
-        if email := user_get_email(user_id):
+        if email := user_get_notifications(user_id, "job"):
             notifications.send_transcription_finished(email)
     elif job["status"] == JobStatusEnum.FAILED:
-        if email := user_get_email(user_id):
+        if email := user_get_notifications(user_id, "job"):
             notifications.send_transcription_failed(email)
 
     # We don't want to keep files for failed or completed jobs
