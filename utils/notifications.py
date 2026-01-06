@@ -241,59 +241,85 @@ class Notifications:
             message=message,
         )
 
+    def send_new_user_created(self, to_email: str, username: str) -> None:
+        """
+        Send a new user created notification to the admin.
 
-notifications = Notifications()
+        Parameters:
+            to_email (str): The recipient's email address.
 
+        Returns:
+            None
+        """
 
-def notification_sent_record_add(
-    user_id: str, uuid: str, notification_type: str
-) -> None:
-    """
-    Record that a notification has been sent to avoid duplicates.
+        subject = "A new user has been created"
+        message = f"""\
+        Hello,
 
-    Parameters:
-        user_id (str): The ID of the user.
-        uuid (str): The UUID of the job or entity.
-        notification_type (str): The type of notification sent.
+        A new user {username} has been created in Sunet Scribe.
+        Please review the new user and take any necessary actions.
 
-    Returns:
-        None
-    """
+        Best regards,
+        Sunet Scribe Team
+        """
 
-    with get_session() as session:
-        notification = NotificationsSent(
-            user_id=user_id,
-            uuid=uuid,
-            notification_type=notification_type,
+        self.add(
+            to_emails=[to_email],
+            subject=subject,
+            message=message,
         )
-        session.add(notification)
-        session.commit()
 
+    def notification_sent_record_add(
+        self, user_id: str, uuid: str, notification_type: str
+    ) -> None:
+        """
+        Record that a notification has been sent to avoid duplicates.
 
-def notification_sent_record_exists(
-    user_id: str, uuid: str, notification_type: str
-) -> bool:
-    """
-    Check if a notification has already been sent.
+        Parameters:
+            user_id (str): The ID of the user.
+            uuid (str): The UUID of the job or entity.
+            notification_type (str): The type of notification sent.
 
-    Parameters:
-        user_id (str): The ID of the user.
-        uuid (str): The UUID of the job or entity.
-        notification_type (str): The type of notification sent.
+        Returns:
+            None
+        """
 
-    Returns:
-        bool: True if the notification has been sent, False otherwise.
-    """
-
-    with get_session() as session:
-        record = (
-            session.query(NotificationsSent)
-            .filter_by(
+        with get_session() as session:
+            notification = NotificationsSent(
                 user_id=user_id,
                 uuid=uuid,
                 notification_type=notification_type,
             )
-            .first()
-        )
+            session.add(notification)
+            session.commit()
 
-        return record is not None
+    def notification_sent_record_exists(
+        self, user_id: str, uuid: str, notification_type: str
+    ) -> bool:
+        """
+        Check if a notification has already been sent.
+
+        Parameters:
+            user_id (str): The ID of the user.
+            uuid (str): The UUID of the job or entity.
+            notification_type (str): The type of notification sent.
+
+        Returns:
+            bool: True if the notification has been sent, False otherwise.
+        """
+
+        with get_session() as session:
+            record = (
+                session.query(NotificationsSent)
+                .filter_by(
+                    user_id=user_id,
+                    uuid=uuid,
+                    notification_type=notification_type,
+                )
+                .first()
+            )
+
+            return record is not None
+
+
+notifications = Notifications()

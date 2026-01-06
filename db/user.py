@@ -14,11 +14,7 @@ from utils.crypto import (
     serialize_private_key_to_pem,
     serialize_public_key_to_pem,
 )
-from utils.notifications import (
-    notifications,
-    notification_sent_record_add,
-    notification_sent_record_exists,
-)
+from utils.notifications import notifications
 
 
 log = get_logger()
@@ -76,11 +72,11 @@ def user_create(
             # Check if the admin has the user notifications enabled
             if admin_email := user_get_notifications(admin["user_id"], "user"):
                 # Check if we have already sent a notification for this user creation
-                if not notification_sent_record_exists(
+                if not notifications.notification_sent_record_exists(
                     admin["user_id"], user.user_id, "user_creation"
                 ):
-                    notifications.send_new_user_created(admin_email, user)
-                    notification_sent_record_add(
+                    notifications.send_new_user_created(admin_email, username)
+                    notifications.notification_sent_record_add(
                         admin["user_id"], user.user_id, "user_creation"
                     )
 

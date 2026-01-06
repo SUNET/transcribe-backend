@@ -15,11 +15,7 @@ from pathlib import Path
 from typing import Optional
 from utils.log import get_logger
 from utils.settings import get_settings
-from utils.notifications import (
-    notifications,
-    notification_sent_record_add,
-    notification_sent_record_exists,
-)
+from utils.notifications import notifications
 
 log = get_logger()
 settings = get_settings()
@@ -353,7 +349,9 @@ def job_cleanup() -> None:
             if user.email == "":
                 continue
 
-            if notification_sent_record_exists(user.user_id, job.uuid, "deletion"):
+            if notifications.notification_sent_record_exists(
+                user.user_id, job.uuid, "deletion"
+            ):
                 continue
 
             log.info(
@@ -361,7 +359,9 @@ def job_cleanup() -> None:
             )
 
             notifications.send_transcription_finished(user.email)
-            notification_sent_record_add(user.user_id, job.uuid, "deletion")
+            notifications.notification_sent_record_add(
+                user.user_id, job.uuid, "deletion"
+            )
 
         # Permanently delete all jobs older than ~2 months
         jobs_to_delete = (
@@ -397,7 +397,7 @@ def job_cleanup() -> None:
             if user.email != "":
                 continue
 
-            if notification_sent_record_exists(
+            if notifications.notification_sent_record_exists(
                 user.user_id, job.uuid, "deletion_warning"
             ):
                 continue
@@ -408,7 +408,9 @@ def job_cleanup() -> None:
 
             # Send the notification
             notifications.send_job_to_be_deleted(user.email)
-            notification_sent_record_add(user.user_id, job.uuid, "deletion_warning")
+            notifications.notification_sent_record_add(
+                user.user_id, job.uuid, "deletion_warning"
+            )
 
 
 def job_result_get(
