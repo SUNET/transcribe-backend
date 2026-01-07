@@ -296,9 +296,6 @@ def customer_get_statistics(customer_id: str) -> dict:
             if total_transcribed_minutes_current > minutes_included:
                 blocks_consumed = blocks_purchased
                 overage_minutes = total_transcribed_minutes_current - minutes_included
-                overage_minutes_last_month = (
-                    total_transcribed_minutes_last - minutes_included
-                )
                 remaining_minutes = 0
             else:
                 # Calculate partial blocks consumed
@@ -307,6 +304,13 @@ def customer_get_statistics(customer_id: str) -> dict:
                     / settings.CUSTOMER_MINUTES_PER_BLOCK
                 )
                 remaining_minutes = minutes_included - total_transcribed_minutes_current
+
+        if transcribed_minutes_last_month > 4000 * blocks_purchased:
+            overage_minutes_last_month = total_transcribed_minutes_last - (
+                4000 * blocks_purchased
+            )
+
+        print(overage_minutes_last_month)
 
         return {
             "total_users": len(users),
