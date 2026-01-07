@@ -199,9 +199,11 @@ Sunet Scribe Team
         message = """\
 Hello,
 
-One of your transcription job has been deleted from Sunet Scribe since it was
-older than 7 days. Sunet Scribe don't keep transcription jobs for more than 7
-days for security and storage reasons.
+One or more of your transcription jobs has been deleted from Sunet Scribe because it was older than 7 days.
+
+Sunet Scribe automatically removes transcription jobs after 7 days for security and storage reasons.
+
+The transcription and associated files are no longer available and cannot be recovered.
 
 Best regards,
 Sunet Scribe Team
@@ -228,9 +230,13 @@ Sunet Scribe Team
         message = """\
 Hello,
 
-One of your transcription job will be deleted from Sunet Scribe in 24 hours since it
-is older than 7 days. Sunet Scribe don't keep transcription jobs for more than 7
-days for security and storage reasons.
+One or more of your transcription jobs in Sunet Scribe is scheduled for deletion in 24 hours.
+
+Transcription jobs are automatically removed after 7 days for security and storage reasons.
+
+If you wish to keep the transcription, please log in to Sunet Scribe and export the transcription results before they are deleted.
+
+After deletion, the transcription and associated files cannot be recovered.
 
 Best regards,
 Sunet Scribe Team
