@@ -269,7 +269,12 @@ Sunet Scribe Team
 Hello,
 
 A new user {username} has been created in Sunet Scribe.
-Please review the new user and take any necessary actions.
+The account is not yet active and requires approval by a local administrator before the user can access the service.
+
+Please review and activate the new user via the Sunet Scribe administration interface:
+https://scribe.sunet.se/admin
+
+No user data can been uploaded and no processing can take place until the account is activated.
 
 Best regards,
 Sunet Scribe Team
