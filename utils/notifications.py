@@ -210,7 +210,7 @@ This is an automated message from Sunet Scribe. If you need assistance, please c
         message = """\
 Hello,
 
-One or more of your transcription jobs has been deleted from Sunet Scribe because it was older than 7 days.
+One or more of your transcription jobs have been deleted from Sunet Scribe because they were older than 7 days.
 
 Sunet Scribe automatically removes transcription jobs after 7 days for security and storage reasons.
 
@@ -243,7 +243,7 @@ This is an automated message from Sunet Scribe. If you need assistance, please c
         message = """\
 Hello,
 
-One or more of your transcription jobs in Sunet Scribe is scheduled for deletion in 24 hours.
+One or more of your transcription jobs in Sunet Scribe are scheduled for deletion in 24 hours.
 
 Transcription jobs are automatically removed after 7 days for security and storage reasons.
 
