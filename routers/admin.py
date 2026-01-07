@@ -157,6 +157,12 @@ async def modify_user(
             status_code=403,
         )
 
+    if not (user_id := user_get(username=username)["user"]["user_id"]):
+        return JSONResponse(
+            content={"error": "User not found"},
+            status_code=404,
+        )
+
     data = await request.json()
     active = data.get("active", None)
     admin = data.get("admin", None)
@@ -164,19 +170,19 @@ async def modify_user(
 
     if active is not None:
         user_update(
-            admin_user_id,
+            user_id,
             active=active,
         )
 
     if admin is not None:
         user_update(
-            admin_user_id,
+            user_id,
             admin=admin,
         )
 
     if admin_domains is not None:
         user_update(
-            admin_user_id,
+            user_id,
             admin_domains=admin_domains,
         )
 
