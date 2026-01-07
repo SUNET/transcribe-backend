@@ -138,12 +138,13 @@ Sunet Scribe Team
             None
         """
 
-        subject = "Your transcription job is finished"
+        subject = "Your transcription is ready in Sunet Scribe"
         message = """\
 Hello,
 
-Your transcription job is finished.
-You can now log in to Sunet Scribe to see your transcription.
+Your transcription job is now complete and ready to view in Sunet Scribe.
+You can log in to the service to review, edit, or export your transcription:
+https://scribe.sunet.se
 
 Best regards,
 Sunet Scribe Team
