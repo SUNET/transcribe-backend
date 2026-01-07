@@ -3,6 +3,7 @@ from auth.oidc import get_current_user_id
 from db.user import user_get
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from utils.health import HealthStatus
 
 router = APIRouter(tags=["healthcheck"])

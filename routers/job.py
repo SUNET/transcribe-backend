@@ -32,6 +32,7 @@ from utils.crypto import (
     encrypt_string,
 )
 from utils.notifications import notifications
+from utils.validators import TranscriptionJobUpdateRequest, TranscriptionResultRequest
 
 log = get_logger()
 router = APIRouter(tags=["job"])
@@ -41,6 +42,7 @@ settings = get_settings()
 @router.put("/job/{job_id}")
 async def update_transcription_status(
     request: Request,
+    item: TranscriptionJobUpdateRequest,
     job_id: str,
 ) -> JSONResponse:
     """
@@ -56,7 +58,6 @@ async def update_transcription_status(
 
     verify_client_dn(request)
 
-    data = await request.json()
     user_id = user_get_from_job(job_id)
     username = user_get_username_from_job(job_id)
 
@@ -68,9 +69,9 @@ async def update_transcription_status(
     job = job_update(
         job_id,
         user_id,
-        status=data["status"],
-        error=data["error"],
-        transcribed_seconds=data["transcribed_seconds"],
+        status=item.status,
+        error=item.error,
+        transcribed_seconds=item.transcribed_seconds,
     )
 
     if not job:
@@ -83,7 +84,7 @@ async def update_transcription_status(
         # by integrations)
         if not user_update(
             username,
-            transcribed_seconds=data["transcribed_seconds"],
+            transcribed_seconds=item.transcribed_seconds,
             active=None,
         ) and not dn_in_list(user_id):
             return JSONResponse(
@@ -122,8 +123,8 @@ async def get_transcription_job(
         JSONResponse: The next available job.
     """
     verify_client_dn(request)
-    job = job_get_next()
-    return JSONResponse(content={"result": jsonable_encoder(job)})
+
+    return JSONResponse(content={"result": jsonable_encoder(job_get_next())})
 
 
 @router.get("/job/{user_id}/{job_id}/file")
@@ -240,6 +241,7 @@ async def put_video_file(
 @router.put("/job/{user_id}/{job_id}/result")
 async def put_transcription_result(
     request: Request,
+    item: TranscriptionResultRequest,
     user_id: str,
     job_id: str,
 ) -> JSONResponse:
@@ -264,15 +266,13 @@ async def put_transcription_result(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    data = await request.json()
-
     # Encrypt the data with the users public key
     public_key = user_get_public_key(user_id)
     public_key = deserialize_public_key_from_pem(public_key)
 
-    match data["format"]:
+    match item.format:
         case "srt":
-            encrypted_result = encrypt_string(public_key, data["result"])
+            encrypted_result = encrypt_string(public_key, item.result)
             job_result_save(
                 job_id,
                 user_id,
@@ -280,7 +280,7 @@ async def put_transcription_result(
                 external_id=job["external_id"],
             )
         case "json":
-            json_str = json.dumps(data["result"])
+            json_str = json.dumps(item.result)
             encrypted_result = encrypt_string(public_key, json_str)
             job_result_save(
                 job_id, user_id, result=encrypted_result, external_id=job["external_id"]

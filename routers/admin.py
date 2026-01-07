@@ -32,6 +32,14 @@ from utils.log import get_logger
 from utils.settings import get_settings
 from auth.oidc import get_current_user_id, verify_user
 
+from utils.validators import (
+    ModifyUserRequest,
+    CreateGroupRequest,
+    UpdateGroupRequest,
+    CreateCustomerRequest,
+    UpdateCustomerRequest,
+)
+
 log = get_logger()
 router = APIRouter(tags=["user"])
 settings = get_settings()
@@ -126,6 +134,7 @@ async def list_users(
 @router.put("/admin/{username}")
 async def modify_user(
     request: Request,
+    item: ModifyUserRequest,
     username: str,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
@@ -163,27 +172,22 @@ async def modify_user(
             status_code=404,
         )
 
-    data = await request.json()
-    active = data.get("active", None)
-    admin = data.get("admin", None)
-    admin_domains = data.get("admin_domains", None)
-
-    if active is not None:
+    if item.active is not None:
         user_update(
             user_id,
-            active=active,
+            active=item.active,
         )
 
-    if admin is not None:
+    if item.admin is not None:
         user_update(
             user_id,
-            admin=admin,
+            admin=item.admin,
         )
 
-    if admin_domains is not None:
+    if item.admin_domains is not None:
         user_update(
             user_id,
-            admin_domains=admin_domains,
+            admin_domains=item.admin_domains,
         )
 
     return JSONResponse(content={"result": {"status": "OK"}})
@@ -251,6 +255,7 @@ async def list_groups(
 @router.post("/admin/groups")
 async def create_group(
     request: Request,
+    item: CreateGroupRequest,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
@@ -275,19 +280,14 @@ async def create_group(
     if not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    data = await request.json()
-    name = data.get("name")
-    description = data.get("description", "")
-    quota = data.get("quota_seconds", 0)
-
-    if not name:
+    if not item.name:
         return JSONResponse(content={"error": "Missing group name"}, status_code=400)
 
     group = group_create(
-        name=name,
+        name=item.name,
         realm=admin_user["realm"],
-        description=description,
-        quota_seconds=quota,
+        description=item.description,
+        quota_seconds=item.quota,
         owner_user_id=admin_user_id,
     )
 
@@ -340,6 +340,7 @@ async def get_group(
 @router.put("/admin/groups/{group_id}")
 async def update_group(
     request: Request,
+    item: UpdateGroupRequest,
     group_id: str,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
@@ -368,18 +369,12 @@ async def update_group(
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     try:
-        data = await request.json()
-        name = data.get("name")
-        description = data.get("description")
-        usernames = data.get("usernames", [])
-        quota = data.get("quota_seconds", 0)
-
         if not group_update(
             group_id,
-            name=name,
-            description=description,
-            usernames=usernames,
-            quota_seconds=int(quota),
+            name=item.name,
+            description=item.description,
+            usernames=item.usernames,
+            quota_seconds=int(item.quota),
         ):
             return JSONResponse(content={"error": "Group not found"}, status_code=404)
     except ValueError as e:
@@ -572,6 +567,7 @@ async def list_customers(
 @router.post("/admin/customers")
 async def create_customer(
     request: Request,
+    item: CreateCustomerRequest,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
@@ -596,32 +592,21 @@ async def create_customer(
     if not admin_user["bofh"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    data = await request.json()
-    customer_abbr = data.get("customer_abbr")
-    partner_id = data.get("partner_id")
-    name = data.get("name")
-    priceplan = data.get("priceplan", "variable")
-    base_fee = data.get("base_fee", 0)
-    realms = data.get("realms", "")
-    contact_email = data.get("contact_email", "")
-    notes = data.get("notes", "")
-    blocks_purchased = data.get("blocks_purchased", 0)
-
-    if not partner_id or not name:
+    if not item.partner_id or not item.name:
         return JSONResponse(
             content={"error": "Missing required fields"}, status_code=400
         )
 
     customer = customer_create(
-        customer_abbr=customer_abbr,
-        partner_id=partner_id,
-        name=name,
-        priceplan=priceplan,
-        base_fee=base_fee,
-        realms=realms,
-        contact_email=contact_email,
-        notes=notes,
-        blocks_purchased=blocks_purchased,
+        customer_abbr=item.customer_abbr,
+        partner_id=item.partner_id,
+        name=item.name,
+        priceplan=item.priceplan,
+        base_fee=item.base_fee,
+        realms=item.realms,
+        contact_email=item.contact_email,
+        notes=item.notes,
+        blocks_purchased=item.blocks_purchased,
     )
 
     return JSONResponse(content={"result": customer})
@@ -668,6 +653,7 @@ async def get_customer(
 @router.put("/admin/customers/{customer_id}")
 async def update_customer(
     request: Request,
+    item: UpdateCustomerRequest,
     customer_id: str,
     admin_user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
@@ -695,28 +681,17 @@ async def update_customer(
     if not admin_user["bofh"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    data = await request.json()
-    customer_abbr = data.get("customer_abbr")
-    partner_id = data.get("partner_id")
-    name = data.get("name")
-    priceplan = data.get("priceplan")
-    base_fee = data.get("base_fee")
-    realms = data.get("realms")
-    contact_email = data.get("contact_email")
-    notes = data.get("notes")
-    blocks_purchased = data.get("blocks_purchased")
-
     customer = customer_update(
         customer_id,
-        customer_abbr=customer_abbr,
-        partner_id=partner_id,
-        name=name,
-        priceplan=priceplan,
-        base_fee=base_fee,
-        realms=realms,
-        contact_email=contact_email,
-        notes=notes,
-        blocks_purchased=blocks_purchased,
+        customer_abbr=item.customer_abbr,
+        partner_id=item.partner_id,
+        name=item.name,
+        priceplan=item.priceplan,
+        base_fee=item.base_fee,
+        realms=item.realms,
+        contact_email=item.contact_email,
+        notes=item.notes,
+        blocks_purchased=item.blocks_purchased,
     )
 
     if not customer:

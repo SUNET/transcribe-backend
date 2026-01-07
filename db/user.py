@@ -407,8 +407,6 @@ def user_update(
             + f"active={user.active}, admin={user.admin}",
         )
 
-        print("User updated:", user.as_dict())
-
         return user.as_dict() if user else {}
 
 

@@ -17,6 +17,7 @@ from db.user import user_create
 from auth.client import verify_client_dn
 from utils.log import get_logger
 from utils.settings import get_settings
+from utils.validators import TranscribeExternalPost
 
 logger = get_logger()
 router = APIRouter(tags=["external"])
@@ -93,8 +94,11 @@ async def delete_external_transcription_job(
     return JSONResponse(content={"result": {"status": "OK"}})
 
 
+
+
 @router.post("/transcriber/external")
 async def transcribe_external_file(
+    item: TranscribeExternalPost,
     request: Request,
 ) -> JSONResponse:
     """
@@ -110,21 +114,12 @@ async def transcribe_external_file(
     """
 
     client_dn = verify_client_dn(request)
-
-    data = await request.json()
-    external_id = data.get("id")
-    external_user_id = data.get("external_user_id")
-    language = data.get("language")
-    model = settings.EXTERNAL_JOB_MODEL
-    output_format = data.get("output_format")
-    user_id = data["user_id"]
-    url = data.get("file_url")
-    filename = external_id
+    filename = item.external_id
     job = None
 
     try:
         kaltura_repsonse = await run_in_threadpool(
-            lambda: requests.get(url, timeout=120)
+            lambda: requests.get(item.url, timeout=120)
         )
 
         if kaltura_repsonse.status_code != 200:
@@ -134,17 +129,17 @@ async def transcribe_external_file(
                 )
             )
 
-        user_create(username=user_id, user_id=user_id, realm="external")
+        user_create(username=item.user_id, user_id=item.user_id, realm="external")
 
         job = job_create(
-            user_id=user_id,
+            user_id=item.user_id,
             job_type=JobType.TRANSCRIPTION,
             filename=filename,
-            language=language,
-            model_type=model,
-            output_format=output_format,
-            external_id=external_id,
-            external_user_id=external_user_id,
+            language=item.language,
+            model_type=item.model,
+            output_format=item.output_format,
+            external_id=item.external_id,
+            external_user_id=item.external_user_id,
             client_dn=client_dn,
         )
 

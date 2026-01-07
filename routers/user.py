@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from utils.log import get_logger
 from utils.settings import get_settings
 from utils.crypto import validate_private_key_password
+from utils.validators import UserUpdateRequest
 
 log = get_logger()
 router = APIRouter(tags=["user"])
@@ -35,9 +36,6 @@ async def get_user_info(
         JSONResponse: The user information.
     """
 
-    data = await request.json()
-    encryption_password = data.get("encryption_password", "")
-
     if not user_id:
         return JSONResponse(
             content={"error": "User not authenticated"},
@@ -52,21 +50,12 @@ async def get_user_info(
             status_code=404,
         )
 
-    if encryption_password:
-        private_key = user_get_private_key(user_id)
-
-        if not validate_private_key_password(private_key, encryption_password):
-            return JSONResponse(
-                content={"error": "Invalid encryption password"},
-                status_code=403,
-            )
-
     return JSONResponse(content={"result": user})
 
 
 @router.put("/me")
 async def set_user_info(
-    request: Request,
+    item: UserUpdateRequest,
     user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
@@ -74,11 +63,11 @@ async def set_user_info(
     Used by the frontend to set user information.
 
     Parameters:
-        request (Request): The incoming HTTP request.
+        item (UserUpdateRequest): The user update data.
         user_id (str): The ID of the current user.
 
     Returns:
-        JSONResponse: The result of the operation.
+        JSONResponse:  The result of the operation.
     """
 
     if not user_id:
@@ -87,46 +76,32 @@ async def set_user_info(
             status_code=401,
         )
 
-    # Get json data
-    data = await request.json()
-
-    email = data.get("email", "")
-    encryption_password = data.get("encryption_password", "")
-    encryption_settings = data.get("encryption", False)
-    notifications = data.get("notifications", "")
-    reset_password = data.get("reset_password", False)
-    verify_password = data.get("verify_password", "")
-
-    if encryption_settings and encryption_password:
+    if item.encryption and item.encryption_password:
         user_update(
             user_id,
-            encryption_settings=encryption_settings,
-            encryption_password=encryption_password,
+            encryption_settings=item.encryption,
+            encryption_password=item.encryption_password,
         )
-    elif reset_password:
+    elif item.reset_password:
         user_update(user_id, reset_encryption=True)
-    elif verify_password:
+    elif item.verify_password:
         private_key = user_get_private_key(user_id)
 
-        if not validate_private_key_password(private_key, encryption_password):
+        if not validate_private_key_password(private_key, item.encryption_password):
             return JSONResponse(
                 content={"error": "Invalid encryption password"},
                 status_code=403,
             )
-    elif email:
-        user_update(user_id, email=email)
-    elif notifications:
-        notify_on_job = notifications.get("notify_on_job", False)
-        notify_on_deletion = notifications.get("notify_on_deletion", False)
-        notify_on_user = notifications.get("notify_on_user", False)
-
+    elif item.email is not None:
+        user_update(user_id, email=item.email)
+    elif item.notifications:
         notifications_str = ""
 
-        if notify_on_job:
+        if item.notifications.notify_on_job:
             notifications_str += "job,"
-        if notify_on_deletion:
+        if item.notifications.notify_on_deletion:
             notifications_str += "deletion,"
-        if notify_on_user:
+        if item.notifications.notify_on_user:
             notifications_str += "user,"
 
         user_update(user_id, notifications_str=notifications_str)

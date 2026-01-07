@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, Request, Depends
+from fastapi import APIRouter, UploadFile, Request, Depends, Query, File
 from fastapi.responses import JSONResponse
 from db.job import (
     job_create,
@@ -9,7 +9,7 @@ from db.job import (
     job_result_get,
     job_result_save,
 )
-from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
+from db.models import JobType, JobStatusEnum, OutputFormatEnum
 from db.user import (
     user_get_quota_left,
     user_get_private_key,
@@ -27,6 +27,7 @@ from utils.crypto import (
     encrypt_data_to_file,
 )
 from utils.log import get_logger
+from utils.validators import TranscriptionStatusPut, TranscriptionResultPut
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
@@ -39,8 +40,7 @@ logger = get_logger()
 @router.get("/transcriber")
 async def transcribe(
     request: Request,
-    job_id: str = "",
-    status: Optional[JobStatus] = None,
+    job_id: Optional[str] = Query(None, description="The ID of the job to get"),
     user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
@@ -69,7 +69,7 @@ async def transcribe(
 @router.post("/transcriber")
 async def transcribe_file(
     request: Request,
-    file: UploadFile,
+    file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
     """
@@ -179,6 +179,7 @@ async def delete_transcription_job(
 @router.put("/transcriber/{job_id}")
 async def update_transcription_status(
     request: Request,
+    item: TranscriptionStatusPut,
     job_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
@@ -208,23 +209,15 @@ async def update_transcription_status(
             status_code=403,
         )
 
-    data = await request.json()
-    language = data.get("language")
-    model = data.get("model")
-    speakers = data.get("speakers", 0)
-    status = data.get("status")
-    error = data.get("error")
-    output_format = data.get("output_format")
-
     job = job_update(
         job_id,
         user_id=user_id,
-        language=language,
-        model_type=model,
-        speakers=speakers,
-        status=status,
-        output_format=output_format,
-        error=error,
+        language=item.language,
+        model_type=item.model,
+        speakers=item.speakers,
+        status=item.status,
+        output_format=item.output_format,
+        error=item.error,
     )
 
     if not job:
@@ -251,6 +244,7 @@ async def update_transcription_status(
 @router.put("/transcriber/{job_id}/result")
 async def put_transcription_result(
     request: Request,
+    item: TranscriptionResultPut,
     job_id: str,
     user_id: str = Depends(get_current_user_id),
 ) -> JSONResponse:
@@ -265,26 +259,25 @@ async def put_transcription_result(
     Returns:
         JSONResponse: The result of the upload.
     """
-    json_data = await request.json()
-
     try:
         if not job_get(job_id, user_id):
             return JSONResponse(
                 content={"result": {"error": "Job not found"}}, status_code=404
             )
 
-        if json_data["format"] == "srt":
-            job_result_save(
-                job_id,
-                user_id,
-                result_srt=json_data["data"],
-            )
-        elif json_data["format"] == "json":
-            job_result_save(
-                job_id,
-                user_id,
-                result=json_data["data"],
-            )
+        match item.format:
+            case "srt":
+                job_result_save(
+                    job_id,
+                    user_id,
+                    result_srt=item.data,
+                )
+            case "json":
+                job_result_save(
+                    job_id,
+                    user_id,
+                    result=item.format,
+                )
     except Exception as e:
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 

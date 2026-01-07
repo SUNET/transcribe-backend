@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pathlib import Path
 from utils.crypto import decrypt_data_from_file, deserialize_private_key_from_pem
 from utils.settings import get_settings
+from utils.validators import VideoStreamRequestBody
 
 router = APIRouter(tags=["video"])
 settings = get_settings()
@@ -15,6 +16,7 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 @router.get("/transcriber/{job_id}/videostream")
 async def get_video_stream(
     request: Request,
+    item: VideoStreamRequestBody,
     job_id: str,
     range: str = Header(None),
     user_id: str = Depends(get_current_user_id),
@@ -33,12 +35,12 @@ async def get_video_stream(
     """
 
     job = job_get(job_id, user_id)
-    data = await request.json()
-    encryption_password = data.get("encryption_password", "")
 
-    if encryption_password != "" and encryption_password is not None:
+    if item.encryption_password != "" and item.encryption_password is not None:
         private_key = user_get_private_key(user_id)
-        private_key = deserialize_private_key_from_pem(private_key, encryption_password)
+        private_key = deserialize_private_key_from_pem(
+            private_key, item.encryption_password
+        )
         file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4.enc"
         encrypted_media = True
 
