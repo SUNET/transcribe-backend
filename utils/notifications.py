@@ -118,7 +118,9 @@ Your e-mail address have been updated in Sunet Scribe.
 If you did not perform this action, please contact support.
 
 Best regards,
-Sunet Scribe Team
+Sunet Scribe
+
+This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
         """
 
         self.add(
@@ -147,7 +149,9 @@ You can log in to the service to review, edit, or export your transcription:
 https://scribe.sunet.se
 
 Best regards,
-Sunet Scribe Team
+Sunet Scribe
+
+This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
         """
 
         self.add(
@@ -180,7 +184,9 @@ If the problem persists, please contact your local support.
 No transcription data has been produced as a result of this job.
 
 Best regards,
-Sunet Scribe Team
+Sunet Scribe
+
+This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
         """
 
         self.add(
@@ -211,7 +217,9 @@ Sunet Scribe automatically removes transcription jobs after 7 days for security 
 The transcription and associated files are no longer available and cannot be recovered.
 
 Best regards,
-Sunet Scribe Team
+Sunet Scribe
+
+This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
         """
 
         self.add(
@@ -244,7 +252,9 @@ If you wish to keep the transcription, please log in to Sunet Scribe and export 
 After deletion, the transcription and associated files cannot be recovered.
 
 Best regards,
-Sunet Scribe Team
+Sunet Scribe
+
+This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
         """
 
         self.add(
@@ -277,7 +287,9 @@ https://scribe.sunet.se/admin
 No user data can been uploaded and no processing can take place until the account is activated.
 
 Best regards,
-Sunet Scribe Team
+Sunet Scribe
+
+This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
         """
 
         self.add(
