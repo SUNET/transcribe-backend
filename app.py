@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from auth.oidc import RefreshToken, oauth, verify_user
 from db.job import job_cleanup
 from db.user import user_create, user_exists, user_update
+from fastapi.openapi.utils import get_openapi
 from routers.admin import router as admin_router
 from routers.external import router as external_router
 from routers.healthcheck import router as healthcheck_router
@@ -49,6 +50,18 @@ app = FastAPI(
             "name": "user",
             "description": "User management operations",
         },
+        {
+            "name": "external",
+            "description": "External service operations",
+        },
+        {
+            "name": "healthcheck",
+            "description": "Healthcheck operations",
+        },
+        {
+            "name": "admin",
+            "description": "Administrative operations",
+        },
     ],
 )
 
@@ -69,6 +82,26 @@ app.include_router(videostream_router, prefix=settings.API_PREFIX, tags=["video"
 app.include_router(external_router, prefix=settings.API_PREFIX, tags=["external"])
 app.include_router(healthcheck_router, prefix=settings.API_PREFIX, tags=["healthcheck"])
 app.include_router(admin_router, prefix=settings.API_PREFIX, tags=["admin"])
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="FastAPI application",
+        version="1.0.0",
+        description="JWT Authentication and Authorization",
+        routes=app.routes,
+    )
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    }
+    openapi_schema["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
 
 
 # Create API user with RSA keypair
