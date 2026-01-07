@@ -234,7 +234,9 @@ def user_get_all(realm) -> list:
             user_dict = row[0].as_dict()
             group_dict = row[1].as_dict() if row[1] else []
 
-            if user_dict["username"].isdigit():
+            if user_dict["username"] == "api_user":
+                continue
+            elif user_dict["username"].isdigit():
                 customer = (
                     session.query(Customer)
                     .filter(Customer.partner_id == user_dict["username"])
@@ -404,6 +406,8 @@ def user_update(
             + f"transcribed_seconds={user.transcribed_seconds}, "
             + f"active={user.active}, admin={user.admin}",
         )
+
+        print("User updated:", user.as_dict())
 
         return user.as_dict() if user else {}
 
