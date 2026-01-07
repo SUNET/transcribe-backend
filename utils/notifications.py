@@ -171,8 +171,13 @@ Sunet Scribe Team
         message = """\
 Hello,
 
-Unfortunately, your transcription job has failed.
-Please try again later or contact support if the problem persists.
+Unfortunately, your transcription job could not be completed.
+
+You can try submitting the job again via Sunet Scribe. In many cases, temporary issues are resolved automatically.
+
+If the problem persists, please contact your local support.
+
+No transcription data has been produced as a result of this job.
 
 Best regards,
 Sunet Scribe Team
