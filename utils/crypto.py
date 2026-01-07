@@ -50,7 +50,8 @@ def serialize_private_key_to_pem(
         bytes: The PEM-formatted private key.
     """
 
-    # Set up encryption algorithm, should default to AES if password is provided
+    # Set up encryption algorithm, BestAvailableEncryption will always
+    # default to AES-256-CBC.
     encryption_algorithm = serialization.BestAvailableEncryption(password)
 
     # Serialize private key to PEM
