@@ -18,7 +18,6 @@ from routers.healthcheck import router as healthcheck_router
 from routers.job import router as job_router
 from routers.transcriber import router as transcriber_router
 from routers.user import router as user_router
-from routers.video import router as video_router
 from routers.videostream import router as videostream_router
 
 from utils.log import get_logger
@@ -44,10 +43,6 @@ app = FastAPI(
         {
             "name": "job",
             "description": "Job management operations",
-        },
-        {
-            "name": "video",
-            "description": "Video retrieval operations",
         },
         {
             "name": "user",
@@ -79,7 +74,6 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware, settings.API_SECRET_KEY, https_only=False)
 app.include_router(transcriber_router, prefix=settings.API_PREFIX, tags=["transcriber"])
 app.include_router(job_router, prefix=settings.API_PREFIX, tags=["job"])
-app.include_router(video_router, prefix=settings.API_PREFIX, tags=["video"])
 app.include_router(user_router, prefix=settings.API_PREFIX, tags=["user"])
 app.include_router(videostream_router, prefix=settings.API_PREFIX, tags=["video"])
 app.include_router(external_router, prefix=settings.API_PREFIX, tags=["external"])
