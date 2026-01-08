@@ -65,7 +65,7 @@ def user_create(
             email=email,
         )
 
-        log.info(f"User {user["user_id"]} created from {username} with realm {realm}.")
+        log.info(f"User {username} created with realm {realm}.")
 
         session.add(user)
 
@@ -347,6 +347,19 @@ def user_update(
         if active is not None:
             log.info(f"Setting user {user.user_id} active status to {active}")
             user.active = active
+
+            if (
+                user.email != ""
+                and user.email is not None
+                and user.active
+                and not notifications.notification_sent_record_exists(
+                    user.user_id, user.user_id, "account_activated"
+                )
+            ):
+                notifications.send_account_activated(user.email)
+                notifications.notification_sent_record_add(
+                    user.user_id, user.user_id, "account_activated"
+                )
 
         if admin is not None:
             log.info(f"Setting user {user.user_id} admin status to {admin}")

@@ -255,5 +255,22 @@ class Notifications:
 
             return record is not None
 
+    def notifications_send_account_activated(self, to_email: str) -> None:
+        """
+        Send an account activated notification.
+
+        Parameters:
+            to_email (str): The recipient's email address.
+
+        Returns:
+            None
+        """
+
+        self.add(
+            to_emails=[to_email],
+            subject=settings.NOTIFICATION_MAIL_ACCOUNT_ACTIVATED["subject"],
+            message=settings.NOTIFICATION_MAIL_ACCOUNT_ACTIVATED["message"],
+        )
+
 
 notifications = Notifications()

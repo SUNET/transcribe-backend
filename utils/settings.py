@@ -175,6 +175,24 @@ This is an automated message from Sunet Scribe. If you need assistance, please c
 """,
     }
 
+    NOTIFICATION_MAIL_ACCOUNT_ACTIVATED: dict = {
+        "subject": "Your Sunet Scribe account has been activated",
+        "message": """\
+Hello,
+
+Your account in Sunet Scribe has now been activated by an administrator.
+
+You can log in to the service and start using it at any time.
+
+Please note that uploaded files and transcriptions are stored temporarily and are automatically removed after a limited retention period. Make sure to download any content you wish to keep.
+
+Best regards,
+Sunet Scribe
+
+This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
+""",
+    }
+
 
 @lru_cache
 def get_settings() -> Settings:
