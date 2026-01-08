@@ -110,23 +110,10 @@ class Notifications:
             None
         """
 
-        subject = "Your e-mail address have been updated"
-        message = """\
-Hello,
-
-Your e-mail address have been updated in Sunet Scribe.
-If you did not perform this action, please contact support.
-
-Best regards,
-Sunet Scribe
-
-This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
-        """
-
         self.add(
             to_emails=[to_email],
-            subject=subject,
-            message=message,
+            subject=settings.NOTIFICATION_MAIL_UPDATED["subject"],
+            message=settings.NOTIFICATION_MAIL_UPDATED["message"],
         )
 
     def send_transcription_finished(self, to_email: str) -> None:
@@ -140,24 +127,10 @@ This is an automated message from Sunet Scribe. If you need assistance, please c
             None
         """
 
-        subject = "Your transcription is ready in Sunet Scribe"
-        message = """\
-Hello,
-
-Your transcription job is now complete and ready to view in Sunet Scribe.
-You can log in to the service to review, edit, or export your transcription:
-https://scribe.sunet.se
-
-Best regards,
-Sunet Scribe
-
-This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
-        """
-
         self.add(
             to_emails=[to_email],
-            subject=subject,
-            message=message,
+            subject=settings.NOTIFICATION_MAIL_TRANSCRIPTION_FINISHED["subject"],
+            message=settings.NOTIFICATION_MAIL_TRANSCRIPTION_FINISHED["message"],
         )
 
     def send_transcription_failed(self, to_email: str) -> None:
@@ -171,28 +144,10 @@ This is an automated message from Sunet Scribe. If you need assistance, please c
             None
         """
 
-        subject = "Your transcription job has failed"
-        message = """\
-Hello,
-
-Unfortunately, your transcription job could not be completed.
-
-You can try submitting the job again via Sunet Scribe. In many cases, temporary issues are resolved automatically.
-
-If the problem persists, please contact your local support.
-
-No transcription data has been produced as a result of this job.
-
-Best regards,
-Sunet Scribe
-
-This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
-        """
-
         self.add(
             to_emails=[to_email],
-            subject=subject,
-            message=message,
+            subject=settings.NOTIFICATION_MAIL_TRANSCRIPTION_FAILED["subject"],
+            message=settings.NOTIFICATION_MAIL_TRANSCRIPTION_FAILED["message"],
         )
 
     def send_job_deleted(self, to_email: str) -> None:
@@ -206,26 +161,10 @@ This is an automated message from Sunet Scribe. If you need assistance, please c
             None
         """
 
-        subject = "Your transcription job has been deleted"
-        message = """\
-Hello,
-
-One or more of your transcription jobs have been deleted from Sunet Scribe because they were older than 7 days.
-
-Sunet Scribe automatically removes transcription jobs after 7 days for security and storage reasons.
-
-The transcription and associated files are no longer available and cannot be recovered.
-
-Best regards,
-Sunet Scribe
-
-This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
-        """
-
         self.add(
             to_emails=[to_email],
-            subject=subject,
-            message=message,
+            subject=settings.NOTIFICATION_MAIL_TRANSCRIPTION_DELETED["subject"],
+            message=settings.NOTIFICATION_MAIL_TRANSCRIPTION_DELETED["message"],
         )
 
     def send_job_to_be_deleted(self, to_email: str) -> None:
@@ -239,28 +178,10 @@ This is an automated message from Sunet Scribe. If you need assistance, please c
             None
         """
 
-        subject = "Your transcription job will be deleted soon"
-        message = """\
-Hello,
-
-One or more of your transcription jobs in Sunet Scribe are scheduled for deletion in 24 hours.
-
-Transcription jobs are automatically removed after 7 days for security and storage reasons.
-
-If you wish to keep the transcription, please log in to Sunet Scribe and export the transcription results before they are deleted.
-
-After deletion, the transcription and associated files cannot be recovered.
-
-Best regards,
-Sunet Scribe
-
-This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
-        """
-
         self.add(
             to_emails=[to_email],
-            subject=subject,
-            message=message,
+            subject=settings.NOTIFICATION_MAIL_TRANSCRIPTION_TO_BE_DELETED["subject"],
+            message=settings.NOTIFICATION_MAIL_TRANSCRIPTION_TO_BE_DELETED["message"],
         )
 
     def send_new_user_created(self, to_email: str, username: str) -> None:
@@ -274,28 +195,12 @@ This is an automated message from Sunet Scribe. If you need assistance, please c
             None
         """
 
-        subject = "A new user has been created"
-        message = f"""\
-Hello,
-
-A new user {username} has been created in Sunet Scribe.
-The account is not yet active and requires approval by a local administrator before the user can access the service.
-
-Please review and activate the new user via the Sunet Scribe administration interface:
-https://scribe.sunet.se/admin
-
-No user data can been uploaded and no processing can take place until the account is activated.
-
-Best regards,
-Sunet Scribe
-
-This is an automated message from Sunet Scribe. If you need assistance, please contact your local support.
-        """
-
         self.add(
             to_emails=[to_email],
-            subject=subject,
-            message=message,
+            subject=settings.NOTIFICATION_MAIL_NEW_USER_CREATED["subject"],
+            message=settings.NOTIFICATION_MAIL_NEW_USER_CREATED["message"].format(
+                username=username
+            ),
         )
 
     def notification_sent_record_add(

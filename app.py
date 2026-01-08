@@ -7,8 +7,10 @@ from fastapi_utils.tasks import repeat_every
 from starlette.middleware.sessions import SessionMiddleware
 
 from auth.oidc import RefreshToken, oauth, verify_user
+
 from db.job import job_cleanup
 from db.user import user_create, user_exists, user_update
+
 from fastapi.openapi.utils import get_openapi
 from routers.admin import router as admin_router
 from routers.external import router as external_router
@@ -18,6 +20,7 @@ from routers.transcriber import router as transcriber_router
 from routers.user import router as user_router
 from routers.video import router as video_router
 from routers.videostream import router as videostream_router
+
 from utils.log import get_logger
 from utils.settings import get_settings
 
