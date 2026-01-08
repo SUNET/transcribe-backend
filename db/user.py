@@ -58,11 +58,9 @@ def user_create(
             last_login=datetime.utcnow(),
         )
 
-        log.info(f"User {user_id} created from {username}.")
+        log.info(f"User {user["user_id"]} created from {username} with realm {realm}.")
 
         session.add(user)
-
-        log.info(f"Created user {user_id} in realm {realm}.")
 
         # Figure out which users we should send a notification
         # email to about the new user creation.
@@ -331,13 +329,13 @@ def user_update(
             .first()
         )
 
+        user.last_login = datetime.utcnow()
+
         if not user:
             return {}
 
         if transcribed_seconds:
             user.transcribed_seconds += float(transcribed_seconds)
-
-        user.last_login = datetime.utcnow()
 
         if active is not None:
             log.info(f"Setting user {user.user_id} active status to {active}")

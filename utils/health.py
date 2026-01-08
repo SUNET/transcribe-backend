@@ -12,6 +12,7 @@ class HealthStatus:
         """
         Initialize the HealthStatus with an empty dictionary of workers.
         """
+
         self.workers = {}
 
     def add(self, data):
@@ -39,6 +40,7 @@ class HealthStatus:
     def get(self):
         """
         Get the health status of all workers.
+
         Returns:
             dict: A dictionary containing the health status of all workers.
         """
