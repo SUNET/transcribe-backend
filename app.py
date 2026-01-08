@@ -85,8 +85,16 @@ app.include_router(admin_router, prefix=settings.API_PREFIX, tags=["admin"])
 
 
 def custom_openapi():
+    """
+    Custom OpenAPI schema with JWT Bearer authentication.
+
+    Returns:
+        dict: The OpenAPI schema.
+    """
+
     if app.openapi_schema:
         return app.openapi_schema
+
     openapi_schema = get_openapi(
         title="FastAPI application",
         version="1.0.0",
@@ -104,7 +112,6 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-# Create API user with RSA keypair
 @app.on_event("startup")
 async def create_api_user() -> None:
     """
