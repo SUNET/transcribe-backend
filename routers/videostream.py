@@ -1,4 +1,4 @@
-from auth.oidc import get_current_user_id
+from auth.oidc import get_current_user
 from db.job import job_get
 from db.user import user_get_private_key
 from fastapi import APIRouter, Depends, Header, Request
@@ -19,7 +19,7 @@ async def get_video_stream(
     item: VideoStreamRequestBody,
     job_id: str,
     range: str = Header(None),
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> StreamingResponse:
     """
     Stream an encrypted video for a transcription job.
@@ -28,27 +28,27 @@ async def get_video_stream(
         request (Request): The incoming HTTP request.
         job_id (str): The ID of the job.
         range (str): The byte range for streaming.
-        user_id (str): The ID of the user.
+        user (dict): The current user.
 
     Returns:
         StreamingResponse: The video stream response.
     """
 
-    job = job_get(job_id, user_id)
+    job = job_get(job_id, user["user_id"])
 
     if item.encryption_password != "" and item.encryption_password is not None:
-        private_key = user_get_private_key(user_id)
+        private_key = user_get_private_key(user["user_id"])
         private_key = deserialize_private_key_from_pem(
             private_key, item.encryption_password
         )
-        file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4.enc"
+        file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4.enc"
         encrypted_media = True
 
         if not file_path.exists():
-            file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+            file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4"
             encrypted_media = False
     else:
-        file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+        file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4"
         encrypted_media = False
 
     if not job:

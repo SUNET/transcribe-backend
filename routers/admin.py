@@ -30,7 +30,10 @@ from db.customer import (
 from utils.log import get_logger
 
 from utils.settings import get_settings
-from auth.oidc import get_current_user_id, verify_user
+from auth.oidc import (
+    get_current_user,
+    get_current_admin_user,
+)
 
 from utils.validators import (
     ModifyUserRequest,
@@ -48,7 +51,7 @@ settings = get_settings()
 @router.get("/admin")
 async def statistics(
     request: Request,
-    user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Get user statistics.
@@ -56,42 +59,24 @@ async def statistics(
 
     Parameters:
         request (Request): The incoming HTTP request.
-        user_id (str): The ID of the current user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The user statistics.
     """
 
-    if not user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"},
-            status_code=401,
-        )
-
-    user = user_get(user_id)["user"]
-
-    if not user["admin"]:
-        log.warning(f"User {user_id} is not admin")
-
-        return JSONResponse(
-            content={"error": "User not authorized"},
-            status_code=403,
-        )
-
-    if user["bofh"]:
+    if admin_user["bofh"]:
         realm = "*"
     else:
-        realm = user["realm"]
+        realm = admin_user["realm"]
 
-    stats = users_statistics(realm=realm)
-
-    return JSONResponse(content={"result": stats})
+    return JSONResponse(content={"result": users_statistics(realm=realm)})
 
 
 @router.get("/admin/users")
 async def list_users(
     request: Request,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     List all users with statistics.
@@ -99,36 +84,18 @@ async def list_users(
 
     Parameters:
         request (Request): The incoming HTTP request.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The list of users with statistics.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"},
-            status_code=401,
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["admin"]:
-        return JSONResponse(
-            content={"error": "User not authorized"},
-            status_code=403,
-        )
 
     if admin_user["bofh"]:
         realm = "*"
     else:
         realm = admin_user["realm"]
 
-    users = user_get_all(realm=realm)
-
-    return JSONResponse(content={"result": users})
+    return JSONResponse(content={"result": user_get_all(realm=realm)})
 
 
 @router.put("/admin/{username}")
@@ -136,7 +103,7 @@ async def modify_user(
     request: Request,
     item: ModifyUserRequest,
     username: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Modify a user's active status.
@@ -145,28 +112,12 @@ async def modify_user(
     Parameters:
         request (Request): The incoming HTTP request.
         username (str): The username of the user to modify.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The result of the operation.
     """
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"},
-            status_code=401,
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["admin"]:
-        return JSONResponse(
-            content={"error": "User not authorized"},
-            status_code=403,
-        )
-
-    if not (user_id := user_get(username=username)["user"]["user_id"]):
+    if not (user_id := user_get(username=username)["user_id"]):
         return JSONResponse(
             content={"error": "User not found"},
             status_code=404,
@@ -196,41 +147,29 @@ async def modify_user(
 @router.get("/admin/groups")
 async def list_groups(
     request: Request,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     List all groups with statistics and member counts.
 
     Parameters:
         request (Request): The incoming HTTP request.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The list of groups with statistics and member counts.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     if admin_user["bofh"]:
         realm = "*"
     else:
         realm = admin_user["realm"]
 
-    groups = group_get_all(admin_user_id, realm=realm)
+    groups = group_get_all(admin_user["user_id"], realm=realm)
     result = []
 
     for g in groups:
-        stats = group_statistics(str(g["id"]), admin_user_id, realm)
+        stats = group_statistics(str(g["id"]), admin_user["user_id"], realm)
 
         if g["name"] == "All users":
             g["nr_users"] = stats["total_users"]
@@ -256,29 +195,18 @@ async def list_groups(
 async def create_group(
     request: Request,
     item: CreateGroupRequest,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Create a new group.
 
     Parameters:
         request (Request): The incoming HTTP request.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The result of the operation.
     """
-
-    admin_user_id = await verify_user(request)
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     if not item.name:
         return JSONResponse(content={"error": "Missing group name"}, status_code=400)
@@ -288,8 +216,13 @@ async def create_group(
         realm=admin_user["realm"],
         description=item.description,
         quota_seconds=item.quota,
-        owner_user_id=admin_user_id,
+        owner_user_id=admin_user["user_id"],
     )
+
+    if not group:
+        return JSONResponse(
+            content={"error": "Failed to create group"}, status_code=500
+        )
 
     return JSONResponse(content={"result": {"id": group["id"], "name": group["name"]}})
 
@@ -298,7 +231,7 @@ async def create_group(
 async def get_group(
     request: Request,
     group_id: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Get group details.
@@ -306,30 +239,18 @@ async def get_group(
     Parameters:
         request (Request): The incoming HTTP request.
         group_id (str): The ID of the group.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The group details.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     if admin_user["bofh"]:
         realm = "*"
     else:
         realm = admin_user["realm"]
 
-    group = group_get(group_id, realm=realm, user_id=admin_user_id)
+    group = group_get(group_id, realm=realm, user_id=admin_user["user_id"])
 
     if not group:
         return JSONResponse(content={"error": "Group not found"}, status_code=404)
@@ -342,7 +263,7 @@ async def update_group(
     request: Request,
     item: UpdateGroupRequest,
     group_id: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Update group details (name/description).
@@ -350,23 +271,11 @@ async def update_group(
     Parameters:
         request (Request): The incoming HTTP request.
         group_id (str): The ID of the group.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The result of the operation.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     try:
         if not group_update(
@@ -387,7 +296,7 @@ async def update_group(
 async def delete_group(
     request: Request,
     group_id: int,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Delete a group.
@@ -395,25 +304,14 @@ async def delete_group(
     Parameters:
         request (Request): The incoming HTTP request.
         group_id (int): The ID of the group.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The result of the operation.
     """
 
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
-
-    group_delete(group_id)
+    if not group_delete(group_id):
+        return JSONResponse(content={"error": "Group not found"}, status_code=404)
 
     return JSONResponse(content={"result": {"status": "OK"}})
 
@@ -423,20 +321,25 @@ async def add_user_to_group(
     request: Request,
     group_id: int,
     username: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
-    """Add a user to a group."""
-    admin_user_id = await verify_user(request)
-    if not admin_user_id:
+    """
+    Add a user to a group.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        group_id (int): The ID of the group.
+        username (str): The username of the user to add.
+        admin_user (dict): The current user.
+
+    Returns:
+        JSONResponse: The result of the operation.
+    """
+
+    if not group_add_user(group_id, username):
         return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
+            content={"error": "User or group not found"}, status_code=404
         )
-
-    admin_user = user_get(admin_user_id)["user"]
-    if not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
-
-    group_add_user(group_id, username)
 
     return JSONResponse(content={"result": {"status": "OK"}})
 
@@ -446,13 +349,13 @@ async def remove_user_from_group(
     request: Request,
     group_id: int,
     username: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Remove a user from a group.
 
     Parameters:
-        admin_user_id = await verify_user(request)
+        admin_user (dict): The current user.
         request (Request): The incoming HTTP request.
         group_id (int): The ID of the group.
         username (str): The username of the user to remove.
@@ -460,17 +363,12 @@ async def remove_user_from_group(
     Returns:
         JSONResponse: The result of the operation.
     """
-    admin_user_id = await verify_user(request)
-    if not admin_user_id:
+
+    if not group_remove_user(group_id, username):
         return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
+            content={"error": "User or group not found"}, status_code=404
         )
 
-    admin_user = user_get(admin_user_id)["user"]
-    if not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
-
-    group_remove_user(group_id, username)
     return JSONResponse(content={"result": {"status": "OK"}})
 
 
@@ -478,7 +376,7 @@ async def remove_user_from_group(
 async def group_stats(
     request: Request,
     group_id: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Get group statistics.
@@ -486,71 +384,46 @@ async def group_stats(
     Parameters:
         request (Request): The incoming HTTP request.
         group_id (str): The ID of the group.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The group statistics.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     if admin_user["bofh"]:
         realm = "*"
     else:
         realm = admin_user["realm"]
 
-    group = group_get(group_id, realm=realm, user_id=admin_user_id)
+    group = group_get(group_id, realm=realm, user_id=admin_user["user_id"])
 
     if not group:
         return JSONResponse(content={"error": "Group not found"}, status_code=404)
 
-    stats = users_statistics(group_id, realm=realm, user_id=admin_user_id)
-
-    return JSONResponse(content={"result": stats})
+    return JSONResponse(
+        content={
+            "result": users_statistics(
+                group_id, realm=realm, user_id=admin_user["user_id"]
+            )
+        }
+    )
 
 
 @router.get("/admin/customers")
 async def list_customers(
     request: Request,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     List all customers with statistics.
 
     Parameters:
         request (Request): The incoming HTTP request.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The list of customers with statistics.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["bofh"] and not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     customers = customer_get_all(admin_user)
 
@@ -568,26 +441,18 @@ async def list_customers(
 async def create_customer(
     request: Request,
     item: CreateCustomerRequest,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Create a new customer.
 
     Parameters:
         request (Request): The incoming HTTP request.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The result of the operation.
     """
-
-    admin_user_id = await verify_user(request)
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
 
     if not admin_user["bofh"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
@@ -616,7 +481,7 @@ async def create_customer(
 async def get_customer(
     request: Request,
     customer_id: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Get customer details.
@@ -624,23 +489,11 @@ async def get_customer(
     Parameters:
         request (Request): The incoming HTTP request.
         customer_id (str): The ID of the customer.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The customer details.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
-    if not admin_user["bofh"] and not admin_user["admin"]:
-        return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
     customer = customer_get(customer_id)
 
@@ -655,7 +508,7 @@ async def update_customer(
     request: Request,
     item: UpdateCustomerRequest,
     customer_id: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Update customer details.
@@ -663,20 +516,11 @@ async def update_customer(
     Parameters:
         request (Request): The incoming HTTP request.
         customer_id (str): The ID of the customer.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The updated customer details.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
 
     if not admin_user["bofh"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
@@ -704,7 +548,7 @@ async def update_customer(
 async def delete_customer(
     request: Request,
     customer_id: int,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Delete a customer.
@@ -712,20 +556,11 @@ async def delete_customer(
     Parameters:
         request (Request): The incoming HTTP request.
         customer_id (int): The ID of the customer.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The result of the operation.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
 
     if not admin_user["bofh"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
@@ -739,41 +574,30 @@ async def delete_customer(
 @router.get("/admin/realms")
 async def list_realms(
     request: Request,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     List all unique realms.
 
     Parameters:
         request (Request): The incoming HTTP request.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The list of unique realms.
     """
 
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
-
     if not admin_user["bofh"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    realms = get_all_realms()
-
-    return JSONResponse(content={"result": realms})
+    return JSONResponse(content={"result": get_all_realms()})
 
 
 @router.get("/admin/customers/{customer_id}/stats")
 async def customer_stats(
     request: Request,
     customer_id: str,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Get detailed customer statistics.
@@ -781,20 +605,11 @@ async def customer_stats(
     Parameters:
         request (Request): The incoming HTTP request.
         customer_id (str): The ID of the customer.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         JSONResponse: The customer statistics.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
 
     if not admin_user["bofh"] and not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
@@ -803,35 +618,24 @@ async def customer_stats(
     if not customer:
         return JSONResponse(content={"error": "Customer not found"}, status_code=404)
 
-    stats = customer_get_statistics(customer_id)
-
-    return JSONResponse(content={"result": stats})
+    return JSONResponse(content={"result": customer_get_statistics(customer_id)})
 
 
 @router.get("/admin/customers/export/csv")
 async def export_customers_csv(
     request: Request,
-    admin_user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ):
     """
     Export all customers with statistics to CSV format.
 
     Parameters:
         request (Request): The incoming HTTP request.
-        admin_user_id (str): The ID of the admin user.
+        admin_user (dict): The current user.
 
     Returns:
         Response: The CSV file response.
     """
-
-    admin_user_id = await verify_user(request)
-
-    if not admin_user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"}, status_code=401
-        )
-
-    admin_user = user_get(admin_user_id)["user"]
 
     if not admin_user["bofh"] and not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)

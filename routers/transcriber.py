@@ -19,7 +19,7 @@ from db.user import (
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
-from auth.oidc import get_current_user_id
+from auth.oidc import get_current_user
 from utils.crypto import (
     deserialize_public_key_from_pem,
     deserialize_private_key_from_pem,
@@ -41,7 +41,7 @@ logger = get_logger()
 async def transcribe(
     request: Request,
     job_id: Optional[str] = Query(None, description="The ID of the job to get"),
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Transcribe audio file.
@@ -52,16 +52,16 @@ async def transcribe(
         request (Request): The incoming HTTP request.
         job_id (str): The ID of the job to get. If empty, get all jobs for the user.
         status (Optional[JobStatus]): Filter jobs by status.
-        user_id (str): The ID of the current user.
+        user (dict): The current user.
 
     Returns:
         JSONResponse: The job status or list of jobs.
     """
 
     if job_id:
-        res = job_get(job_id, user_id)
+        res = job_get(job_id, user["user_id"])
     else:
-        res = job_get_all(user_id)
+        res = job_get_all(user["user_id"])
 
     return JSONResponse(content={"result": res})
 
@@ -70,7 +70,7 @@ async def transcribe(
 async def transcribe_file(
     request: Request,
     file: UploadFile = File(...),
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Transcribe audio file.
@@ -80,14 +80,14 @@ async def transcribe_file(
     Parameters:
         request (Request): The incoming HTTP request.
         file (UploadFile): The uploaded audio file.
-        user_id (str): The ID of the current user.
+        user (dict): The current user.
 
     Returns:
         JSONResponse: The job status.
     """
 
     job = job_create(
-        user_id=user_id,
+        user_id=user["user_id"],
         job_type=JobType.TRANSCRIPTION,
         filename=file.filename,
     )
@@ -99,11 +99,11 @@ async def transcribe_file(
             content={"result": {"error": "API user not found"}}, status_code=500
         )
 
-    public_key = user_get_public_key(api_user["user"]["user_id"])
+    public_key = user_get_public_key(api_user["user_id"])
     public_key = deserialize_public_key_from_pem(public_key)
 
     try:
-        file_path = Path(api_file_storage_dir + "/" + user_id)
+        file_path = Path(api_file_storage_dir + "/" + user["user_id"])
         dest_path = file_path / job["uuid"]
 
         if not file_path.exists():
@@ -120,7 +120,7 @@ async def transcribe_file(
         job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
     except Exception as e:
         job = job_update(
-            job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e)
+            job["uuid"], user["user_id"], status=JobStatusEnum.FAILED, error=str(e)
         )
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
@@ -128,7 +128,7 @@ async def transcribe_file(
         content={
             "result": {
                 "uuid": job["uuid"],
-                "user_id": user_id,
+                "user_id": user["user_id"],
                 "status": job["status"],
                 "job_type": job["job_type"],
                 "filename": file.filename,
@@ -141,7 +141,7 @@ async def transcribe_file(
 async def delete_transcription_job(
     request: Request,
     job_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Delete a transcription job.
@@ -151,13 +151,13 @@ async def delete_transcription_job(
     Parameters:
         request (Request): The incoming HTTP request.
         job_id (str): The ID of the job to delete.
-        user_id (str): The ID of the current user.
+        user (dict): The current user.
 
     Returns:
         JSONResponse: The result of the deletion.
     """
 
-    job = job_get(job_id, user_id)
+    job = job_get(job_id, user["user_id"])
 
     if not job:
         return JSONResponse(
@@ -168,7 +168,7 @@ async def delete_transcription_job(
     job_remove(job_id)
 
     # Remove the video file if it exists
-    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4.enc"
+    file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4.enc"
 
     if file_path.exists():
         file_path.unlink()
@@ -181,7 +181,7 @@ async def update_transcription_status(
     request: Request,
     item: TranscriptionStatusPut,
     job_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
@@ -191,13 +191,13 @@ async def update_transcription_status(
     Parameters:
         request (Request): The incoming HTTP request.
         job_id (str): The ID of the job to update.
-        user_id (str): The ID of the current user.
+        user (dict): The current user.
 
     Returns:
         JSONResponse: The updated job status.
     """
 
-    quota_left = user_get_quota_left(user_id)
+    quota_left = user_get_quota_left(user["user_id"])
 
     if not quota_left:
         return JSONResponse(
@@ -211,7 +211,7 @@ async def update_transcription_status(
 
     job = job_update(
         job_id,
-        user_id=user_id,
+        user_id=user["user_id"],
         language=item.language,
         model_type=item.model,
         speakers=item.speakers,
@@ -229,7 +229,7 @@ async def update_transcription_status(
         content={
             "result": {
                 "uuid": job["uuid"],
-                "user_id": user_id,
+                "user_id": user["user_id"],
                 "status": job["status"],
                 "job_type": job["job_type"],
                 "filename": job["filename"],
@@ -246,7 +246,7 @@ async def put_transcription_result(
     request: Request,
     item: TranscriptionResultPut,
     job_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Upload the transcription result.
@@ -254,13 +254,13 @@ async def put_transcription_result(
     Parameters:
         request (Request): The incoming HTTP request.
         job_id (str): The ID of the job.
-        user_id (str): The ID of the user.
+        user (dict): The current user.
 
     Returns:
         JSONResponse: The result of the upload.
     """
     try:
-        if not job_get(job_id, user_id):
+        if not job_get(job_id, user["user_id"]):
             return JSONResponse(
                 content={"result": {"error": "Job not found"}}, status_code=404
             )
@@ -269,13 +269,13 @@ async def put_transcription_result(
             case "srt":
                 job_result_save(
                     job_id,
-                    user_id,
+                    user["user_id"],
                     result_srt=item.data,
                 )
             case "json":
                 job_result_save(
                     job_id,
-                    user_id,
+                    user["user_id"],
                     result=item.format,
                 )
     except Exception as e:
@@ -289,7 +289,7 @@ async def get_transcription_result(
     request: Request,
     job_id: str,
     output_format: OutputFormatEnum,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Get the transcription result.
@@ -298,7 +298,7 @@ async def get_transcription_result(
         request (Request): The incoming HTTP request.
         job_id (str): The ID of the job.
         output_format (OutputFormatEnum): The desired output format.
-        user_id (str): The ID of the user.
+        user (dict): The current user.
 
     Returns:
         JSONResponse: The transcription result.
@@ -306,12 +306,12 @@ async def get_transcription_result(
 
     data = await request.json()
     encryption_password = data.get("encryption_password", "")
-    private_key = user_get_private_key(user_id)
+    private_key = user_get_private_key(user["user_id"])
 
     if encryption_password == "":
         encrypted_result = False
 
-    if not (job_result := job_result_get(user_id, job_id)):
+    if not (job_result := job_result_get(user["user_id"], job_id)):
         return JSONResponse(
             content={"result": {"error": "Job result not found"}}, status_code=404
         )

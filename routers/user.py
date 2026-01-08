@@ -1,6 +1,5 @@
-from auth.oidc import get_current_user_id
+from auth.oidc import get_current_user
 from db.user import (
-    user_get,
     user_get_private_key,
     user_update,
 )
@@ -22,7 +21,7 @@ api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 @router.get("/me")
 async def get_user_info(
     request: Request,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Get user information.
@@ -30,25 +29,11 @@ async def get_user_info(
 
     Parameters:
         request (Request): The incoming HTTP request.
-        user_id (str): The ID of the current user.
+        user (dict): The current user.
 
     Returns:
         JSONResponse: The user information.
     """
-
-    if not user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"},
-            status_code=401,
-        )
-
-    user = user_get(user_id)
-
-    if not user:
-        return JSONResponse(
-            content={"error": "User not found"},
-            status_code=404,
-        )
 
     return JSONResponse(content={"result": user})
 
@@ -56,7 +41,7 @@ async def get_user_info(
 @router.put("/me")
 async def set_user_info(
     item: UserUpdateRequest,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Set user information.
@@ -64,28 +49,22 @@ async def set_user_info(
 
     Parameters:
         item (UserUpdateRequest): The user update data.
-        user_id (str): The ID of the current user.
+        user (dict): The current user.
 
     Returns:
         JSONResponse:  The result of the operation.
     """
 
-    if not user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"},
-            status_code=401,
-        )
-
     if item.encryption and item.encryption_password:
         user_update(
-            user_id,
+            user["user_id"],
             encryption_settings=item.encryption,
             encryption_password=item.encryption_password,
         )
     elif item.reset_password:
-        user_update(user_id, reset_encryption=True)
+        user_update(user["user_id"], reset_encryption=True)
     elif item.verify_password:
-        private_key = user_get_private_key(user_id)
+        private_key = user_get_private_key(user["user_id"])
 
         if not validate_private_key_password(private_key, item.encryption_password):
             return JSONResponse(
@@ -93,7 +72,7 @@ async def set_user_info(
                 status_code=403,
             )
     elif item.email is not None:
-        user_update(user_id, email=item.email)
+        user_update(user["user_id"], email=item.email)
     elif item.notifications:
         notifications_str = ""
 
@@ -104,6 +83,6 @@ async def set_user_info(
         if item.notifications.notify_on_user:
             notifications_str += "user,"
 
-        user_update(user_id, notifications_str=notifications_str)
+        user_update(user["user_id"], notifications_str=notifications_str)
 
     return JSONResponse(content={"result": {"status": "OK"}})

@@ -10,7 +10,6 @@ from typing import Optional
 from utils.log import get_logger
 from utils.settings import get_settings
 
-
 log = get_logger()
 settings = get_settings()
 db_session = get_session()
@@ -26,9 +25,31 @@ oauth.register(
 )
 
 
-async def get_current_user_id(request: Request) -> str:
+async def get_current_admin_user(request: Request) -> str:
     """
-    Get the current user ID from the request.
+    Get the current admin user from the request.
+
+    1. Verify the user.
+    2. Check if the user is an admin.
+    3. Return the user ID.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        str: The current admin user ID.
+    """
+
+    user = await verify_user(request, admin=True)
+
+    log.info(f"User {user["user_id"]} was granted admin access.")
+
+    return user
+
+
+async def get_current_user(request: Request) -> str:
+    """
+    Get the current user from the request.
 
     1. Verify the user.
     2. Return the user ID.
@@ -118,7 +139,7 @@ async def verify_token(id_token: str) -> dict:
     return decoded_jwt
 
 
-async def verify_user(request: Request):
+async def verify_user(request: Request, admin: Optional[bool] = False) -> str:
     """
     Verify the user from the request.
     1. Extract the ID token from the Authorization header.
@@ -168,6 +189,11 @@ async def verify_user(request: Request):
         log.error(f"User {user_id} is not active.")
         raise HTTPException(status_code=403, detail="User is not active.")
 
-    log.info(f"User {user_id} authenticated successfully.")
+    if admin and not user["admin"]:
+        log.error(f"User {user_id} is not an admin.")
+        raise HTTPException(status_code=403, detail="User is not an admin.")
 
-    return user_id
+    if not admin:
+        log.info(f"User {user_id} authenticated successfully.")
+
+    return user

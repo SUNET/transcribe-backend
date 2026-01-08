@@ -163,12 +163,7 @@ def user_get(
         else:
             user = session.query(User).filter(User.username == username).first()
 
-        result = {
-            "user": user.as_dict(),
-            "jobs": job_get_all(user_id) if user else [],
-        }
-
-    return result
+        return user.as_dict()
 
 
 def user_get_private_key(user_id: str) -> Optional[str]:
@@ -183,7 +178,7 @@ def user_get_private_key(user_id: str) -> Optional[str]:
     """
     log.info(f"Fetching private key for user {user_id}")
 
-    return user_get(user_id)["user"]["private_key"].encode("utf-8")
+    return user_get(user_id)["private_key"].encode("utf-8")
 
 
 def user_get_public_key(user_id: str) -> Optional[str]:
@@ -197,7 +192,7 @@ def user_get_public_key(user_id: str) -> Optional[str]:
         Optional[str]: The user's public key, or None if not found.
     """
 
-    return user_get(user_id)["user"]["public_key"].encode("utf-8")
+    return user_get(user_id)["public_key"].encode("utf-8")
 
 
 def user_get_all(realm) -> list:

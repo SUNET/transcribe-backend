@@ -1,9 +1,7 @@
 from auth.client import verify_client_dn
-from auth.oidc import get_current_user_id
-from db.user import user_get
+from auth.oidc import get_current_admin_user
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 from utils.health import HealthStatus
 
 router = APIRouter(tags=["healthcheck"])
@@ -34,7 +32,7 @@ async def healthcheck(request: Request) -> JSONResponse:
 @router.get("/healthcheck")
 async def get_healthcheck(
     request: Request,
-    user_id: str = Depends(get_current_user_id),
+    admin_user: dict = Depends(get_current_admin_user),
 ) -> JSONResponse:
     """
     Get the health status of all workers.
@@ -47,15 +45,7 @@ async def get_healthcheck(
         JSONResponse: The health status of all workers.
     """
 
-    if not user_id:
-        return JSONResponse(
-            content={"error": "User not authenticated"},
-            status_code=401,
-        )
-
-    user = user_get(user_id)["user"]
-
-    if not user["bofh"]:
+    if not admin_user["bofh"]:
         return JSONResponse(
             content={"error": "User not authorized"},
             status_code=403,

@@ -166,7 +166,7 @@ async def get_transcription_file(
             content={"result": {"error": "API user not found"}}, status_code=500
         )
 
-    private_key = user_get_private_key(api_user["user"]["user_id"])
+    private_key = user_get_private_key(api_user["user_id"])
     private_key = deserialize_private_key_from_pem(
         private_key, settings.API_PRIVATE_KEY_PASSWORD
     )

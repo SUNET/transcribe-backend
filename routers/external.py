@@ -1,7 +1,8 @@
 import aiofiles
+import requests
+
 from pathlib import Path
 from typing import Optional
-import requests
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
@@ -92,8 +93,6 @@ async def delete_external_transcription_job(
         file_path.unlink()
 
     return JSONResponse(content={"result": {"status": "OK"}})
-
-
 
 
 @router.post("/transcriber/external")
