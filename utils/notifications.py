@@ -255,7 +255,7 @@ class Notifications:
 
             return record is not None
 
-    def notifications_send_account_activated(self, to_email: str) -> None:
+    def notification_send_account_activated(self, to_email: str) -> None:
         """
         Send an account activated notification.
 

@@ -356,7 +356,7 @@ def user_update(
                     user.user_id, user.user_id, "account_activated"
                 )
             ):
-                notifications.send_account_activated(user.email)
+                notifications.notification_send_account_activated(user.email)
                 notifications.notification_sent_record_add(
                     user.user_id, user.user_id, "account_activated"
                 )
