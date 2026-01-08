@@ -4,8 +4,8 @@ import time
 
 class HealthStatus:
     """
-    Health status tracking for workers.
-    Stores load average, memory usage, GPU usage, and last seen timestamp for each worker.
+    Health status tracking for workers. Stores load average, memory usage, GPU
+    usage, and last seen timestamp for each worker.
     """
 
     def __init__(self):

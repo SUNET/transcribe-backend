@@ -179,6 +179,7 @@ def customer_update(
         if not (
             customer := session.query(Customer)
             .filter(Customer.id == customer_id)
+            .with_for_update()
             .first()
         ):
             return {}

@@ -327,7 +327,12 @@ def group_update(
     """
 
     with get_session() as session:
-        if not (group := session.query(Group).filter(Group.id == group_id).first()):
+        if not (
+            group := session.query(Group)
+            .filter(Group.id == group_id)
+            .with_for_update()
+            .first()
+        ):
             return {}
 
         if name is not None:

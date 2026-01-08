@@ -188,9 +188,8 @@ def job_get_status(user_id: str) -> dict:
 
     with get_session() as session:
         columns = [Job.uuid, Job.status, Job.job_type, Job.created_at, Job.updated_at]
-        query = session.query(*columns).filter(Job.user_id == user_id).all()
 
-        if not query:
+        if not (query := session.query(*columns).filter(Job.user_id == user_id).all()):
             return {}
 
         jobs = [job for job in query]
