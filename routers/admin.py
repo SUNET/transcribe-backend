@@ -495,9 +495,7 @@ async def get_customer(
         JSONResponse: The customer details.
     """
 
-    customer = customer_get(customer_id)
-
-    if not customer:
+    if not (customer := customer_get(customer_id)):
         return JSONResponse(content={"error": "Customer not found"}, status_code=404)
 
     return JSONResponse(content={"result": customer})
@@ -614,8 +612,7 @@ async def customer_stats(
     if not admin_user["bofh"] and not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    customer = customer_get(customer_id)
-    if not customer:
+    if not customer_get(customer_id):
         return JSONResponse(content={"error": "Customer not found"}, status_code=404)
 
     return JSONResponse(content={"result": customer_get_statistics(customer_id)})
@@ -640,9 +637,7 @@ async def export_customers_csv(
     if not admin_user["bofh"] and not admin_user["admin"]:
         return JSONResponse(content={"error": "User not authorized"}, status_code=403)
 
-    csv_data = export_customers_to_csv(admin_user).encode("utf-8")
-
-    if not csv_data:
+    if not (csv_data := export_customers_to_csv(admin_user).encode("utf-8")):
         return JSONResponse(
             content={"error": "No customer data to export"}, status_code=404
         )

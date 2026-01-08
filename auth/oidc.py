@@ -154,11 +154,8 @@ async def verify_user(request: Request, admin: Optional[bool] = False) -> str:
         str: The verified user ID.
     """
 
-    # Extract the Authorization header
-    auth_header = request.headers.get("Authorization")
-
     # Check if the Authorization header is present
-    if auth_header is None:
+    if not (auth_header := request.headers.get("Authorization")):
         raise UnauthenticatedError("No authorization header found.")
 
     # Check if the Authorization header is in the correct format
@@ -166,9 +163,7 @@ async def verify_user(request: Request, admin: Optional[bool] = False) -> str:
         raise UnauthenticatedError("Invalid authorization header format.")
 
     # Extract the ID token
-    id_token = auth_header.split(" ")[1]
-
-    if id_token is None:
+    if not (id_token := auth_header.split(" ")[1]):
         raise UnauthenticatedError("No id_token found.")
 
     decoded_jwt = await verify_token(id_token=id_token)

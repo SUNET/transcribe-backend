@@ -92,9 +92,7 @@ async def transcribe_file(
         filename=file.filename,
     )
 
-    api_user = user_get(username="api_user")
-
-    if not api_user:
+    if not (api_user := user_get(username="api_user")):
         return JSONResponse(
             content={"result": {"error": "API user not found"}}, status_code=500
         )
@@ -157,9 +155,7 @@ async def delete_transcription_job(
         JSONResponse: The result of the deletion.
     """
 
-    job = job_get(job_id, user["user_id"])
-
-    if not job:
+    if not job_get(job_id, user["user_id"]):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -209,18 +205,18 @@ async def update_transcription_status(
             status_code=403,
         )
 
-    job = job_update(
-        job_id,
-        user_id=user["user_id"],
-        language=item.language,
-        model_type=item.model,
-        speakers=item.speakers,
-        status=item.status,
-        output_format=item.output_format,
-        error=item.error,
-    )
-
-    if not job:
+    if not (
+        job := job_update(
+            job_id,
+            user_id=user["user_id"],
+            language=item.language,
+            model_type=item.model,
+            speakers=item.speakers,
+            status=item.status,
+            output_format=item.output_format,
+            error=item.error,
+        )
+    ):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )

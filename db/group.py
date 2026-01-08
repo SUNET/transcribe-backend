@@ -247,9 +247,7 @@ def group_get_quota_left(group_id: int) -> int:
     """
 
     with get_session() as session:
-        group = session.query(Group).filter(Group.id == group_id).first()
-
-        if not group:
+        if not (group := session.query(Group).filter(Group.id == group_id).first()):
             return 0
 
         quota_seconds = group.quota_seconds
@@ -274,9 +272,7 @@ def group_delete(group_id: int) -> bool:
         bool: True if the group was deleted, False otherwise.
     """
     with get_session() as session:
-        group = session.query(Group).filter(Group.id == group_id).first()
-
-        if not group:
+        if not (group := session.query(Group).filter(Group.id == group_id).first()):
             return False
 
         session.delete(group)
@@ -331,9 +327,7 @@ def group_update(
     """
 
     with get_session() as session:
-        group = session.query(Group).filter(Group.id == group_id).first()
-
-        if not group:
+        if not (group := session.query(Group).filter(Group.id == group_id).first()):
             return {}
 
         if name is not None:
@@ -432,6 +426,7 @@ def group_remove_user(group_id: int, user_id: int) -> bool:
             )
             .first()
         )
+
         if not link:
             return False
 
@@ -505,8 +500,7 @@ def group_list() -> list[dict]:
         list[dict]: A list of groups as dictionaries.
     """
     with get_session() as session:
-        groups = session.query(Group).all()
-        return [g.as_dict() for g in groups]
+        return [g.as_dict() for g in session.query(Group).all()]
 
 
 def group_get_users(group_id: str, realm: str) -> list[dict]:
@@ -521,14 +515,14 @@ def group_get_users(group_id: str, realm: str) -> list[dict]:
         list[dict]: A list of users in the group as dictionaries.
     """
     with get_session() as session:
-        group = (
-            session.query(Group)
-            .filter(Group.id == group_id)
-            .filter(Group.realm == realm)
-            .first()
-        )
-
-        if not group:
+        if not (
+            group := (
+                session.query(Group)
+                .filter(Group.id == group_id)
+                .filter(Group.realm == realm)
+                .first()
+            )
+        ):
             return []
 
         return [user.as_dict() for user in group.users]

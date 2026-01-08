@@ -52,6 +52,8 @@ def user_create(
             if email != "":
                 user.email = email
 
+            user.last_login = datetime.utcnow()
+
             return user.as_dict()
 
         user = User(

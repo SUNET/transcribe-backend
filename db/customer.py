@@ -76,9 +76,11 @@ def customer_get(customer_id: str) -> Optional[dict]:
     """
 
     with get_session() as session:
-        customer = session.query(Customer).filter(Customer.id == customer_id).first()
-
-        if not customer:
+        if not (
+            customer := session.query(Customer)
+            .filter(Customer.id == customer_id)
+            .first()
+        ):
             return {}
 
         return customer.as_dict()
@@ -96,11 +98,13 @@ def customer_get_by_partner_id(partner_id: str) -> Optional[dict]:
     """
 
     with get_session() as session:
-        customer = (
-            session.query(Customer).filter(Customer.partner_id == partner_id).first()
-        )
-
-        if not customer:
+        if not (
+            customer := (
+                session.query(Customer)
+                .filter(Customer.partner_id == partner_id)
+                .first()
+            )
+        ):
             return {}
 
         return customer.as_dict()
@@ -172,9 +176,11 @@ def customer_update(
     """
 
     with get_session() as session:
-        customer = session.query(Customer).filter(Customer.id == customer_id).first()
-
-        if not customer:
+        if not (
+            customer := session.query(Customer)
+            .filter(Customer.id == customer_id)
+            .first()
+        ):
             return {}
 
         if customer_abbr is not None:
@@ -212,9 +218,11 @@ def customer_delete(customer_id: int) -> bool:
         bool: True if the customer was deleted, False if not found.
     """
     with get_session() as session:
-        customer = session.query(Customer).filter(Customer.id == customer_id).first()
-
-        if not customer:
+        if not (
+            customer := session.query(Customer)
+            .filter(Customer.id == customer_id)
+            .first()
+        ):
             return False
 
         session.delete(customer)
@@ -238,9 +246,11 @@ def customer_get_statistics(customer_id: str) -> dict:
     """
 
     with get_session() as session:
-        customer = session.query(Customer).filter(Customer.id == customer_id).first()
-
-        if not customer:
+        if not (
+            customer := session.query(Customer)
+            .filter(Customer.id == customer_id)
+            .first()
+        ):
             return {
                 "total_users": 0,
                 "transcribed_files": 0,
@@ -260,9 +270,9 @@ def customer_get_statistics(customer_id: str) -> dict:
             }
 
         # Get all users associated with this customer's realms
-        realm_list = [r.strip() for r in customer.realms.split(",") if r.strip()]
-
-        if not realm_list:
+        if not (
+            realm_list := [r.strip() for r in customer.realms.split(",") if r.strip()]
+        ):
             return {
                 "total_users": 0,
                 "transcribed_files": 0,
@@ -413,6 +423,7 @@ def get_all_realms() -> list[str]:
     with get_session() as session:
         realms = session.query(User.realm).distinct().all()
         realm_list = [realm[0] for realm in realms if realm[0]]
+
         return sorted(realm_list)
 
 
@@ -428,7 +439,6 @@ def get_customer_name_from_realm(realm: str) -> Optional[str]:
         Optional[str]: Customer name if found, else None.
     """
     with get_session() as session:
-        # Search for customers that have this realm in their comma-separated realms field
         customers = session.query(Customer).all()
 
         for customer in customers:
@@ -499,10 +509,10 @@ def export_customers_to_csv(admin_user: dict) -> str:
     Returns:
         CSV string with customer data and statistics
     """
-    output = io.StringIO()
-    customers = customer_get_all(admin_user)
 
-    if not customers:
+    output = io.StringIO()
+
+    if not (customers := customer_get_all(admin_user)):
         return ""
 
     # Define CSV headers

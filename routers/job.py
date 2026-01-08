@@ -145,9 +145,7 @@ async def get_transcription_file(
         StreamingResponse: The encrypted file stream.
     """
 
-    job = job_get(job_id, user_id)
-
-    if not job:
+    if not job_get(job_id, user_id):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -258,9 +256,7 @@ async def put_transcription_result(
         JSONResponse: The result of the upload.
     """
 
-    job = job_get(job_id, user_id)
-
-    if not job:
+    if not (job := job_get(job_id, user_id)):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )

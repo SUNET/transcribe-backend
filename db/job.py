@@ -228,9 +228,9 @@ def job_update(
     """
 
     with get_session() as session:
-        job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
-
-        if not job:
+        if not (
+            job := session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
+        ):
             return None
 
         if user_id:
@@ -267,9 +267,9 @@ def job_remove(uuid: str) -> bool:
     """
 
     with get_session() as session:
-        job = session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
-
-        if not job:
+        if not (
+            job := session.query(Job).filter(Job.uuid == uuid).with_for_update().first()
+        ):
             return False
 
         file_path = Path(settings.API_FILE_STORAGE_DIR) / job.user_id / job.uuid
@@ -495,9 +495,7 @@ def job_result_save(
     """
 
     with get_session() as session:
-        job = session.query(Job).filter(Job.uuid == uuid).first()
-
-        if not job:
+        if not session.query(Job).filter(Job.uuid == uuid).first():
             raise ValueError("Job not found")
 
         job_result = (
