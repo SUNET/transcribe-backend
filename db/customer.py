@@ -305,31 +305,29 @@ def customer_get_statistics(customer_id: str) -> dict:
                 )
                 remaining_minutes = minutes_included - total_transcribed_minutes_current
 
-        if transcribed_minutes_last_month > 4000 * blocks_purchased:
-            overage_minutes_last_month = total_transcribed_minutes_last - (
-                4000 * blocks_purchased
-            )
-
-        print(overage_minutes_last_month)
+            if transcribed_minutes_last_month > 4000 * blocks_purchased:
+                overage_minutes_last_month = total_transcribed_minutes_last - (
+                    4000 * blocks_purchased
+                )
 
         return {
             "total_users": len(users),
             "transcribed_files": int(total_files_current),
             "transcribed_files_last_month": int(total_files_last),
-            "transcribed_minutes": transcribed_minutes,
-            "transcribed_minutes_external": transcribed_minutes_external,
-            "transcribed_minutes_last_month": transcribed_minutes_last_month,
-            "transcribed_minutes_external_last_month": transcribed_minutes_external_last_month,
-            "total_transcribed_minutes": float(total_transcribed_minutes_current),
-            "total_transcribed_minutes_last_month": float(
-                total_transcribed_minutes_last
+            "transcribed_minutes": int(transcribed_minutes),
+            "transcribed_minutes_external": int(transcribed_minutes_external),
+            "transcribed_minutes_last_month": int(transcribed_minutes_last_month),
+            "transcribed_minutes_external_last_month": int(
+                transcribed_minutes_external_last_month
             ),
+            "total_transcribed_minutes": int(total_transcribed_minutes_current),
+            "total_transcribed_minutes_last_month": int(total_transcribed_minutes_last),
             "blocks_purchased": blocks_purchased,
             "blocks_consumed": round(blocks_consumed, 2),
             "minutes_included": minutes_included,
-            "overage_minutes": float(overage_minutes),
-            "overage_minutes_last_month": float(overage_minutes_last_month),
-            "remaining_minutes": float(remaining_minutes),
+            "overage_minutes": int(overage_minutes),
+            "overage_minutes_last_month": int(overage_minutes_last_month),
+            "remaining_minutes": int(remaining_minutes),
         }
 
 
