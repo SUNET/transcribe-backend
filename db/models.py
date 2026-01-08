@@ -108,6 +108,10 @@ class JobStatusEnum(str, Enum):
 
 
 class JobStatus(BaseModel):
+    """
+    Model representing the status of a job.
+    """
+
     status: JobStatusEnum
     error: Optional[str] = None
 
@@ -272,6 +276,7 @@ class Job(SQLModel, table=True):
         Returns:
             dict: The job object as a dictionary.
         """
+
         return {
             "id": self.id,
             "uuid": self.uuid,
@@ -398,6 +403,7 @@ class User(SQLModel, table=True):
         Returns:
             dict: The user object as a dictionary.
         """
+
         return {
             "id": self.id,
             "active": self.active,
@@ -592,6 +598,7 @@ class Customer(SQLModel, table=True):
         Returns:
             dict: The customer object as a dictionary.
         """
+
         return {
             "id": self.id,
             "customer_abbr": self.customer_abbr,
@@ -640,6 +647,7 @@ class NotificationsSent(SQLModel, table=True):
         Returns:
             dict: The notification object as a dictionary.
         """
+
         return {
             "id": self.id,
             "user_id": self.user_id,
