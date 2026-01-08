@@ -49,7 +49,7 @@ def user_create(
         )
 
         if user:
-            if email != "":
+            if email != "" and user.email == "":
                 user.email = email
 
             user.last_login = datetime.utcnow()
