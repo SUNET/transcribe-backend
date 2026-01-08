@@ -182,6 +182,7 @@ async def verify_user(request: Request, admin: Optional[bool] = False) -> str:
         username=username,
         realm=realm,
         user_id=user_id,
+        email=decoded_jwt.get("email", ""),
     )
 
     # Check if the user is active

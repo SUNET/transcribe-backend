@@ -24,6 +24,7 @@ def user_create(
     username: str,
     realm: str,
     user_id: Optional[str] = None,
+    email: Optional[str] = None,
 ) -> dict:
     """
     Create a new user in the database.
@@ -48,6 +49,9 @@ def user_create(
         )
 
         if user:
+            if email != "":
+                user.email = email
+
             return user.as_dict()
 
         user = User(
@@ -56,6 +60,7 @@ def user_create(
             user_id=user_id,
             transcribed_seconds="0",
             last_login=datetime.utcnow(),
+            email=email,
         )
 
         log.info(f"User {user["user_id"]} created from {username} with realm {realm}.")
