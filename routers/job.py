@@ -1,7 +1,7 @@
 import json
 
 from auth.client import dn_in_list, verify_client_dn
-from fastapi import APIRouter, UploadFile, Request
+from fastapi import APIRouter, UploadFile, Request, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse, JSONResponse
 from db.job import (
@@ -44,6 +44,7 @@ async def update_transcription_status(
     request: Request,
     item: TranscriptionJobUpdateRequest,
     job_id: str,
+    client_dn: str = Depends(verify_client_dn),
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
@@ -55,8 +56,6 @@ async def update_transcription_status(
     Returns:
         JSONResponse: The updated job status.
     """
-
-    verify_client_dn(request)
 
     user_id = user_get_from_job(job_id)
     username = user_get_username_from_job(job_id)
@@ -112,6 +111,7 @@ async def update_transcription_status(
 @router.get("/job/next")
 async def get_transcription_job(
     request: Request,
+    client_dn: str = Depends(verify_client_dn),
 ) -> JSONResponse:
     """
     Get the next available job.
@@ -122,7 +122,6 @@ async def get_transcription_job(
     Returns:
         JSONResponse: The next available job.
     """
-    verify_client_dn(request)
 
     return JSONResponse(content={"result": jsonable_encoder(job_get_next())})
 
@@ -132,6 +131,7 @@ async def get_transcription_file(
     request: Request,
     user_id: str,
     job_id: str,
+    client_dn: str = Depends(verify_client_dn),
 ) -> StreamingResponse:
     """
     Get the data to transcribe.
@@ -144,7 +144,7 @@ async def get_transcription_file(
     Returns:
         StreamingResponse: The encrypted file stream.
     """
-    verify_client_dn(request)
+
     job = job_get(job_id, user_id)
 
     if not job:
@@ -189,6 +189,7 @@ async def put_video_file(
     user_id: str,
     job_id: str,
     file: UploadFile,
+    client_dn: str = Depends(verify_client_dn),
 ) -> JSONResponse:
     """
     Upload the video file to transcribe.
@@ -203,7 +204,6 @@ async def put_video_file(
         JSONResponse: The result of the upload.
     """
 
-    verify_client_dn(request)
     filename = file.filename + ".enc"
 
     if not job_get(job_id, user_id):
@@ -244,6 +244,7 @@ async def put_transcription_result(
     item: TranscriptionResultRequest,
     user_id: str,
     job_id: str,
+    client_dn: str = Depends(verify_client_dn),
 ) -> JSONResponse:
     """
     Upload the transcription result.
@@ -256,8 +257,6 @@ async def put_transcription_result(
     Returns:
         JSONResponse: The result of the upload.
     """
-
-    verify_client_dn(request)
 
     job = job_get(job_id, user_id)
 

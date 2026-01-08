@@ -3,7 +3,7 @@ import requests
 
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 from db.job import (
@@ -31,6 +31,7 @@ async def get_job_external(
     request: Request,
     external_id: str = "",
     status: Optional[JobStatus] = None,
+    client_dn: str = Depends(verify_client_dn),
 ) -> JSONResponse:
     """
     Get job by external id.
@@ -46,7 +47,6 @@ async def get_job_external(
         JSONResponse: The job status.
     """
 
-    client_dn = verify_client_dn(request)
     res = job_get_by_external_id(external_id, client_dn)
 
     if isinstance(res, dict) and res and res["status"] == "completed":
@@ -60,6 +60,7 @@ async def get_job_external(
 async def delete_external_transcription_job(
     request: Request,
     external_id: str,
+    client_dn: str = Depends(verify_client_dn),
 ) -> JSONResponse:
     """
     Delete an external transcription job.
@@ -72,7 +73,6 @@ async def delete_external_transcription_job(
     Returns:
         JSONResponse: The result of the deletion.
     """
-    client_dn = verify_client_dn(request)
     job = job_get_by_external_id(external_id, client_dn)
 
     if not job:
@@ -99,6 +99,7 @@ async def delete_external_transcription_job(
 async def transcribe_external_file(
     item: TranscribeExternalPost,
     request: Request,
+    client_dn: str = Depends(verify_client_dn),
 ) -> JSONResponse:
     """
     Transcribe audio file.
@@ -110,9 +111,11 @@ async def transcribe_external_file(
 
     Returns:
         JSONResponse: The job status.
+
+    Raise:
+        Exception: If there is an error during processing.
     """
 
-    client_dn = verify_client_dn(request)
     filename = item.external_id
     job = None
 
@@ -142,7 +145,7 @@ async def transcribe_external_file(
             client_dn=client_dn,
         )
 
-        file_path = Path(api_file_storage_dir + "/" + user_id)
+        file_path = Path(api_file_storage_dir + "/" + item.user_id)
         dest_path = file_path / job["uuid"]
 
         if not file_path.exists():
@@ -155,7 +158,7 @@ async def transcribe_external_file(
         logger.error("Caught exception while creating external job - {}".format(e))
         if job is not None:
             job = job_update(
-                job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e)
+                job["uuid"], item.user_id, status=JobStatusEnum.FAILED, error=str(e)
             )
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
@@ -165,7 +168,7 @@ async def transcribe_external_file(
         content={
             "result": {
                 "uuid": job["uuid"],
-                "user_id": user_id,
+                "user_id": item.user_id,
                 "status": job["status"],
                 "job_type": job["job_type"],
                 "filename": filename,

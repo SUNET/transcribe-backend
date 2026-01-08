@@ -311,6 +311,9 @@ def decrypt_data_from_file(
 
     Returns:
         Iterator[bytes]: An iterator yielding decrypted binary chunks.
+
+    Raises:
+        ValueError: If the file format is invalid or unexpected end of file occurs.
     """
 
     chunk_index = 0

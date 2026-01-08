@@ -9,7 +9,10 @@ health = HealthStatus()
 
 
 @router.post("/healthcheck")
-async def healthcheck(request: Request) -> JSONResponse:
+async def healthcheck(
+    request: Request,
+    client_dn: str = Depends(verify_client_dn),
+) -> JSONResponse:
     """
     Recevice a JSON blob with system data from the GPU workers.
 
@@ -19,8 +22,6 @@ async def healthcheck(request: Request) -> JSONResponse:
     Returns:
         JSONResponse: The result of the health check.
     """
-
-    verify_client_dn(request)
 
     data = await request.json()
 

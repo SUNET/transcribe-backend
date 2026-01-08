@@ -489,6 +489,9 @@ def job_result_save(
 
     Returns:
         dict: The saved job result as a dictionary.
+
+    Raises:
+        ValueError: If the job is not found.
     """
 
     with get_session() as session:
