@@ -336,10 +336,10 @@ def user_update(
             .first()
         )
 
-        user.last_login = datetime.utcnow()
-
         if not user:
             return {}
+
+        user.last_login = datetime.utcnow()
 
         if transcribed_seconds:
             user.transcribed_seconds += float(transcribed_seconds)
