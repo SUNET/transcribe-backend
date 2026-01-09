@@ -97,4 +97,4 @@ class TranscriptionJobUpdateRequest(BaseModel):
 
 class TranscriptionResultRequest(BaseModel):
     format: str = ""
-    result: str = ""
+    result: str | dict
