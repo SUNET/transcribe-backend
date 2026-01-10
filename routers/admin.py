@@ -177,6 +177,7 @@ async def list_groups(
         group_dict = {
             "id": g["id"],
             "name": g["name"],
+            "customer_name": g.get("customer_name", "None"),
             "realm": g["realm"],
             "description": g["description"],
             "created_at": g["created_at"],

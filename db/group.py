@@ -1,3 +1,4 @@
+from db.customer import customer_get_from_user_id
 from db.models import Group, GroupModelLink, GroupUserLink, User
 from db.session import get_session
 from sqlalchemy import or_
@@ -213,8 +214,11 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
         for group in groups:
             group_dict = group.as_dict()
             group_dict["nr_users"] = len(group_dict["users"])
-            groups_list.append(group_dict)
+            group_dict["customer_name"] = customer_get_from_user_id(
+                group_dict["owner_user_id"]
+            ).get("name", "None")
 
+            groups_list.append(group_dict)
             all_users.extend(group_dict["users"])
 
         if realm != "*":
@@ -228,6 +232,7 @@ def group_get_all(user_id: str, realm: str) -> list[dict]:
                 "quota_seconds": 0,
                 "users": [],
                 "nr_users": len(all_users),
+                "customer_name": "",
             }
 
             groups_list.append(group_for_all_users)

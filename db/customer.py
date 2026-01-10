@@ -64,6 +64,35 @@ def customer_create(
         return customer.as_dict()
 
 
+def customer_get_from_user_id(user_id: str) -> Optional[dict]:
+    """
+    Get a customer by user_id.
+
+    Parameters:
+        user_id (str): The user ID to retrieve the associated customer.
+
+    Returns:
+        Optional[dict]: Dictionary representation of the customer if found, else empty dict.
+    """
+
+    with get_session() as session:
+        if not (user := session.query(User).filter(User.user_id == user_id).first()):
+            return {}
+
+        realm = user.realm
+
+        if not (
+            customer := (
+                session.query(Customer)
+                .filter(Customer.realms.like(f"%{realm}%"))
+                .first()
+            )
+        ):
+            return {}
+
+        return customer.as_dict()
+
+
 def customer_get(customer_id: str) -> Optional[dict]:
     """
     Get a customer by id.
