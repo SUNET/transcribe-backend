@@ -98,3 +98,15 @@ class TranscriptionJobUpdateRequest(BaseModel):
 class TranscriptionResultRequest(BaseModel):
     format: str = ""
     result: str | dict
+
+
+class RuleAddRequest(BaseModel):
+    name: str
+    attribute_name: str
+    attribute_condition: str
+    attribute_value: str
+    activate: Optional[bool] = False
+    admin: Optional[bool] = False
+    assign_to_group: Optional[str] = ""
+    assign_to_admin_domains: Optional[str] = ""
+    realm_filter: Optional[str] = ""

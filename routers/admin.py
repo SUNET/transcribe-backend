@@ -27,6 +27,12 @@ from db.customer import (
     export_customers_to_csv,
 )
 
+from db.rules import (
+    rule_add,
+    rule_update,
+    rule_delete,
+    rules_get_all,
+)
 from utils.log import get_logger
 
 from utils.settings import get_settings
@@ -41,6 +47,7 @@ from utils.validators import (
     UpdateGroupRequest,
     CreateCustomerRequest,
     UpdateCustomerRequest,
+    RuleAddRequest,
 )
 
 log = get_logger()
@@ -648,3 +655,137 @@ async def export_customers_csv(
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="customers_export.csv"'},
     )
+
+
+@router.get("/admin/onboarding/rules")
+def get_onboarding_rules(
+    request: Request,
+    admin_user: dict = Depends(get_current_admin_user),
+) -> JSONResponse:
+    """
+    Get onboarding rules.
+    Used by the frontend to get onboarding rules.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user (dict): The current user.
+
+    Returns:
+        JSONResponse: The onboarding rules.
+    """
+
+    return JSONResponse(content={"result": rules_get_all()})
+
+
+@router.post("/admin/onboarding/rules")
+def set_onboarding_rules(
+    request: Request,
+    item: RuleAddRequest,
+    admin_user: dict = Depends(get_current_admin_user),
+) -> JSONResponse:
+    """
+    Set onboarding rules.
+    Used by the frontend to set onboarding rules.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user (dict): The current user.
+
+    Returns:
+        JSONResponse: The result of the operation.
+    """
+
+    rule = rule_add(
+        name=item.name,
+        attribute_name=item.attribute_name,
+        attribute_condition=item.attribute_condition,
+        attribute_value=item.attribute_value,
+        activate=item.activate,
+        admin=item.admin,
+        assign_to_group=item.assign_to_group,
+        assign_to_admin_domains=item.assign_to_admin_domains,
+        realm_filter=item.realm_filter,
+    )
+
+    return JSONResponse(content={"result": rule})
+
+
+@router.put("/admin/onboarding/rule/{rule_id}")
+def update_onboarding_rules(
+    request: Request,
+    rule_id: str,
+    item: RuleAddRequest,
+    admin_user: dict = Depends(get_current_admin_user),
+) -> JSONResponse:
+    """
+    Update onboarding rules.
+    Used by the frontend to update onboarding rules.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user (dict): The current user.
+
+    Returns:
+        JSONResponse: The result of the operation.
+    """
+
+    print(item)
+
+    rule = rule_update(
+        rule_id=rule_id,
+        name=item.name,
+        attribute_name=item.attribute_name,
+        attribute_condition=item.attribute_condition,
+        attribute_value=item.attribute_value,
+        activate=item.activate,
+        admin=item.admin,
+        assign_to_group=item.assign_to_group,
+        assign_to_admin_domains=item.assign_to_admin_domains,
+        realm_filter=item.realm_filter,
+    )
+
+    return JSONResponse(content={"result": rule})
+
+
+@router.delete("/admin/onboarding/rule/{rule_id}")
+def delete_onboarding_rules(
+    request: Request,
+    rule_id: str,
+    admin_user: dict = Depends(get_current_admin_user),
+) -> JSONResponse:
+    """
+    Delete onboarding rules.
+    Used by the frontend to delete onboarding rules.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user (dict): The current user.
+
+    Returns:
+        JSONResponse: The result of the operation.
+    """
+
+    if not rule_delete(rule_id):
+        return JSONResponse(content={"error": "Rule not found"}, status_code=404)
+
+    return JSONResponse(content={"result": {"status": "OK"}})
+
+
+@router.post("/admin/onboarding/rules/test")
+def test_onboarding_rules(
+    request: Request,
+    admin_user: dict = Depends(get_current_admin_user),
+) -> JSONResponse:
+    """
+    Test onboarding rules.
+    Used by the frontend to test onboarding rules.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        admin_user (dict): The current user.
+
+    Returns:
+        JSONResponse: The result of the operation.
+    """
+
+    return JSONResponse(content={"result": rules_get_all()})

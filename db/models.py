@@ -655,3 +655,97 @@ class NotificationsSent(SQLModel, table=True):
             "sent_at": str(self.sent_at),
             "uuid": self.uuid,
         }
+
+
+class AttributeConditionEnum(str, Enum):
+    """
+    Enum representing attribute conditions for access control.
+    """
+
+    EQUALS = "equals"
+    NOT_EQUALS = "not_equals"
+    CONTAINS = "contains"
+    NOT_CONTAINS = "not_contains"
+    STARTS_WITH = "starts_with"
+    ENDS_WITH = "ends_with"
+    REGEX_MATCH = "regex_match"
+
+
+class AttributeRules(SQLModel, table=True):
+    """
+    Model representing attribute-based access control rules.
+    """
+
+    __tablename__ = "attribute_rules"
+
+    id: Optional[int] = Field(default=None, primary_key=True, description="Primary key")
+    name: str = Field(
+        default=None,
+        index=True,
+        description="Name of the attribute rule",
+    )
+    attribute_name: str = Field(
+        default=None,
+        index=True,
+        description="Name of the attribute",
+    )
+    attribute_condition: AttributeConditionEnum = Field(
+        default=None,
+        sa_column=Field(sa_column=SQLAlchemyEnum(AttributeConditionEnum)),
+        description="Condition to apply on the attribute",
+    )
+    attribute_value: str = Field(
+        default=None,
+        description="Value of the attribute",
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        description="Creation timestamp",
+    )
+    activate: bool = Field(
+        default=False,
+        description="Whether to activate the user if the rule matches",
+    )
+    admin: bool = Field(
+        default=False,
+        description="Whether to grant admin rights if the rule matches",
+    )
+    assign_to_group: Optional[str] = Field(
+        default=None,
+        description="Group to assign the user to if the rule matches",
+    )
+    assign_to_admin_domains: Optional[str] = Field(
+        default=None,
+        description="Admin domain to assign the user to if the rule matches",
+    )
+    owner_domains: Optional[str] = Field(
+        default=None,
+        description="Owner domains for the rule",
+    )
+    realm_filter: Optional[str] = Field(
+        default=None,
+        description="Realm filter for the rule",
+    )
+
+    def as_dict(self) -> dict:
+        """
+        Convert the attribute rule object to a dictionary.
+
+        Returns:
+            dict: The attribute rule object as a dictionary.
+        """
+
+        return {
+            "id": self.id,
+            "name": self.name,
+            "activate": self.activate,
+            "admin": self.admin,
+            "assign_to_admin_domains": self.assign_to_admin_domains,
+            "assign_to_group": self.assign_to_group,
+            "attribute_condition": self.attribute_condition,
+            "attribute_name": self.attribute_name,
+            "attribute_value": self.attribute_value,
+            "created_at": str(self.created_at),
+            "owner_domains": self.owner_domains,
+            "realm_filter": self.realm_filter,
+        }

@@ -168,8 +168,6 @@ async def verify_user(request: Request, admin: Optional[bool] = False) -> str:
 
     decoded_jwt = await verify_token(id_token=id_token)
 
-    print(decoded_jwt)
-
     # Create or update the user in the database
     user_id = decoded_jwt["sub"]
     username = decoded_jwt.get("preferred_username")
