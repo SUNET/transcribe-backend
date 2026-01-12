@@ -1,4 +1,3 @@
-import base64
 import os
 import struct
 
@@ -164,21 +163,29 @@ def validate_private_key_password(
 def encrypt_string(
     public_key: rsa.RSAPublicKey,
     plaintext: str,
-) -> bytes:
+    aes_key: Optional[bytes] = None,
+    aesgcm: Optional[AESGCM] = None,
+) -> str:
     """
     Encrypt arbitrarily large strings using hybrid RSA + AES-GCM.
 
     Parameters:
         public_key (rsa.RSAPublicKey): The RSA public key for encrypting the AES key.
         plaintext (str): The plaintext string to encrypt.
+        aes_key (Optional[bytes]): Existing AES key to reuse.
+        aesgcm (Optional[AESGCM]): Existing AESGCM instance to reuse.
 
     Returns:
-        bytes: The encrypted data, base64-encoded.
+        str: The encrypted data, represented as a hex string (safe for DB text columns).
     """
 
     # 1. Generate symmetric key
-    aes_key = AESGCM.generate_key(bit_length=256)
-    aesgcm = AESGCM(aes_key)
+    if aes_key is None:
+        aes_key = AESGCM.generate_key(bit_length=256)
+
+    if aesgcm is None:
+        aesgcm = AESGCM(aes_key)
+
     nonce = os.urandom(12)  # 96-bit nonce (recommended)
 
     # Convert to bytes if necessary
@@ -200,10 +207,9 @@ def encrypt_string(
         ),
     )
 
-    result = base64.b64encode(encrypted_key + nonce + ciphertext)
-
-    # 4. Concatenate everything
-    return result.decode("utf-8")
+    # 4. Concatenate everything and return as hex string
+    result_bytes = encrypted_key + nonce + ciphertext
+    return result_bytes.hex()  # hex is pure ASCII, no NULs
 
 
 def decrypt_string(
@@ -215,22 +221,23 @@ def decrypt_string(
 
     Parameters:
         private_key (rsa.RSAPrivateKey): The RSA private key for decrypting the AES key.
-        blob (str): The encrypted data, base64-encoded.
+        blob (str): The encrypted data as a hex string.
 
     Returns:
         str: The decrypted plaintext string.
     """
-    blob = base64.b64decode(blob)
-
-    if not isinstance(blob, bytes):
-        blob = blob.encode("utf-8")
+    # Convert hex string back to raw bytes
+    if isinstance(blob, str):
+        blob_bytes = bytes.fromhex(blob)
+    else:
+        blob_bytes = blob
 
     # RSA key size determines encrypted AES key length
     rsa_key_size_bytes = private_key.key_size // 8
 
-    encrypted_key = blob[:rsa_key_size_bytes]
-    nonce = blob[rsa_key_size_bytes : rsa_key_size_bytes + 12]
-    ciphertext = blob[rsa_key_size_bytes + 12 :]
+    encrypted_key = blob_bytes[:rsa_key_size_bytes]
+    nonce = blob_bytes[rsa_key_size_bytes : rsa_key_size_bytes + 12]
+    ciphertext = blob_bytes[rsa_key_size_bytes + 12 :]
 
     # 1. Decrypt AES key
     aes_key = private_key.decrypt(
@@ -253,40 +260,35 @@ def encrypt_data_to_file(
     public_key: rsa.RSAPublicKey,
     input_bytes: bytes,
     output_filepath: str,
-    chunk_size: int = 64 * 1024,
+    chunk_size: int = 1024 * 1024,  # 1MB chunks by default for fewer iterations
 ) -> None:
     """
-    Split a file into chunks and encrypt each chunk using encrypt_string().
-
-    Parameters:
-        public_key (rsa.RSAPublicKey): The RSA public key for encrypting the data.
-        input_bytes (bytes): The binary data to encrypt.
-        output_filepath (str): The output file path to write the encrypted data.
-        chunk_size (int): The size of each chunk in bytes. Default is 64KB.
-
-    Returns:
-        None
+    Split a buffer into chunks and encrypt each chunk using encrypt_string().
     """
 
-    def write_chunk(chunk: bytes, fout):
-        # Binary → base64 text
-        chunk_b64 = base64.b64encode(chunk).decode("ascii")
+    aes_key = AESGCM.generate_key(bit_length=256)
+    aesgcm = AESGCM(aes_key)
 
-        # Encrypt base64 text
-        encrypted_b64 = encrypt_string(public_key, chunk_b64)
-
-        # Write length-prefixed encrypted chunk
-        fout.write(struct.pack(">I", len(encrypted_b64)))
-        fout.write(encrypted_b64.encode("ascii"))
-
-    i = 0
     with open(output_filepath, "wb") as fout:
-        while True:
-            chunk = input_bytes[i : i + chunk_size]
-            if not chunk:
-                break
+        length_pack = struct.pack  # local binding for speed
+        encode_utf8 = str.encode
 
-            write_chunk(chunk, fout)
+        input_len = len(input_bytes)
+        i = 0
+        while i < input_len:
+            chunk = input_bytes[i : i + chunk_size]
+
+            # Convert raw bytes to hex text (no NULs)
+            chunk_hex = chunk.hex()
+
+            # Encrypt hex text (reuses AES key and AESGCM instance)
+            encrypted_text = encrypt_string(public_key, chunk_hex, aes_key, aesgcm)
+
+            # UTF-8 encode the outer hex and write length-prefixed
+            encoded = encode_utf8(encrypted_text, "utf-8")
+            fout.write(length_pack(">I", len(encoded)))
+            fout.write(encoded)
+
             i += chunk_size
 
         fout.flush()
@@ -299,24 +301,13 @@ def decrypt_data_from_file(
     end_chunk: Optional[int] = None,
 ) -> Iterator[bytes]:
     """
-    Decrypt a file encrypted by encrypt_file().
+    Decrypt a file encrypted by encrypt_data_to_file().
     Yields binary chunks.
-    Supports optional start_chunk and end_chunk (0-based, inclusive).
-
-    Parameters:
-        private_key (rsa.RSAPrivateKey): The RSA private key for decrypting the data.
-        input_filepath (str): The input file path to read the encrypted data.
-        start_chunk (int): The starting chunk index (0-based). Default is 0.
-        end_chunk (Optional[int]): The ending chunk index (0-based, inclusive). Default is None (no limit).
-
-    Returns:
-        Iterator[bytes]: An iterator yielding decrypted binary chunks.
-
-    Raises:
-        ValueError: If the file format is invalid or unexpected end of file occurs.
     """
 
     chunk_index = 0
+    unpack = struct.unpack
+    decode_utf8 = bytes.decode
 
     with open(input_filepath, "rb") as fin:
         while True:
@@ -324,7 +315,7 @@ def decrypt_data_from_file(
             if not length_bytes:
                 break  # EOF
 
-            (chunk_length,) = struct.unpack(">I", length_bytes)
+            (chunk_length,) = unpack(">I", length_bytes)
             encrypted_chunk = fin.read(chunk_length)
             if len(encrypted_chunk) != chunk_length:
                 raise ValueError("Unexpected end of file while reading encrypted chunk")
@@ -338,11 +329,11 @@ def decrypt_data_from_file(
             if end_chunk is not None and chunk_index > end_chunk:
                 break
 
-            # Decrypt
-            decrypted_b64 = decrypt_string(private_key, encrypted_chunk.decode("utf-8"))
+            # Decrypt (outer is UTF-8 text, hex from encrypt_data_to_file)
+            encrypted_text = decode_utf8(encrypted_chunk, "utf-8")
+            decrypted_hex = decrypt_string(private_key, encrypted_text)
 
-            # Convert base64 back to binary
-            decrypted_bytes = base64.b64decode(decrypted_b64)
+            # Convert inner hex back to original binary
+            yield bytes.fromhex(decrypted_hex)
 
-            yield decrypted_bytes
             chunk_index += 1
