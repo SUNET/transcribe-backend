@@ -111,15 +111,24 @@ async def get_video_stream(
         def stream_chunks():
             offset_in_first_chunk = range_start % settings.CRYPTO_CHUNK_SIZE
             last_chunk_bytes = (range_end % settings.CRYPTO_CHUNK_SIZE) + 1
+            total_chunks = end_chunk - start_chunk
 
             for i, chunk in enumerate(
                 decrypt_data_from_file(private_key, file_path, start_chunk, end_chunk)
             ):
+                chunk_start = 0
+                chunk_end = len(chunk)
+
                 if i == 0:
-                    chunk = chunk[offset_in_first_chunk:]
-                if i == (end_chunk - start_chunk):
-                    chunk = chunk[:last_chunk_bytes]
-                yield chunk
+                    # First chunk: start from offset
+                    chunk_start = offset_in_first_chunk
+
+                if i == total_chunks:
+                    # Last chunk: end at last_chunk_bytes
+                    chunk_end = last_chunk_bytes
+
+                # Apply both slices at once
+                yield chunk[chunk_start:chunk_end]
 
         content_length = range_end - range_start + 1
 
