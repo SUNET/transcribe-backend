@@ -508,7 +508,7 @@ def job_result_save(
 
         if job_result:
             if result:
-                job_result.result = json.dumps(result)
+                job_result.result = result
             if result_srt:
                 job_result.result_srt = result_srt
         else:
