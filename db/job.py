@@ -393,7 +393,7 @@ def job_cleanup() -> None:
             if "deletion" not in user.notifications.split(","):
                 continue
 
-            if user.email != "":
+            if user.email == "":
                 continue
 
             if notifications.notification_sent_record_exists(
