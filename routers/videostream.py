@@ -4,7 +4,11 @@ from db.user import user_get_private_key
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pathlib import Path
-from utils.crypto import decrypt_data_from_file, deserialize_private_key_from_pem
+from utils.crypto import (
+    decrypt_data_from_file,
+    deserialize_private_key_from_pem,
+    get_encrypted_file_size,
+)
 from utils.settings import get_settings
 from utils.validators import VideoStreamRequestBody
 
@@ -83,6 +87,23 @@ async def get_video_stream(
 
     # New way to serve encrypted video files
     if encrypted_media:
+        # Get the ORIGINAL file size first
+        filesize_original = get_encrypted_file_size(
+            file_path
+        )  # I assume this returns the original size
+
+        # Recalculate range_end based on original file size
+        if not range or not range.startswith("bytes="):
+            range_start = 0
+            range_end = filesize_original - 1
+        else:
+            range_start_str, range_end_str = range.replace("bytes=", "").split("-")
+            range_start = int(range_start_str)
+            range_end = int(range_end_str) if range_end_str else filesize_original - 1
+
+        # Clamp range_end to file size
+        range_end = min(range_end, filesize_original - 1)
+
         # Determine which chunks correspond to the byte range
         start_chunk = range_start // settings.CRYPTO_CHUNK_SIZE
         end_chunk = range_end // settings.CRYPTO_CHUNK_SIZE
@@ -95,16 +116,17 @@ async def get_video_stream(
                 decrypt_data_from_file(private_key, file_path, start_chunk, end_chunk)
             ):
                 if i == 0:
-                    # First chunk: apply range_start offset
                     chunk = chunk[offset_in_first_chunk:]
                 if i == (end_chunk - start_chunk):
-                    # Last chunk: trim to range_end
                     chunk = chunk[:last_chunk_bytes]
                 yield chunk
 
+        content_length = range_end - range_start + 1
+
         headers = {
-            "Content-Range": f"bytes {range_start}-{range_end}/{filesize}",
+            "Content-Range": f"bytes {range_start}-{range_end}/{filesize_original}",
             "Accept-Ranges": "bytes",
+            "Content-Length": str(content_length),
         }
 
         return StreamingResponse(

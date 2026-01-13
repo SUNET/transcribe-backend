@@ -126,6 +126,7 @@ def deserialize_public_key_from_pem(
     Returns:
         rsa.RSAPublicKey: The deserialized RSA public key.
     """
+
     public_key = serialization.load_pem_public_key(
         pem_data,
     )
@@ -226,6 +227,7 @@ def decrypt_string(
     Returns:
         str: The decrypted plaintext string.
     """
+
     # Convert hex string back to raw bytes
     if isinstance(blob, str):
         blob_bytes = bytes.fromhex(blob)
@@ -264,17 +266,30 @@ def encrypt_data_to_file(
 ) -> None:
     """
     Split a buffer into chunks and encrypt each chunk using encrypt_string().
+
+    Parameters:
+        public_key (rsa.RSAPublicKey): The RSA public key for encrypting the AES key.
+        input_bytes (bytes): The binary data to encrypt.
+        output_filepath (str): The path to the output encrypted file.
+        chunk_size (int): The size of each chunk in bytes. Default is 1MB.
+
+    Returns:
+        None
     """
 
     aes_key = AESGCM.generate_key(bit_length=256)
     aesgcm = AESGCM(aes_key)
 
     with open(output_filepath, "wb") as fout:
+        i = 0
         length_pack = struct.pack  # local binding for speed
         encode_utf8 = str.encode
-
         input_len = len(input_bytes)
-        i = 0
+
+        fout.write(
+            length_pack(">Q", input_len)
+        )  # 8-byte unsigned long long for file size
+
         while i < input_len:
             chunk = input_bytes[i : i + chunk_size]
 
@@ -310,6 +325,8 @@ def decrypt_data_from_file(
     decode_utf8 = bytes.decode
 
     with open(input_filepath, "rb") as fin:
+        fin.read(8)  # Skip the original file size (8 bytes)
+
         while True:
             length_bytes = fin.read(4)
             if not length_bytes:
@@ -337,3 +354,27 @@ def decrypt_data_from_file(
             yield bytes.fromhex(decrypted_hex)
 
             chunk_index += 1
+
+
+def get_encrypted_file_size(
+    input_filepath: str,
+) -> int:
+    """
+    Get the original file size stored in an encrypted file.
+
+    Parameters:
+        input_filepath (str): The path to the encrypted file.
+
+    Returns:
+        int: The original file size in bytes.
+    """
+
+    with open(input_filepath, "rb") as fin:
+        length_bytes = fin.read(8)
+
+        if len(length_bytes) != 8:
+            raise ValueError("Unexpected end of file while reading original file size")
+
+        (original_size,) = struct.unpack(">Q", length_bytes)
+
+        return original_size
