@@ -216,7 +216,7 @@ async def create_group(
         name=item.name,
         realm=admin_user["realm"],
         description=item.description,
-        quota_seconds=item.quota,
+        quota_seconds=item.quota_seconds,
         owner_user_id=admin_user["user_id"],
     )
 
