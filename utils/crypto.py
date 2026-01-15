@@ -8,29 +8,24 @@ from typing import Iterator, Optional, Tuple
 
 
 def generate_rsa_keypair(
-    key_size: Optional[int] = 4096,
+    key_size: int = 4096,
 ) -> Tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]:
     """
     Generate an RSA key pair.
     Returns a tuple of (private_key, public_key).
 
     Parameters:
-        key_size (Optional[int]): Size of the RSA key in bits. Default is 4096.
+        key_size (int): Size of the RSA key in bits. Default is 4096.
 
     Returns:
         Tuple[rsa.RSAPrivateKey, rsa.RSAPublicKey]: The generated RSA private and public keys.
     """
 
-    # Generate private key
     private_key = rsa.generate_private_key(
-        public_exponent=65537,  # Commonly used public exponent
+        public_exponent=65537,
         key_size=key_size,
     )
-
-    # Derive public key
-    public_key = private_key.public_key()
-
-    return private_key, public_key
+    return private_key, private_key.public_key()
 
 
 def serialize_private_key_to_pem(
@@ -49,18 +44,11 @@ def serialize_private_key_to_pem(
         bytes: The PEM-formatted private key.
     """
 
-    # Set up encryption algorithm, BestAvailableEncryption will always
-    # default to AES-256-CBC.
-    encryption_algorithm = serialization.BestAvailableEncryption(password)
-
-    # Serialize private key to PEM
-    pem = private_key.private_bytes(
+    return private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=encryption_algorithm,
+        encryption_algorithm=serialization.BestAvailableEncryption(password),
     )
-
-    return pem
 
 
 def serialize_public_key_to_pem(
@@ -76,12 +64,10 @@ def serialize_public_key_to_pem(
         bytes: The PEM-formatted public key.
     """
 
-    pem = public_key.public_bytes(
+    return public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
-
-    return pem
 
 
 def deserialize_private_key_from_pem(
@@ -100,18 +86,12 @@ def deserialize_private_key_from_pem(
         rsa.RSAPrivateKey: The deserialized RSA private key.
     """
 
-    # Convert to bytes if necessary
     if not isinstance(password, bytes):
         password = password.encode("utf-8")
     if not isinstance(pem_data, bytes):
         pem_data = pem_data.encode("utf-8")
 
-    private_key = serialization.load_pem_private_key(
-        pem_data,
-        password=password,
-    )
-
-    return private_key
+    return serialization.load_pem_private_key(pem_data, password=password)
 
 
 def deserialize_public_key_from_pem(
@@ -126,12 +106,7 @@ def deserialize_public_key_from_pem(
     Returns:
         rsa.RSAPublicKey: The deserialized RSA public key.
     """
-
-    public_key = serialization.load_pem_public_key(
-        pem_data,
-    )
-
-    return public_key
+    return serialization.load_pem_public_key(pem_data)
 
 
 def validate_private_key_password(
@@ -148,17 +123,12 @@ def validate_private_key_password(
     Returns:
         bool: True if the password is correct, False otherwise.
     """
-
     if not isinstance(password, bytes):
         password = password.encode("utf-8")
-
     if not isinstance(private_key_pem, bytes):
         private_key_pem = private_key_pem.encode("utf-8")
 
-    if deserialize_private_key_from_pem(private_key_pem, password):
-        return True
-
-    return False
+    return bool(deserialize_private_key_from_pem(private_key_pem, password))
 
 
 def encrypt_string(
@@ -180,25 +150,17 @@ def encrypt_string(
         str: The encrypted data, represented as a hex string (safe for DB text columns).
     """
 
-    # 1. Generate symmetric key
     if aes_key is None:
         aes_key = AESGCM.generate_key(bit_length=256)
-
     if aesgcm is None:
         aesgcm = AESGCM(aes_key)
 
-    nonce = os.urandom(12)  # 96-bit nonce (recommended)
-
-    # Convert to bytes if necessary
-    if isinstance(plaintext, str):
-        plaintext_bytes = plaintext.encode("utf-8")
-    else:
-        plaintext_bytes = plaintext
-
-    # 2. Encrypt message with AES
+    nonce = os.urandom(12)
+    plaintext_bytes = (
+        plaintext.encode("utf-8") if isinstance(plaintext, str) else plaintext
+    )
     ciphertext = aesgcm.encrypt(nonce, plaintext_bytes, None)
 
-    # 3. Encrypt AES key with RSA
     encrypted_key = public_key.encrypt(
         aes_key,
         padding.OAEP(
@@ -208,9 +170,7 @@ def encrypt_string(
         ),
     )
 
-    # 4. Concatenate everything and return as hex string
-    result_bytes = encrypted_key + nonce + ciphertext
-    return result_bytes.hex()  # hex is pure ASCII, no NULs
+    return (encrypted_key + nonce + ciphertext).hex()
 
 
 def decrypt_string(
@@ -228,20 +188,13 @@ def decrypt_string(
         str: The decrypted plaintext string.
     """
 
-    # Convert hex string back to raw bytes
-    if isinstance(blob, str):
-        blob_bytes = bytes.fromhex(blob)
-    else:
-        blob_bytes = blob
-
-    # RSA key size determines encrypted AES key length
+    blob_bytes = bytes.fromhex(blob) if isinstance(blob, str) else blob
     rsa_key_size_bytes = private_key.key_size // 8
 
     encrypted_key = blob_bytes[:rsa_key_size_bytes]
     nonce = blob_bytes[rsa_key_size_bytes : rsa_key_size_bytes + 12]
     ciphertext = blob_bytes[rsa_key_size_bytes + 12 :]
 
-    # 1. Decrypt AES key
     aes_key = private_key.decrypt(
         encrypted_key,
         padding.OAEP(
@@ -251,9 +204,7 @@ def decrypt_string(
         ),
     )
 
-    # 2. Decrypt message
-    aesgcm = AESGCM(aes_key)
-    plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+    plaintext = AESGCM(aes_key).decrypt(nonce, ciphertext, None)
 
     return plaintext.decode("utf-8")
 
@@ -262,7 +213,7 @@ def encrypt_data_to_file(
     public_key: rsa.RSAPublicKey,
     input_bytes: bytes,
     output_filepath: str,
-    chunk_size: int = 1024 * 1024,  # 1MB chunks by default for fewer iterations
+    chunk_size: int = 1024 * 1024,
 ) -> None:
     """
     Split a buffer into chunks and encrypt each chunk using encrypt_string().
@@ -279,34 +230,17 @@ def encrypt_data_to_file(
 
     aes_key = AESGCM.generate_key(bit_length=256)
     aesgcm = AESGCM(aes_key)
+    input_len = len(input_bytes)
 
     with open(output_filepath, "wb") as fout:
-        i = 0
-        length_pack = struct.pack  # local binding for speed
-        encode_utf8 = str.encode
-        input_len = len(input_bytes)
+        fout.write(struct.pack(">Q", input_len))
 
-        fout.write(
-            length_pack(">Q", input_len)
-        )  # 8-byte unsigned long long for file size
-
-        while i < input_len:
+        for i in range(0, input_len, chunk_size):
             chunk = input_bytes[i : i + chunk_size]
-
-            # Convert raw bytes to hex text (no NULs)
-            chunk_hex = chunk.hex()
-
-            # Encrypt hex text (reuses AES key and AESGCM instance)
-            encrypted_text = encrypt_string(public_key, chunk_hex, aes_key, aesgcm)
-
-            # UTF-8 encode the outer hex and write length-prefixed
-            encoded = encode_utf8(encrypted_text, "utf-8")
-            fout.write(length_pack(">I", len(encoded)))
+            encrypted_text = encrypt_string(public_key, chunk.hex(), aes_key, aesgcm)
+            encoded = encrypted_text.encode("utf-8")
+            fout.write(struct.pack(">I", len(encoded)))
             fout.write(encoded)
-
-            i += chunk_size
-
-        fout.flush()
 
 
 def decrypt_data_from_file(
@@ -321,36 +255,29 @@ def decrypt_data_from_file(
     """
 
     chunk_index = 0
-    unpack = struct.unpack
-    decode_utf8 = bytes.decode
 
     with open(input_filepath, "rb") as fin:
-        fin.read(8)  # Skip the original file size (8 bytes)
+        fin.read(8)
 
         while True:
             length_bytes = fin.read(4)
             if not length_bytes:
-                break  # EOF
+                break
 
-            (chunk_length,) = unpack(">I", length_bytes)
+            (chunk_length,) = struct.unpack(">I", length_bytes)
             encrypted_chunk = fin.read(chunk_length)
             if len(encrypted_chunk) != chunk_length:
                 raise ValueError("Unexpected end of file while reading encrypted chunk")
 
-            # Skip chunks before start_chunk
             if chunk_index < start_chunk:
                 chunk_index += 1
                 continue
 
-            # Stop after end_chunk
             if end_chunk is not None and chunk_index > end_chunk:
                 break
 
-            # Decrypt (outer is UTF-8 text, hex from encrypt_data_to_file)
-            encrypted_text = decode_utf8(encrypted_chunk, "utf-8")
+            encrypted_text = encrypted_chunk.decode("utf-8")
             decrypted_hex = decrypt_string(private_key, encrypted_text)
-
-            # Convert inner hex back to original binary
             yield bytes.fromhex(decrypted_hex)
 
             chunk_index += 1
@@ -375,6 +302,4 @@ def get_encrypted_file_size(
         if len(length_bytes) != 8:
             raise ValueError("Unexpected end of file while reading original file size")
 
-        (original_size,) = struct.unpack(">Q", length_bytes)
-
-        return original_size
+        return struct.unpack(">Q", length_bytes)[0]
