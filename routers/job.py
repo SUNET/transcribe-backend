@@ -215,6 +215,10 @@ async def put_video_file(
         file_path.mkdir(parents=True, exist_ok=True)
 
     file_bytes = await file.read()
+
+    if user_id.isnumeric():
+        user_id = user_get(username="api_user")["user_id"]
+
     public_key = user_get_public_key(user_id)
     public_key = deserialize_public_key_from_pem(public_key)
 
@@ -261,8 +265,12 @@ async def put_transcription_result(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    # Encrypt the data with the users public key
-    public_key = user_get_public_key(user_id)
+    if user_id.isnumeric():
+        api_user = user_get(username="api_user")["user_id"]
+        public_key = user_get_public_key(api_user)
+    else:
+        public_key = user_get_public_key(user_id)
+
     public_key = deserialize_public_key_from_pem(public_key)
 
     match item.format:

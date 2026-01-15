@@ -61,13 +61,13 @@ class UpdateCustomerRequest(BaseModel):
 
 
 class TranscribeExternalPost(BaseModel):
-    external_id: Optional[str]
-    external_user_id: Optional[str]
     language: Optional[str]
     model: Optional[str]
     output_format: Optional[str]
     user_id: Optional[str]
-    url: Optional[str]
+    file_url: Optional[str]
+    id: Optional[str]
+    service_id: Optional[str]
 
 
 class VideoStreamRequestBody(BaseModel):

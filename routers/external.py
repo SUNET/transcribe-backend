@@ -14,11 +14,18 @@ from db.job import (
     job_result_get_external,
 )
 from db.models import JobStatus, JobType, JobStatusEnum
-from db.user import user_create
+from db.user import user_create, user_get_public_key, user_get, user_get_private_key
 from auth.client import verify_client_dn
 from utils.log import get_logger
 from utils.settings import get_settings
 from utils.validators import TranscribeExternalPost
+from utils.crypto import (
+    encrypt_data_to_file,
+    deserialize_public_key_from_pem,
+    decrypt_string,
+    deserialize_private_key_from_pem,
+)
+
 
 logger = get_logger()
 router = APIRouter(tags=["external"])
@@ -49,12 +56,45 @@ async def get_job_external(
 
     res = job_get_by_external_id(external_id, client_dn)
 
-    if isinstance(res, dict) and res and res["status"] == "completed":
-        job_result = job_result_get_external(external_id)
-        res["result_srt"] = job_result["result_srt"]
+    if not isinstance(res, dict) and res and res["status"] == "completed":
+        logger.error(f"External job not found: {external_id}")
+        return JSONResponse(
+            content={
+                "result": res
+            },
+        )
+
+    if not (job_result := job_result_get_external(external_id)):
+        logger.error(f"External job result not found: {external_id}")
+        return JSONResponse(
+            content={
+                "result": res
+            },
+        )
+
+    try:
+        # Decrypt the result text
+        user = user_get(username="api_user")
+        private_key = user_get_private_key(user["user_id"])
+        deserialized_private_key = deserialize_private_key_from_pem(
+            private_key, settings.API_PRIVATE_KEY_PASSWORD
+        )
+    except Exception as e:
+        logger.error(f"Error deserializing private key for external job result: {e}")
+        return JSONResponse(
+            content={
+                "result": {"error": "Error processing job result"}
+            },
+            status_code=500,
+        )
+
+    job_result = decrypt_string(deserialized_private_key, job_result["result_srt"])
+
+    res["result_srt"] = job_result
+
+    logger.info(f"Returning external job result for: {external_id}")
 
     return JSONResponse(content={"result": res})
-
 
 @router.delete("/transcriber/external/{external_id}")
 async def delete_external_transcription_job(
@@ -116,12 +156,12 @@ async def transcribe_external_file(
         Exception: If there is an error during processing.
     """
 
-    filename = item.external_id
+    filename = item.file_url.split("/")[-1]
     job = None
 
     try:
         kaltura_repsonse = await run_in_threadpool(
-            lambda: requests.get(item.url, timeout=120)
+            lambda: requests.get(item.file_url, timeout=120)
         )
 
         if kaltura_repsonse.status_code != 200:
@@ -138,10 +178,10 @@ async def transcribe_external_file(
             job_type=JobType.TRANSCRIPTION,
             filename=filename,
             language=item.language,
-            model_type=item.model,
+            model_type="slower transcription (higher accuracy)",
             output_format=item.output_format,
-            external_id=item.external_id,
-            external_user_id=item.external_user_id,
+            external_id=item.id,
+            external_user_id=None,
             client_dn=client_dn,
         )
 
@@ -151,8 +191,19 @@ async def transcribe_external_file(
         if not file_path.exists():
             file_path.mkdir(parents=True, exist_ok=True)
 
-        async with aiofiles.open(dest_path, "wb") as out_file:
-            await out_file.write(kaltura_repsonse.content)
+        if not (api_user := user_get(username="api_user")):
+            return JSONResponse(
+                content={"result": {"error": "API user not found"}}, status_code=500
+            )
+
+        public_key = user_get_public_key(api_user["user_id"])
+        public_key = deserialize_public_key_from_pem(public_key)
+
+        encrypt_data_to_file(
+            public_key,
+            kaltura_repsonse.content,
+            dest_path,
+        )
 
     except Exception as e:
         logger.error("Caught exception while creating external job - {}".format(e))
