@@ -39,60 +39,38 @@ async def get_video_stream(
     """
 
     job = job_get(job_id, user["user_id"])
-
-    if item.encryption_password != "" and item.encryption_password is not None:
-        private_key = user_get_private_key(user["user_id"])
-        private_key = deserialize_private_key_from_pem(
-            private_key, item.encryption_password
-        )
-        file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4.enc"
-        encrypted_media = True
-
-        if not file_path.exists():
-            file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4"
-            encrypted_media = False
-    else:
-        file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4"
-        encrypted_media = False
-
     if not job:
         return JSONResponse({"result": {"error": "Job not found"}}, status_code=404)
+
+    private_key = None
+    encrypted_media = False
+    
+    if item.encryption_password != "" and item.encryption_password is not None:
+        file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4.enc"
+        if file_path.exists():
+            encrypted_media = True
+            try:
+                private_key_pem = user_get_private_key(user["user_id"])
+                private_key = deserialize_private_key_from_pem(
+                    private_key_pem, item.encryption_password
+                )
+            except Exception:
+                return JSONResponse(
+                    {"result": {"error": "Invalid encryption password"}}, status_code=401
+                )
+        else:
+            file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4"
+    else:
+        file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4"
 
     if not file_path.exists():
         return JSONResponse(
             {"result": {"error": "Video file not found"}}, status_code=404
         )
 
-    filesize = file_path.stat().st_size
-
-    if not range or not range.startswith("bytes="):
-        range_start = 0
-        range_end = filesize - 1
-    else:
-        range_start_str, range_end_str = range.replace("bytes=", "").split("-")
-        range_start = int(range_start_str)
-        range_end = int(range_end_str) if range_end_str else filesize - 1
-
-    # Try to decrypt the first chunk of the file to verify the password
     if encrypted_media:
-        try:
-            decrypt_data_from_file(
-                private_key,
-                file_path,
-                start_chunk=0,
-                end_chunk=0,
-            )
-        except Exception:
-            encrypted_media = False
-
-    # New way to serve encrypted video files
-    if encrypted_media:
-        # Get the ORIGINAL file size first
-        filesize_original = get_encrypted_file_size(
-            file_path
-        )  # I assume this returns the original size
-
-        # Recalculate range_end based on original file size
+        filesize_original = get_encrypted_file_size(file_path)
+        
         if not range or not range.startswith("bytes="):
             range_start = 0
             range_end = filesize_original - 1
@@ -101,10 +79,8 @@ async def get_video_stream(
             range_start = int(range_start_str)
             range_end = int(range_end_str) if range_end_str else filesize_original - 1
 
-        # Clamp range_end to file size
         range_end = min(range_end, filesize_original - 1)
 
-        # Determine which chunks correspond to the byte range
         start_chunk = range_start // settings.CRYPTO_CHUNK_SIZE
         end_chunk = range_end // settings.CRYPTO_CHUNK_SIZE
 
@@ -116,19 +92,14 @@ async def get_video_stream(
             for i, chunk in enumerate(
                 decrypt_data_from_file(private_key, file_path, start_chunk, end_chunk)
             ):
-                chunk_start = 0
-                chunk_end = len(chunk)
-
-                if i == 0:
-                    # First chunk: start from offset
-                    chunk_start = offset_in_first_chunk
-
-                if i == total_chunks:
-                    # Last chunk: end at last_chunk_bytes
-                    chunk_end = last_chunk_bytes
-
-                # Apply both slices at once
-                yield chunk[chunk_start:chunk_end]
+                if i == 0 and i == total_chunks:
+                    yield chunk[offset_in_first_chunk:last_chunk_bytes]
+                elif i == 0:
+                    yield chunk[offset_in_first_chunk:]
+                elif i == total_chunks:
+                    yield chunk[:last_chunk_bytes]
+                else:
+                    yield chunk
 
         content_length = range_end - range_start + 1
 
@@ -142,21 +113,35 @@ async def get_video_stream(
             stream_chunks(), status_code=206, headers=headers, media_type="video/mp4"
         )
 
-    # Old way to serve unencrypted video files
     else:
         filesize = int(file_path.stat().st_size)
-        range_start, range_end = range.replace("bytes=", "").split("-")
-        range_start = int(range_start)
-        range_end = int(range_end) if range_end else filesize - 1
+        
+        if not range or not range.startswith("bytes="):
+            range_start = 0
+            range_end = filesize - 1
+        else:
+            range_start_str, range_end_str = range.replace("bytes=", "").split("-")
+            range_start = int(range_start_str)
+            range_end = int(range_end_str) if range_end_str else filesize - 1
 
-        with open(file_path, "rb") as video:
-            video.seek(range_start)
-            data = video.read(range_end - range_start + 1)
-            headers = {
-                "Content-Range": f"bytes {str(range_start)}-{str(range_end)}/{filesize}",
-                "Accept-Ranges": "bytes",
-            }
+        def stream_unencrypted():
+            with open(file_path, "rb") as video:
+                video.seek(range_start)
+                remaining = range_end - range_start + 1
+                chunk_size = 64 * 1024
+                while remaining > 0:
+                    chunk = video.read(min(chunk_size, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
 
-            return Response(
-                data, status_code=206, headers=headers, media_type="video/mp4"
-            )
+        headers = {
+            "Content-Range": f"bytes {range_start}-{range_end}/{filesize}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(range_end - range_start + 1),
+        }
+
+        return StreamingResponse(
+            stream_unencrypted(), status_code=206, headers=headers, media_type="video/mp4"
+        )

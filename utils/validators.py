@@ -12,8 +12,8 @@ class TranscriptionStatusPut(BaseModel):
 
 
 class TranscriptionResultPut(BaseModel):
-    format: Optional[str] = None
-    data: Optional[str] = None
+    format: Optional[str] = ""
+    data: Optional[str] = ""
 
 
 class ModifyUserRequest(BaseModel):

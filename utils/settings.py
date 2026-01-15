@@ -63,7 +63,7 @@ class Settings(BaseSettings):
 
     # Crypto configuration.
     CRYPTO_KEY_SIZE: int = 4096
-    CRYPTO_CHUNK_SIZE: int = 64 * 1024  # 64KB
+    CRYPTO_CHUNK_SIZE: int = 1024 * 1024  # 1MB for better performance
 
     # E-mail notifications
     NOTIFICATION_MAIL_UPDATED: dict = {
