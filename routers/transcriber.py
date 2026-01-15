@@ -272,7 +272,7 @@ async def put_transcription_result(
                 job_result_save(
                     job_id,
                     user["user_id"],
-                    result=item.format,
+                    result=item.data,
                 )
     except Exception as e:
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
