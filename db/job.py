@@ -381,6 +381,7 @@ def job_cleanup() -> None:
         jobs_to_notify = (
             session.query(Job)
             .filter(Job.deletion_date <= datetime.now() + timedelta(days=1))
+            .filter(Job.status != JobStatusEnum.DELETED)
             .all()
         )
 
