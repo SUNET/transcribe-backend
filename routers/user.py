@@ -76,11 +76,20 @@ async def set_user_info(
     elif item.notifications:
         notifications_str = ""
 
-        if item.notifications.notify_on_job:
+        if (
+            item.notifications.notify_on_job is not None
+            and item.notifications.notify_on_job
+        ):
             notifications_str += "job,"
-        if item.notifications.notify_on_deletion:
+        if (
+            item.notifications.notify_on_deletion is not None
+            and item.notifications.notify_on_deletion
+        ):
             notifications_str += "deletion,"
-        if item.notifications.notify_on_user:
+        if (
+            item.notifications.notify_on_user is not None
+            and item.notifications.notify_on_user
+        ):
             notifications_str += "user,"
 
         user_update(user["user_id"], notifications_str=notifications_str)
