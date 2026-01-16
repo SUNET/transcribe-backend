@@ -23,6 +23,7 @@ from auth.oidc import get_current_user
 from utils.crypto import (
     deserialize_public_key_from_pem,
     deserialize_private_key_from_pem,
+    encrypt_string,
     decrypt_string,
     encrypt_data_to_file,
 )
@@ -261,20 +262,24 @@ async def put_transcription_result(
                 content={"result": {"error": "Job not found"}}, status_code=404
             )
 
+        public_key = user_get_public_key(user["user_id"])
+        public_key = deserialize_public_key_from_pem(public_key)
+
         match item.format:
             case "srt":
                 job_result_save(
                     job_id,
                     user["user_id"],
-                    result_srt=item.data,
+                    result_srt=encrypt_string(public_key, item.data),
                 )
             case "json":
                 job_result_save(
                     job_id,
                     user["user_id"],
-                    result=item.data,
+                    result=encrypt_string(public_key, item.data),
                 )
     except Exception as e:
+        print(e)
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     return JSONResponse(content={"result": {"status": "OK"}}, status_code=200)
