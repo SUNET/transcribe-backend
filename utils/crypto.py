@@ -259,6 +259,17 @@ def decrypt_data_from_file(
     with open(input_filepath, "rb") as fin:
         fin.read(8)
 
+        # Skip to start_chunk more efficiently
+        while chunk_index < start_chunk:
+            length_bytes = fin.read(4)
+            if not length_bytes:
+                return  # File doesn't have enough chunks
+            
+            (chunk_length,) = struct.unpack(">I", length_bytes)
+            fin.seek(chunk_length, 1)  # Seek forward instead of reading
+            chunk_index += 1
+
+        # Now decrypt and yield chunks from start_chunk to end_chunk
         while True:
             length_bytes = fin.read(4)
             if not length_bytes:
@@ -268,10 +279,6 @@ def decrypt_data_from_file(
             encrypted_chunk = fin.read(chunk_length)
             if len(encrypted_chunk) != chunk_length:
                 raise ValueError("Unexpected end of file while reading encrypted chunk")
-
-            if chunk_index < start_chunk:
-                chunk_index += 1
-                continue
 
             if end_chunk is not None and chunk_index > end_chunk:
                 break
@@ -303,3 +310,63 @@ def get_encrypted_file_size(
             raise ValueError("Unexpected end of file while reading original file size")
 
         return struct.unpack(">Q", length_bytes)[0]
+
+
+def get_encrypted_file_actual_size(
+    input_filepath: str,
+    chunk_size: int,
+) -> int:
+    """
+    Get the actual available data size based on chunks present in the encrypted file.
+    This may differ from the declared original size if the file is incomplete.
+
+    Parameters:
+        input_filepath (str): The path to the encrypted file.
+        chunk_size (int): The size of each decrypted chunk.
+
+    Returns:
+        int: The actual available data size in bytes.
+    """
+
+    with open(input_filepath, "rb") as fin:
+        original_size_bytes = fin.read(8)
+        if len(original_size_bytes) != 8:
+            return 0
+        
+        original_size = struct.unpack(">Q", original_size_bytes)[0]
+        
+        chunk_count = 0
+        while True:
+            length_bytes = fin.read(4)
+            if not length_bytes:
+                break
+            
+            (chunk_length,) = struct.unpack(">I", length_bytes)
+            fin.seek(chunk_length, 1)
+            chunk_count += 1
+        
+        # Calculate actual available size
+        if chunk_count == 0:
+            return 0
+        
+        # Calculate expected total chunks for the original size
+        expected_total_chunks = (original_size + chunk_size - 1) // chunk_size
+        
+        if chunk_count >= expected_total_chunks:
+            # File is complete
+            return original_size
+        else:
+            # File is incomplete - calculate size based on what we have
+            # All complete chunks are full size
+            complete_chunks = chunk_count - 1
+            
+            # The last chunk size depends on the original file size
+            # We know where the last chunk would fall in the original file
+            last_chunk_original_offset = complete_chunks * chunk_size
+            if last_chunk_original_offset >= original_size:
+                # We only have complete chunks
+                return complete_chunks * chunk_size
+            else:
+                # Calculate what the last chunk's size should be
+                remaining_bytes = min(chunk_size, original_size - last_chunk_original_offset)
+                return complete_chunks * chunk_size + remaining_bytes

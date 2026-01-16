@@ -7,6 +7,7 @@ from pathlib import Path
 from utils.crypto import (
     decrypt_data_from_file,
     deserialize_private_key_from_pem,
+    get_encrypted_file_actual_size,
     get_encrypted_file_size,
 )
 from utils.settings import get_settings
@@ -87,22 +88,34 @@ async def get_video_stream(
 
     # New way to serve encrypted video files
     if encrypted_media:
-        # Get the ORIGINAL file size first
-        filesize_original = get_encrypted_file_size(
-            file_path
-        )  # I assume this returns the original size
+        # Get the actual available file size (not the declared size)
+        filesize_actual = get_encrypted_file_actual_size(file_path, settings.CRYPTO_CHUNK_SIZE)
+        
+        if filesize_actual == 0:
+            return JSONResponse(
+                {"result": {"error": "Encrypted file is empty or corrupted"}}, 
+                status_code=500
+            )
 
-        # Recalculate range_end based on original file size
+        # Recalculate range_end based on actual available file size
         if not range or not range.startswith("bytes="):
             range_start = 0
-            range_end = filesize_original - 1
+            range_end = filesize_actual - 1
         else:
             range_start_str, range_end_str = range.replace("bytes=", "").split("-")
             range_start = int(range_start_str)
-            range_end = int(range_end_str) if range_end_str else filesize_original - 1
+            range_end = int(range_end_str) if range_end_str else filesize_actual - 1
 
-        # Clamp range_end to file size
-        range_end = min(range_end, filesize_original - 1)
+        # IMPORTANT: Clamp to actual available data
+        if range_start >= filesize_actual:
+            return Response(
+                b"", 
+                status_code=416,
+                headers={"Content-Range": f"bytes */{filesize_actual}"}
+            )
+        
+        if range_end >= filesize_actual:
+            range_end = filesize_actual - 1
 
         # Determine which chunks correspond to the byte range
         start_chunk = range_start // settings.CRYPTO_CHUNK_SIZE
@@ -111,7 +124,7 @@ async def get_video_stream(
         def stream_chunks():
             offset_in_first_chunk = range_start % settings.CRYPTO_CHUNK_SIZE
             last_chunk_bytes = (range_end % settings.CRYPTO_CHUNK_SIZE) + 1
-            total_chunks = end_chunk - start_chunk
+            num_chunks = end_chunk - start_chunk + 1
 
             for i, chunk in enumerate(
                 decrypt_data_from_file(private_key, file_path, start_chunk, end_chunk)
@@ -119,13 +132,19 @@ async def get_video_stream(
                 chunk_start = 0
                 chunk_end = len(chunk)
 
-                if i == 0:
-                    # First chunk: start from offset
+                if num_chunks == 1:
+                    # Single chunk: apply both start and end offsets
                     chunk_start = offset_in_first_chunk
-
-                if i == total_chunks:
-                    # Last chunk: end at last_chunk_bytes
-                    chunk_end = last_chunk_bytes
+                    chunk_end = min(last_chunk_bytes, len(chunk))
+                else:
+                    # Multiple chunks
+                    if i == 0:
+                        # First chunk: start from offset
+                        chunk_start = offset_in_first_chunk
+                    
+                    if i == num_chunks - 1:
+                        # Last chunk: end at last_chunk_bytes
+                        chunk_end = min(last_chunk_bytes, len(chunk))
 
                 # Apply both slices at once
                 yield chunk[chunk_start:chunk_end]
@@ -133,7 +152,7 @@ async def get_video_stream(
         content_length = range_end - range_start + 1
 
         headers = {
-            "Content-Range": f"bytes {range_start}-{range_end}/{filesize_original}",
+            "Content-Range": f"bytes {range_start}-{range_end}/{filesize_actual}",
             "Accept-Ranges": "bytes",
             "Content-Length": str(content_length),
         }
@@ -145,9 +164,14 @@ async def get_video_stream(
     # Old way to serve unencrypted video files
     else:
         filesize = int(file_path.stat().st_size)
-        range_start, range_end = range.replace("bytes=", "").split("-")
-        range_start = int(range_start)
-        range_end = int(range_end) if range_end else filesize - 1
+        
+        if not range or not range.startswith("bytes="):
+            range_start = 0
+            range_end = filesize - 1
+        else:
+            range_start_str, range_end_str = range.replace("bytes=", "").split("-")
+            range_start = int(range_start_str)
+            range_end = int(range_end_str) if range_end_str else filesize - 1
 
         with open(file_path, "rb") as video:
             video.seek(range_start)
@@ -155,6 +179,7 @@ async def get_video_stream(
             headers = {
                 "Content-Range": f"bytes {str(range_start)}-{str(range_end)}/{filesize}",
                 "Accept-Ranges": "bytes",
+                "Content-Length": str(len(data)),
             }
 
             return Response(
