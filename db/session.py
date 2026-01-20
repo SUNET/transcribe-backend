@@ -17,6 +17,9 @@ def get_sessionmaker() -> sessionmaker:
     """
     Get a SQLAlchemy sessionmaker.
     Uses lru_cache to ensure only one instance is created.
+
+    Returns:
+        sessionmaker: A SQLAlchemy sessionmaker instance.
     """
 
     engine = create_engine(settings.API_DATABASE_URL)
@@ -33,6 +36,9 @@ def get_sessionmaker() -> sessionmaker:
 def get_session() -> Generator[Session, None, None]:
     """
     Provide a transactional scope around a series of operations.
+
+    Yields:
+        Session: A SQLAlchemy session.
     """
 
     db_session_factory = get_sessionmaker()
@@ -51,6 +57,9 @@ def get_session() -> Generator[Session, None, None]:
 def handle_database_errors(func) -> callable:
     """
     Decorator to handle database errors.
+
+    Parameters:
+        func (callable): The function to decorate.
     """
 
     @wraps(func)
@@ -75,6 +84,9 @@ def handle_database_errors(func) -> callable:
 def sqla_session():
     """
     Provide a transactional scope around a series of operations.
+
+    Yields:
+        Session: A SQLAlchemy session.
     """
 
     session = get_session()

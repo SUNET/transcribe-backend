@@ -7,11 +7,19 @@ from fastapi_utils.tasks import repeat_every
 from starlette.middleware.sessions import SessionMiddleware
 
 from auth.oidc import RefreshToken, oauth, verify_user
+
 from db.job import job_cleanup
+from db.user import user_create, user_exists, user_update
+
+from fastapi.openapi.utils import get_openapi
+from routers.admin import router as admin_router
+from routers.external import router as external_router
+from routers.healthcheck import router as healthcheck_router
 from routers.job import router as job_router
 from routers.transcriber import router as transcriber_router
 from routers.user import router as user_router
-from routers.video import router as video_router
+from routers.videostream import router as videostream_router
+
 from utils.log import get_logger
 from utils.settings import get_settings
 
@@ -37,12 +45,20 @@ app = FastAPI(
             "description": "Job management operations",
         },
         {
-            "name": "video",
-            "description": "Video retrieval operations",
-        },
-        {
             "name": "user",
             "description": "User management operations",
+        },
+        {
+            "name": "external",
+            "description": "External service operations",
+        },
+        {
+            "name": "healthcheck",
+            "description": "Healthcheck operations",
+        },
+        {
+            "name": "admin",
+            "description": "Administrative operations",
         },
     ],
 )
@@ -58,12 +74,74 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware, settings.API_SECRET_KEY, https_only=False)
 app.include_router(transcriber_router, prefix=settings.API_PREFIX, tags=["transcriber"])
 app.include_router(job_router, prefix=settings.API_PREFIX, tags=["job"])
-app.include_router(video_router, prefix=settings.API_PREFIX, tags=["video"])
 app.include_router(user_router, prefix=settings.API_PREFIX, tags=["user"])
+app.include_router(videostream_router, prefix=settings.API_PREFIX, tags=["video"])
+app.include_router(external_router, prefix=settings.API_PREFIX, tags=["external"])
+app.include_router(healthcheck_router, prefix=settings.API_PREFIX, tags=["healthcheck"])
+app.include_router(admin_router, prefix=settings.API_PREFIX, tags=["admin"])
+
+
+def custom_openapi():
+    """
+    Custom OpenAPI schema with JWT Bearer authentication.
+
+    Returns:
+        dict: The OpenAPI schema.
+    """
+
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title="FastAPI application",
+        version="1.0.0",
+        description="JWT Authentication and Authorization",
+        routes=app.routes,
+    )
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    }
+    openapi_schema["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
+
+@app.on_event("startup")
+async def create_api_user() -> None:
+    """
+    Create the API user with RSA keypair on startup if it does not exist.
+
+    Returns:
+        None
+    """
+
+    if user_exists("api_user"):
+        return
+
+    # Create user and add RSA keypair
+    user = user_create("api_user", realm="none", user_id="api_user")
+    user_update(
+        user["user_id"],
+        encryption_password=settings.API_PRIVATE_KEY_PASSWORD,
+        encryption_settings=True,
+    )
 
 
 @app.get("/api/auth")
 async def auth(request: Request):
+    """
+    OIDC authentication endpoint.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: Redirects to the frontend with tokens.
+    """
+
     token = await oauth.auth0.authorize_access_token(request)
     userinfo = token.get("userinfo")
     if not userinfo:
@@ -84,16 +162,47 @@ async def auth(request: Request):
 
 @app.get("/api/login")
 async def login(request: Request):
+    """
+    OIDC login endpoint.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: Redirects to the OIDC provider for authentication.
+    """
+
     return await oauth.auth0.authorize_redirect(request, settings.OIDC_REDIRECT_URI)
 
 
 @app.get("/api/logout")
 async def logout(request: Request):
+    """
+    OIDC logout endpoint.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: Redirects to the frontend after logout.
+    """
+
     return RedirectResponse(url=settings.OIDC_FRONTEND_URI)
 
 
 @app.post("/api/refresh")
 async def refresh(request: Request, refresh_token: RefreshToken):
+    """
+    OIDC token refresh endpoint.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        refresh_token (RefreshToken): The refresh token model.
+
+    Returns:
+        JSONResponse: The new access token.
+    """
+
     data = {
         "client_id": settings.OIDC_CLIENT_ID,
         "client_secret": settings.OIDC_CLIENT_SECRET,
@@ -115,6 +224,16 @@ async def refresh(request: Request, refresh_token: RefreshToken):
 
 @app.get("/api/docs")
 async def docs(request: Request) -> RedirectResponse:
+    """
+    Redirect to the API documentation after verifying the user.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        RedirectResponse: Redirects to the API documentation.
+    """
+
     await verify_user(request)
 
     return RedirectResponse(url="/docs")
@@ -123,4 +242,11 @@ async def docs(request: Request) -> RedirectResponse:
 @app.on_event("startup")
 @repeat_every(seconds=60 * 60)
 def remove_old_jobs() -> None:
+    """
+    Periodic task to remove old jobs from the database.
+
+    Returns:
+        None
+    """
+
     job_cleanup()

@@ -10,7 +10,6 @@ from typing import Optional
 from utils.log import get_logger
 from utils.settings import get_settings
 
-
 log = get_logger()
 settings = get_settings()
 db_session = get_session()
@@ -26,9 +25,40 @@ oauth.register(
 )
 
 
-async def get_current_user_id(request: Request) -> str:
+async def get_current_admin_user(request: Request) -> str:
     """
-    Get the current user ID from the request.
+    Get the current admin user from the request.
+
+    1. Verify the user.
+    2. Check if the user is an admin.
+    3. Return the user ID.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        str: The current admin user ID.
+    """
+
+    user = await verify_user(request, admin=True)
+
+    log.info(f"User {user["user_id"]} was granted admin access.")
+
+    return user
+
+
+async def get_current_user(request: Request) -> str:
+    """
+    Get the current user from the request.
+
+    1. Verify the user.
+    2. Return the user ID.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        str: The current user ID.
     """
 
     return await verify_user(request)
@@ -37,11 +67,26 @@ async def get_current_user_id(request: Request) -> str:
 class UnauthenticatedError(HTTPException):
     """
     Exception raised when the user is not authenticated.
+
+    Parameters:
+        error (Optional[str]): Additional error message.
+
+    Raises:
+        HTTPException: 401 Unauthorized with the error message.
+
+    Returns:
+        None
     """
 
     def __init__(self, error: Optional[str] = "") -> None:
         """
         Initialize the exception.
+
+        Parameters:
+            error (Optional[str]): Additional error message.
+
+        Raises:
+            HTTPException: 401 Unauthorized with the error message.
         """
         super().__init__(status_code=401, detail="You are not authenticated: " + error)
 
@@ -49,62 +94,81 @@ class UnauthenticatedError(HTTPException):
 class RefreshToken(BaseModel):
     """
     Refresh token model.
+
+    Parameters:
+        token (str): The refresh token.
     """
 
     token: str
 
 
-async def verify_token(id_token: str):
+async def verify_token(id_token: str) -> dict:
     """
     Verify the given ID token.
     1. Fetch the JWKS from the OIDC provider.
     2. Decode and verify the JWT using the JWKS.
     3. Check the issuer and expiration time.
+
+    Parameters:
+        id_token (str): The ID token to verify.
+
+    Returns:
+        dict: The decoded JWT payload.
     """
 
+    # Fetch the JWKS from the OIDC provider
     jwks = await oauth.auth0.fetch_jwk_set()
 
+    # Decode and verify the JWT
     try:
         decoded_jwt = jwt.decode(s=id_token, key=jwks)
     except Exception as e:
         raise UnauthenticatedError("Invalid token.") from e
 
+    # Validate issuer and expiration
     metadata = await oauth.auth0.load_server_metadata()
 
+    # Validate issuer
     if decoded_jwt["iss"] != metadata["issuer"]:
         raise UnauthenticatedError("Invalid issuer.")
 
-    exp = datetime.fromtimestamp(decoded_jwt["exp"])
-
-    if exp < datetime.now():
+    # Check if the token is expired
+    if datetime.fromtimestamp(decoded_jwt["exp"]) < datetime.now():
         raise UnauthenticatedError("Token expired.")
+
     return decoded_jwt
 
 
-async def verify_user(request: Request):
+async def verify_user(request: Request, admin: Optional[bool] = False) -> str:
     """
     Verify the user from the request.
     1. Extract the ID token from the Authorization header.
     2. Verify the ID token.
     3. Create or update the user in the database.
     4. Return the user ID.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        str: The verified user ID.
     """
 
-    auth_header = request.headers.get("Authorization")
-
-    if auth_header is None:
+    # Check if the Authorization header is present
+    if not (auth_header := request.headers.get("Authorization")):
         raise UnauthenticatedError("No authorization header found.")
 
+    # Check if the Authorization header is in the correct format
     if not auth_header.startswith("Bearer "):
         raise UnauthenticatedError("Invalid authorization header format.")
 
-    id_token = auth_header.split(" ")[1]
-
-    if id_token is None:
+    # Extract the ID token
+    if not (id_token := auth_header.split(" ")[1]):
         raise UnauthenticatedError("No id_token found.")
 
     decoded_jwt = await verify_token(id_token=id_token)
 
+    # Create or update the user in the database
     user_id = decoded_jwt["sub"]
     username = decoded_jwt.get("preferred_username")
     realm = decoded_jwt.get("realm", username.split("@")[-1])
@@ -113,12 +177,19 @@ async def verify_user(request: Request):
         username=username,
         realm=realm,
         user_id=user_id,
+        email=decoded_jwt.get("email", ""),
     )
 
+    # Check if the user is active
     if not user["active"]:
         log.error(f"User {user_id} is not active.")
         raise HTTPException(status_code=403, detail="User is not active.")
 
-    log.info(f"User {user_id} authenticated successfully.")
+    if admin and not user["admin"]:
+        log.error(f"User {user_id} is not an admin.")
+        raise HTTPException(status_code=403, detail="User is not an admin.")
 
-    return user_id
+    if not admin:
+        log.info(f"User {user_id} authenticated successfully.")
+
+    return user

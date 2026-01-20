@@ -1,8 +1,5 @@
-import shutil
-import aiofiles
-
-from fastapi import APIRouter, UploadFile, Request, Header, Depends
-from fastapi.responses import JSONResponse, Response
+from fastapi import APIRouter, UploadFile, Request, Depends, Query, File
+from fastapi.responses import JSONResponse
 from db.job import (
     job_create,
     job_remove,
@@ -11,20 +8,27 @@ from db.job import (
     job_update,
     job_result_get,
     job_result_save,
-    job_get_by_external_id,
-    job_result_get_external,
 )
-from db.models import JobStatus, JobType, JobStatusEnum, OutputFormatEnum
-from db.user import user_get_quota_left, user_create
+from db.models import JobType, JobStatusEnum, OutputFormatEnum
+from db.user import (
+    user_get_quota_left,
+    user_get_private_key,
+    user_get,
+    user_get_public_key,
+)
 from typing import Optional
 from utils.settings import get_settings
 from pathlib import Path
-from fastapi.concurrency import run_in_threadpool
-from auth.oidc import get_current_user_id
-from auth.client_auth import verify_client_dn
-import requests
-
+from auth.oidc import get_current_user
+from utils.crypto import (
+    deserialize_public_key_from_pem,
+    deserialize_private_key_from_pem,
+    encrypt_string,
+    decrypt_string,
+    encrypt_data_to_file,
+)
 from utils.log import get_logger
+from utils.validators import TranscriptionStatusPut, TranscriptionResultPut
 
 router = APIRouter(tags=["transcriber"])
 settings = get_settings()
@@ -37,20 +41,28 @@ logger = get_logger()
 @router.get("/transcriber")
 async def transcribe(
     request: Request,
-    job_id: str = "",
-    status: Optional[JobStatus] = None,
-    user_id: str = Depends(get_current_user_id),
+    job_id: Optional[str] = Query(None, description="The ID of the job to get"),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Transcribe audio file.
 
     Used by the frontend to get the status of a transcription job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job to get. If empty, get all jobs for the user.
+        status (Optional[JobStatus]): Filter jobs by status.
+        user (dict): The current user.
+
+    Returns:
+        JSONResponse: The job status or list of jobs.
     """
 
     if job_id:
-        res = job_get(job_id, user_id)
+        res = job_get(job_id, user["user_id"])
     else:
-        res = job_get_all(user_id)
+        res = job_get_all(user["user_id"])
 
     return JSONResponse(content={"result": res})
 
@@ -58,41 +70,64 @@ async def transcribe(
 @router.post("/transcriber")
 async def transcribe_file(
     request: Request,
-    file: UploadFile,
-    user_id: str = Depends(get_current_user_id),
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Transcribe audio file.
 
     Used by the frontend to upload an audio file for transcription.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        file (UploadFile): The uploaded audio file.
+        user (dict): The current user.
+
+    Returns:
+        JSONResponse: The job status.
     """
 
     job = job_create(
-        user_id=user_id,
+        user_id=user["user_id"],
         job_type=JobType.TRANSCRIPTION,
         filename=file.filename,
     )
 
+    if not (api_user := user_get(username="api_user")):
+        return JSONResponse(
+            content={"result": {"error": "API user not found"}}, status_code=500
+        )
+
+    public_key = user_get_public_key(api_user["user_id"])
+    public_key = deserialize_public_key_from_pem(public_key)
+
     try:
-        file_path = Path(api_file_storage_dir + "/" + user_id)
+        file_path = Path(api_file_storage_dir + "/" + user["user_id"])
         dest_path = file_path / job["uuid"]
 
         if not file_path.exists():
             file_path.mkdir(parents=True, exist_ok=True)
 
-        with open(dest_path, "wb") as f:
-            await run_in_threadpool(shutil.copyfileobj, file.file, f, 1024 * 1024)
-    except Exception as e:
-        job = job_update(job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e))
-        return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
+        file_bytes = await file.read()
 
-    job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
+        encrypt_data_to_file(
+            public_key,
+            file_bytes,
+            dest_path,
+        )
+
+        job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
+    except Exception as e:
+        job = job_update(
+            job["uuid"], user["user_id"], status=JobStatusEnum.FAILED, error=str(e)
+        )
+        return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     return JSONResponse(
         content={
             "result": {
                 "uuid": job["uuid"],
-                "user_id": user_id,
+                "user_id": user["user_id"],
                 "status": job["status"],
                 "job_type": job["job_type"],
                 "filename": file.filename,
@@ -105,17 +140,23 @@ async def transcribe_file(
 async def delete_transcription_job(
     request: Request,
     job_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Delete a transcription job.
 
     Used by the frontend to delete a transcription job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job to delete.
+        user (dict): The current user.
+
+    Returns:
+        JSONResponse: The result of the deletion.
     """
 
-    job = job_get(job_id, user_id)
-
-    if not job:
+    if not job_get(job_id, user["user_id"]):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -124,10 +165,14 @@ async def delete_transcription_job(
     job_remove(job_id)
 
     # Remove the video file if it exists
-    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
+    file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4"
+    file_path_enc = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4.enc"
 
     if file_path.exists():
         file_path.unlink()
+
+    if file_path_enc.exists():
+        file_path_enc.unlink()
 
     return JSONResponse(content={"result": {"status": "OK"}})
 
@@ -135,16 +180,25 @@ async def delete_transcription_job(
 @router.put("/transcriber/{job_id}")
 async def update_transcription_status(
     request: Request,
+    item: TranscriptionStatusPut,
     job_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Update the status of a transcription job.
 
     Used by the frontend and worker to update the status of a transcription job.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job to update.
+        user (dict): The current user.
+
+    Returns:
+        JSONResponse: The updated job status.
     """
 
-    quota_left = user_get_quota_left(user_id)
+    quota_left = user_get_quota_left(user["user_id"])
 
     if not quota_left:
         return JSONResponse(
@@ -156,26 +210,18 @@ async def update_transcription_status(
             status_code=403,
         )
 
-    data = await request.json()
-    language = data.get("language")
-    model = data.get("model")
-    speakers = data.get("speakers", 0)
-    status = data.get("status")
-    error = data.get("error")
-    output_format = data.get("output_format")
-
-    job = job_update(
-        job_id,
-        user_id=user_id,
-        language=language,
-        model_type=model,
-        speakers=speakers,
-        status=status,
-        output_format=output_format,
-        error=error,
-    )
-
-    if not job:
+    if not (
+        job := job_update(
+            job_id,
+            user_id=user["user_id"],
+            language=item.language,
+            model_type=item.model,
+            speakers=item.speakers,
+            status=item.status,
+            output_format=item.output_format,
+            error=item.error,
+        )
+    ):
         return JSONResponse(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
@@ -184,7 +230,7 @@ async def update_transcription_status(
         content={
             "result": {
                 "uuid": job["uuid"],
-                "user_id": user_id,
+                "user_id": user["user_id"],
                 "status": job["status"],
                 "job_type": job["job_type"],
                 "filename": job["filename"],
@@ -199,33 +245,45 @@ async def update_transcription_status(
 @router.put("/transcriber/{job_id}/result")
 async def put_transcription_result(
     request: Request,
+    item: TranscriptionResultPut,
     job_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Upload the transcription result.
-    """
-    json_data = await request.json()
 
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job.
+        user (dict): The current user.
+
+    Returns:
+        JSONResponse: The result of the upload.
+    """
     try:
-        if not job_get(job_id, user_id):
+        if not job_get(job_id, user["user_id"]):
             return JSONResponse(
                 content={"result": {"error": "Job not found"}}, status_code=404
             )
 
-        if json_data["format"] == "srt":
-            job_result_save(
-                job_id,
-                user_id,
-                result_srt=json_data["data"],
-            )
-        elif json_data["format"] == "json":
-            job_result_save(
-                job_id,
-                user_id,
-                result=json_data["data"],
-            )
+        public_key = user_get_public_key(user["user_id"])
+        public_key = deserialize_public_key_from_pem(public_key)
+
+        match item.format:
+            case "srt":
+                job_result_save(
+                    job_id,
+                    user["user_id"],
+                    result_srt=encrypt_string(public_key, item.data),
+                )
+            case "json":
+                job_result_save(
+                    job_id,
+                    user["user_id"],
+                    result=encrypt_string(public_key, item.data),
+                )
     except Exception as e:
+        print(e)
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     return JSONResponse(content={"result": {"status": "OK"}}, status_code=200)
@@ -236,31 +294,62 @@ async def get_transcription_result(
     request: Request,
     job_id: str,
     output_format: OutputFormatEnum,
-    user_id: str = Depends(get_current_user_id),
+    user: dict = Depends(get_current_user),
 ) -> JSONResponse:
     """
     Get the transcription result.
+
+    Parameters:
+        request (Request): The incoming HTTP request.
+        job_id (str): The ID of the job.
+        output_format (OutputFormatEnum): The desired output format.
+        user (dict): The current user.
+
+    Returns:
+        JSONResponse: The transcription result.
     """
 
-    job = job_get(job_id, user_id)
+    data = await request.json()
+    encryption_password = data.get("encryption_password", "")
+    private_key = user_get_private_key(user["user_id"])
 
-    if not job:
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
+    if encryption_password == "":
+        encrypted_result = False
 
-    job_result = job_result_get(user_id, job_id)
-
-    if not job_result:
+    if not (job_result := job_result_get(user["user_id"], job_id)):
         return JSONResponse(
             content={"result": {"error": "Job result not found"}}, status_code=404
         )
 
+    if encryption_password != "" and encryption_password is not None:
+        encrypted_result = True
+
+        try:
+            deserialized_private_key = deserialize_private_key_from_pem(
+                private_key, encryption_password
+            )
+        except Exception:
+            encrypted_result = False
+    else:
+        encrypted_result = False
+
     match output_format:
         case OutputFormatEnum.TXT:
             content = job_result.get("result", "")
+
+            if encrypted_result:
+                try:
+                    content = decrypt_string(deserialized_private_key, content)
+                except ValueError:
+                    content = job_result.get("result", "")
         case OutputFormatEnum.SRT:
             content = job_result.get("result_srt", "")
+
+            if encrypted_result:
+                try:
+                    content = decrypt_string(deserialized_private_key, content)
+                except ValueError:
+                    content = job_result.get("result_srt", "")
         case OutputFormatEnum.CSV:
             pass
         case _:
@@ -272,184 +361,4 @@ async def get_transcription_result(
     return JSONResponse(
         content={"result": content},
         media_type="text/plain",
-    )
-
-
-@router.get("/transcriber/{job_id}/videostream")
-async def get_video_stream(
-    request: Request,
-    job_id: str,
-    range: str = Header(None),
-    user_id: str = Depends(get_current_user_id),
-) -> Response:
-    """
-    Get the video stream for a transcription job.
-    """
-
-    job = job_get(job_id, user_id)
-
-    if not job:
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
-
-    file_path = Path(api_file_storage_dir) / user_id / f"{job_id}.mp4"
-
-    if not file_path.exists():
-        return JSONResponse({"result": {"error": "File not found"}}, status_code=404)
-
-    if not range or not range.startswith("bytes="):
-        return JSONResponse(
-            {"result": {"error": "Invalid or missing Range header"}}, status_code=416
-        )
-
-    filesize = int(file_path.stat().st_size)
-    start, end = range.replace("bytes=", "").split("-")
-    start = int(start)
-    end = int(end) if end else filesize - 1
-
-    with open(file_path, "rb") as video:
-        video.seek(start)
-        data = video.read(end - start + 1)
-        headers = {
-            "Content-Range": f"bytes {str(start)}-{str(end)}/{filesize}",
-            "Accept-Ranges": "bytes",
-        }
-
-        return Response(data, status_code=206, headers=headers, media_type="video/mp4")
-
-
-@router.get("/transcriber/external/{external_id}")
-async def get_job_external(
-    request: Request,
-    external_id: str = "",
-    status: Optional[JobStatus] = None,
-) -> JSONResponse:
-    """
-    Get job by external id.
-
-    Used by external integrations.
-    """
-
-    client_dn = verify_client_dn(request)
-    res = job_get_by_external_id(external_id, client_dn)
-
-    if isinstance(res, dict) and res and res["status"] == "completed":
-        job_result = job_result_get_external(external_id)
-        res["result_srt"] = job_result["result_srt"]
-
-    return JSONResponse(content={"result": res})
-
-@router.delete("/transcriber/external/{external_id}")
-async def delete_external_transcription_job(
-    request: Request,
-    external_id: str,
-) -> JSONResponse:
-    """
-    Delete an external transcription job.
-    Used by integrations to clean up completed/failed jobs.
-
-    """
-    client_dn = verify_client_dn(request)
-    job = job_get_by_external_id(external_id, client_dn)
-
-    if not job:
-        return JSONResponse(
-            content={"result": {"error": "Job not found"}}, status_code=404
-        )
-
-    # Delete the job from the database
-    status = job_remove(job["uuid"])
-
-    if status is False:
-        logger.debug(f"JOB REMOVE FALSE: {job}")
-
-    # Remove the video file if it exists
-    file_path = Path(api_file_storage_dir) / job["user_id"] / f"{job["uuid"]}.mp4"
-
-    if file_path.exists():
-        file_path.unlink()
-
-    return JSONResponse(content={"result": {"status": "OK"}})
-
-
-
-@router.post("/transcriber/external")
-async def transcribe_external_file(
-    request: Request,
-) -> JSONResponse:
-    """
-    Transcribe audio file.
-
-    Used by external integrations to upload files.
-    """
-
-    client_dn = verify_client_dn(request)
-
-    data = await request.json()
-    external_id = data.get("id")
-    external_user_id = data.get("external_user_id")
-    language = data.get("language")
-    model = settings.EXTERNAL_JOB_MODEL
-    output_format = data.get("output_format")
-    user_id = data["user_id"]
-    url = data.get("file_url")
-    filename = external_id
-    job = None
-
-    try:
-        kaltura_repsonse = await run_in_threadpool(
-            lambda: requests.get(url, timeout=120)
-        )
-
-        if kaltura_repsonse.status_code != 200:
-            raise Exception(
-                "Bad status code response from kaltura: {}".format(
-                    kaltura_repsonse.status_code
-                )
-            )
-
-        user_create(username=user_id, user_id=user_id, realm="external")
-
-        job = job_create(
-            user_id=user_id,
-            job_type=JobType.TRANSCRIPTION,
-            filename=filename,
-            language=language,
-            model_type=model,
-            output_format=output_format,
-            external_id=external_id,
-            external_user_id=external_user_id,
-            client_dn=client_dn,
-        )
-
-        file_path = Path(api_file_storage_dir + "/" + user_id)
-        dest_path = file_path / job["uuid"]
-
-        if not file_path.exists():
-            file_path.mkdir(parents=True, exist_ok=True)
-
-        async with aiofiles.open(dest_path, "wb") as out_file:
-            await out_file.write(kaltura_repsonse.content)
-
-    except Exception as e:
-        logger.error("Caught exception while creating external job - {}".format(e))
-        if job is not None:
-            job = job_update(
-                job["uuid"], user_id, status=JobStatusEnum.FAILED, error=str(e)
-            )
-        return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
-
-    job = job_update(job["uuid"], status=JobStatusEnum.PENDING)
-
-    return JSONResponse(
-        content={
-            "result": {
-                "uuid": job["uuid"],
-                "user_id": user_id,
-                "status": job["status"],
-                "job_type": job["job_type"],
-                "filename": filename,
-            }
-        }
     )

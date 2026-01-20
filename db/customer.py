@@ -7,9 +7,11 @@ from db.job import job_get_all
 from db.models import Customer, User
 from db.session import get_session
 from typing import Optional
+from utils.log import get_logger
 from utils.settings import get_settings
 
 settings = get_settings()
+log = get_logger()
 
 
 def customer_create(
@@ -25,6 +27,20 @@ def customer_create(
 ) -> dict:
     """
     Create a new customer in the database.
+
+    Parameters:
+        customer_abbr (str): Abbreviation for the customer.
+        partner_id (str): Partner ID associated with the customer.
+        name (str): Full name of the customer.
+        priceplan (str): Pricing plan for the customer (e.g., "fixed", "usage").
+        base_fee (int): Base fee for the customer.
+        realms (str): Comma-separated list of realms associated with the customer.
+        contact_email (Optional[str]): Contact email for the customer.
+        notes (Optional[str]): Additional notes about the customer.
+        blocks_purchased (Optional[int]): Number of blocks purchased (for fixed plans).
+
+    Returns:
+        dict: Dictionary representation of the created customer.
     """
 
     with get_session() as session:
@@ -43,18 +59,57 @@ def customer_create(
         session.add(customer)
         session.flush()
 
+        log.info(f"Customer {customer.name} created with ID {customer.id}.")
+
+        return customer.as_dict()
+
+
+def customer_get_from_user_id(user_id: str) -> Optional[dict]:
+    """
+    Get a customer by user_id.
+
+    Parameters:
+        user_id (str): The user ID to retrieve the associated customer.
+
+    Returns:
+        Optional[dict]: Dictionary representation of the customer if found, else empty dict.
+    """
+
+    with get_session() as session:
+        if not (user := session.query(User).filter(User.user_id == user_id).first()):
+            return {}
+
+        realm = user.realm
+
+        if not (
+            customer := (
+                session.query(Customer)
+                .filter(Customer.realms.like(f"%{realm}%"))
+                .first()
+            )
+        ):
+            return {}
+
         return customer.as_dict()
 
 
 def customer_get(customer_id: str) -> Optional[dict]:
     """
     Get a customer by id.
+
+    Parameters:
+        customer_id (str): The ID of the customer to retrieve.
+
+    Returns:
+        Optional[dict]: Dictionary representation of the customer if found, else empty dict.
     """
 
     with get_session() as session:
-        customer = session.query(Customer).filter(Customer.id == customer_id).first()
-
-        if not customer:
+        if not (
+            customer := session.query(Customer)
+            .filter(Customer.id == customer_id)
+            .first()
+        ):
             return {}
 
         return customer.as_dict()
@@ -63,14 +118,22 @@ def customer_get(customer_id: str) -> Optional[dict]:
 def customer_get_by_partner_id(partner_id: str) -> Optional[dict]:
     """
     Get a customer by partner_id.
+
+    Parameters:
+        partner_id (str): The partner ID of the customer to retrieve.
+
+    Returns:
+        Optional[dict]: Dictionary representation of the customer if found, else empty dict.
     """
 
     with get_session() as session:
-        customer = (
-            session.query(Customer).filter(Customer.partner_id == partner_id).first()
-        )
-
-        if not customer:
+        if not (
+            customer := (
+                session.query(Customer)
+                .filter(Customer.partner_id == partner_id)
+                .first()
+            )
+        ):
             return {}
 
         return customer.as_dict()
@@ -79,6 +142,12 @@ def customer_get_by_partner_id(partner_id: str) -> Optional[dict]:
 def customer_get_all(admin_user: dict) -> list[dict]:
     """
     Get all customers.
+
+    Parameters:
+        admin_user (dict): Dictionary containing admin user details, including 'bofh' and 'realm' keys.
+
+    Returns:
+        list[dict]: List of dictionary representations of customers.
     """
 
     with get_session() as session:
@@ -118,12 +187,30 @@ def customer_update(
 ) -> Optional[dict]:
     """
     Update customer metadata.
+
+    Parameters:
+        customer_id (Optional[str]): The ID of the customer to update.
+        customer_abbr (Optional[str]): New abbreviation for the customer.
+        partner_id (Optional[str]): New partner ID for the customer.
+        name (Optional[str]): New name for the customer.
+        contact_email (Optional[str]): New contact email for the customer.
+        priceplan (Optional[str]): New pricing plan for the customer.
+        base_fee (Optional[int]): New base fee for the customer.
+        realms (Optional[str]): New comma-separated list of realms for the customer.
+        notes (Optional[str]): New notes for the customer.
+        blocks_purchased (Optional[int]): New number of blocks purchased.
+
+    Returns:
+        Optional[dict]: Dictionary representation of the updated customer if found, else empty dict.
     """
 
     with get_session() as session:
-        customer = session.query(Customer).filter(Customer.id == customer_id).first()
-
-        if not customer:
+        if not (
+            customer := session.query(Customer)
+            .filter(Customer.id == customer_id)
+            .with_for_update()
+            .first()
+        ):
             return {}
 
         if customer_abbr is not None:
@@ -145,21 +232,34 @@ def customer_update(
         if blocks_purchased is not None:
             customer.blocks_purchased = blocks_purchased
 
+        log.info(f"Customer {customer.name} (ID: {customer.id}) updated.")
+
         return customer.as_dict()
 
 
 def customer_delete(customer_id: int) -> bool:
     """
     Delete a customer by id.
+
+    Parameters:
+        customer_id (int): The ID of the customer to delete.
+
+    Returns:
+        bool: True if the customer was deleted, False if not found.
     """
     with get_session() as session:
-        customer = session.query(Customer).filter(Customer.id == customer_id).first()
-
-        if not customer:
+        if not (
+            customer := session.query(Customer)
+            .filter(Customer.id == customer_id)
+            .first()
+        ):
             return False
 
         session.delete(customer)
-        return True
+
+    log.info(f"Customer {customer.name} (ID: {customer.id}) deleted.")
+
+    return True
 
 
 def customer_get_statistics(customer_id: str) -> dict:
@@ -167,12 +267,20 @@ def customer_get_statistics(customer_id: str) -> dict:
     Get statistics for a specific customer.
     Calculates transcription statistics for all users in the customer's realms.
     For fixed plan customers, calculates block usage and overages.
+
+    Parameters:
+        customer_id (str): The ID of the customer to get statistics for.
+
+    Returns:
+        dict: Dictionary containing customer statistics.
     """
 
     with get_session() as session:
-        customer = session.query(Customer).filter(Customer.id == customer_id).first()
-
-        if not customer:
+        if not (
+            customer := session.query(Customer)
+            .filter(Customer.id == customer_id)
+            .first()
+        ):
             return {
                 "total_users": 0,
                 "transcribed_files": 0,
@@ -192,9 +300,9 @@ def customer_get_statistics(customer_id: str) -> dict:
             }
 
         # Get all users associated with this customer's realms
-        realm_list = [r.strip() for r in customer.realms.split(",") if r.strip()]
-
-        if not realm_list:
+        if not (
+            realm_list := [r.strip() for r in customer.realms.split(",") if r.strip()]
+        ):
             return {
                 "total_users": 0,
                 "transcribed_files": 0,
@@ -335,10 +443,17 @@ def get_all_realms() -> list[str]:
     """
     Get all unique realms from users.
     Returns a sorted list of unique realm strings.
+
+    Parameters:
+        None
+
+    Returns:
+        list[str]: Sorted list of unique realms.
     """
     with get_session() as session:
         realms = session.query(User.realm).distinct().all()
         realm_list = [realm[0] for realm in realms if realm[0]]
+
         return sorted(realm_list)
 
 
@@ -346,9 +461,14 @@ def get_customer_name_from_realm(realm: str) -> Optional[str]:
     """
     Get customer name from a realm.
     Returns the customer name if the realm is associated with a customer.
+
+    Parameters:
+        realm (str): The realm string to search for.
+
+    Returns:
+        Optional[str]: Customer name if found, else None.
     """
     with get_session() as session:
-        # Search for customers that have this realm in their comma-separated realms field
         customers = session.query(Customer).all()
 
         for customer in customers:
@@ -365,6 +485,12 @@ def get_customer_by_realm(realm: str) -> Optional[dict]:
     """
     Get customer details by realm.
     Returns the first customer that has this realm in their realms list.
+
+    Parameters:
+        realm (str): The realm string to search for.
+
+    Returns:
+        Optional[dict]: Customer dictionary if found, else None.
     """
     with get_session() as session:
         customers = session.query(Customer).all()
@@ -383,7 +509,7 @@ def customer_list_by_realms(realms: list[str]) -> list[dict]:
     """
     Get all customers that have any of the specified realms.
 
-    Args:
+    Parameters:
         realms: List of realm strings to search for
 
     Returns:
@@ -407,13 +533,16 @@ def export_customers_to_csv(admin_user: dict) -> str:
     """
     Export all customers with their statistics to CSV format.
 
+    Parameters:
+        admin_user (dict): Dictionary containing admin user details.
+
     Returns:
         CSV string with customer data and statistics
     """
-    output = io.StringIO()
-    customers = customer_get_all(admin_user)
 
-    if not customers:
+    output = io.StringIO()
+
+    if not (customers := customer_get_all(admin_user)):
         return ""
 
     # Define CSV headers
