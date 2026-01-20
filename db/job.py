@@ -275,12 +275,24 @@ def job_remove(uuid: str) -> bool:
         file_path_mp4 = (
             Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.mp4"
         )
+        file_path_mp4_enc = (
+            Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.mp4.enc"
+        )
+        file_path_enc = (
+            Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.enc"
+        )
 
         if file_path.exists():
             file_path.unlink()
 
         if file_path_mp4.exists():
             file_path_mp4.unlink()
+
+        if file_path_enc.exists():
+            file_path_enc.unlink()
+
+        if file_path_mp4_enc.exists():
+            file_path_mp4_enc.unlink()
 
         # Anonymize job data instead of deleting the record.
         # We keep the record for auditing and billing purposes.
