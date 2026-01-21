@@ -9,7 +9,14 @@ from starlette.middleware.sessions import SessionMiddleware
 from auth.oidc import RefreshToken, oauth, verify_user
 
 from db.job import job_cleanup
-from db.user import user_create, user_exists, user_update
+from db.user import (
+    user_create,
+    user_exists,
+    user_get_private_key,
+    user_get_public_key,
+    user_update,
+    user_get,
+)
 
 from fastapi.openapi.utils import get_openapi
 from routers.admin import router as admin_router
@@ -250,3 +257,28 @@ def remove_old_jobs() -> None:
     """
 
     job_cleanup()
+
+
+@app.on_event("startup")
+def create_api_user_on_startup() -> None:
+    """
+    Create the API user with RSA keypair on startup if it does not exist.
+
+    Returns:
+        None
+    """
+
+    if not user_exists("api_user"):
+        user = user_create("api_user", realm="none", user_id="api_user")
+
+    user = user_get(username="api_user")
+
+    try:
+        user_get_private_key(user["user_id"])
+        user_get_public_key(user["user_id"])
+    except Exception:
+        user_update(
+            user["user_id"],
+            encryption_password=settings.API_PRIVATE_KEY_PASSWORD,
+            encryption_settings=True,
+        )
