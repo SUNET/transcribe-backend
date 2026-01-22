@@ -15,8 +15,9 @@ from utils.crypto import (
     serialize_public_key_to_pem,
 )
 from utils.notifications import notifications
+from utils.settings import get_settings
 
-
+settings = get_settings()
 log = get_logger()
 
 
@@ -375,7 +376,9 @@ def user_update(
             user.encryption_settings = True
 
             # Generate RSA key pair
-            private_key, public_key = generate_rsa_keypair()
+            private_key, public_key = generate_rsa_keypair(
+                key_size=settings.CRYPTO_KEY_SIZE
+            )
 
             # Serialize keys to PEM format
             serialized_private_key = serialize_private_key_to_pem(
