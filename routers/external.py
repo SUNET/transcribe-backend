@@ -203,6 +203,7 @@ async def transcribe_external_file(
             public_key,
             kaltura_repsonse.content,
             dest_path,
+            chunk_size=settings.CRYPTO_CHUNK_SIZE,
         )
 
     except Exception as e:

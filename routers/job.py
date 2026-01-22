@@ -226,6 +226,7 @@ async def put_video_file(
         public_key,
         file_bytes,
         str(file_path / filename),
+        chunk_size=settings.CRYPTO_CHUNK_SIZE,
     )
 
     return JSONResponse(

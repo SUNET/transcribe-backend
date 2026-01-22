@@ -114,6 +114,7 @@ async def transcribe_file(
             public_key,
             file_bytes,
             dest_path,
+            chunk_size=settings.CRYPTO_CHUNK_SIZE,
         )
 
         job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
