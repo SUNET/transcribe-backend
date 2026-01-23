@@ -4,10 +4,7 @@ from typing import Optional
 
 class TranscriptionStatusPut(BaseModel):
     language: Optional[str] = None
-    model: Optional[str] = None
     speakers: Optional[int] = 0
-    status: Optional[str] = None
-    error: Optional[str] = None
     output_format: Optional[str] = None
 
 

@@ -216,11 +216,11 @@ async def update_transcription_status(
             job_id,
             user_id=user["user_id"],
             language=item.language,
-            model_type=item.model,
+            model_type="Slower transcription (higher accuracy)",
             speakers=item.speakers,
-            status=item.status,
+            status="pending",
             output_format=item.output_format,
-            error=item.error,
+            error=None,
         )
     ):
         return JSONResponse(
