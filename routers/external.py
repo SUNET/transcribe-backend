@@ -33,7 +33,7 @@ settings = get_settings()
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 
-@router.get("/transcriber/external/{external_id}")
+@router.get("/transcriber/external/{external_id}", include_in_schema=False)
 async def get_job_external(
     request: Request,
     external_id: str = "",
@@ -96,7 +96,7 @@ async def get_job_external(
 
     return JSONResponse(content={"result": res})
 
-@router.delete("/transcriber/external/{external_id}")
+@router.delete("/transcriber/external/{external_id}", include_in_schema=False)
 async def delete_external_transcription_job(
     request: Request,
     external_id: str,
@@ -135,7 +135,7 @@ async def delete_external_transcription_job(
     return JSONResponse(content={"result": {"status": "OK"}})
 
 
-@router.post("/transcriber/external")
+@router.post("/transcriber/external", include_in_schema=False)
 async def transcribe_external_file(
     item: TranscribeExternalPost,
     request: Request,

@@ -8,7 +8,6 @@ from utils.crypto import (
     decrypt_data_from_file,
     deserialize_private_key_from_pem,
     get_encrypted_file_actual_size,
-    get_encrypted_file_size,
 )
 from utils.settings import get_settings
 from utils.validators import VideoStreamRequestBody
@@ -18,7 +17,7 @@ settings = get_settings()
 api_file_storage_dir = settings.API_FILE_STORAGE_DIR
 
 
-@router.get("/transcriber/{job_id}/videostream")
+@router.get("/transcriber/{job_id}/videostream", include_in_schema=False)
 async def get_video_stream(
     request: Request,
     item: VideoStreamRequestBody,
@@ -89,12 +88,14 @@ async def get_video_stream(
     # New way to serve encrypted video files
     if encrypted_media:
         # Get the actual available file size (not the declared size)
-        filesize_actual = get_encrypted_file_actual_size(file_path, settings.CRYPTO_CHUNK_SIZE)
-        
+        filesize_actual = get_encrypted_file_actual_size(
+            file_path, settings.CRYPTO_CHUNK_SIZE
+        )
+
         if filesize_actual == 0:
             return JSONResponse(
-                {"result": {"error": "Encrypted file is empty or corrupted"}}, 
-                status_code=500
+                {"result": {"error": "Encrypted file is empty or corrupted"}},
+                status_code=500,
             )
 
         # Recalculate range_end based on actual available file size
@@ -109,11 +110,11 @@ async def get_video_stream(
         # IMPORTANT: Clamp to actual available data
         if range_start >= filesize_actual:
             return Response(
-                b"", 
+                b"",
                 status_code=416,
-                headers={"Content-Range": f"bytes */{filesize_actual}"}
+                headers={"Content-Range": f"bytes */{filesize_actual}"},
             )
-        
+
         if range_end >= filesize_actual:
             range_end = filesize_actual - 1
 
@@ -141,7 +142,7 @@ async def get_video_stream(
                     if i == 0:
                         # First chunk: start from offset
                         chunk_start = offset_in_first_chunk
-                    
+
                     if i == num_chunks - 1:
                         # Last chunk: end at last_chunk_bytes
                         chunk_end = min(last_chunk_bytes, len(chunk))
@@ -164,7 +165,7 @@ async def get_video_stream(
     # Old way to serve unencrypted video files
     else:
         filesize = int(file_path.stat().st_size)
-        
+
         if not range or not range.startswith("bytes="):
             range_start = 0
             range_end = filesize - 1

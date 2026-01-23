@@ -39,7 +39,7 @@ router = APIRouter(tags=["job"])
 settings = get_settings()
 
 
-@router.put("/job/{job_id}")
+@router.put("/job/{job_id}", include_in_schema=False)
 async def update_transcription_status(
     request: Request,
     item: TranscriptionJobUpdateRequest,
@@ -108,7 +108,7 @@ async def update_transcription_status(
     return JSONResponse(content={"result": job})
 
 
-@router.get("/job/next")
+@router.get("/job/next", include_in_schema=False)
 async def get_transcription_job(
     request: Request,
     client_dn: str = Depends(verify_client_dn),
@@ -126,7 +126,7 @@ async def get_transcription_job(
     return JSONResponse(content={"result": jsonable_encoder(job_get_next())})
 
 
-@router.get("/job/{user_id}/{job_id}/file")
+@router.get("/job/{user_id}/{job_id}/file", include_in_schema=False)
 async def get_transcription_file(
     request: Request,
     user_id: str,
@@ -181,7 +181,7 @@ async def get_transcription_file(
     )
 
 
-@router.put("/job/{user_id}/{job_id}/file")
+@router.put("/job/{user_id}/{job_id}/file", include_in_schema=False)
 async def put_video_file(
     request: Request,
     user_id: str,
@@ -241,7 +241,7 @@ async def put_video_file(
     )
 
 
-@router.put("/job/{user_id}/{job_id}/result")
+@router.put("/job/{user_id}/{job_id}/result", include_in_schema=False)
 async def put_transcription_result(
     request: Request,
     item: TranscriptionResultRequest,
