@@ -44,7 +44,7 @@ from utils.validators import (
 )
 
 log = get_logger()
-router = APIRouter(tags=["user"])
+router = APIRouter(tags=["admin"])
 settings = get_settings()
 
 
