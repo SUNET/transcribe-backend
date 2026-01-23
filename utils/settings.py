@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     API_FILE_STORAGE_DIR: str = ""
     API_PREFIX: str = "/api/v1"
     API_SECRET_KEY: str = ""
-    API_VERSION: str = "0.1.0"
+    API_VERSION: str = "1.1.0"
     API_WORKER_CLIENT_DN: str = "CN=TranscriberWorker,O=SUNET,ST=Stockholm,C=SE"
     API_KALTURA_CLIENT_DN: str = "CN=KalturaAdaptor,O=SUNET,ST=Stockholm,C=SE"
     API_CLIENT_VERIFICATION_ENABLED: bool = True
@@ -63,7 +63,9 @@ class Settings(BaseSettings):
 
     # Crypto configuration.
     CRYPTO_KEY_SIZE: int = 4096
-    CRYPTO_CHUNK_SIZE: int = 1024 * 1024  # 1MB - must match chunk_size in encrypt_data_to_file
+    CRYPTO_CHUNK_SIZE: int = (
+        1024 * 1024
+    )  # 1MB - must match chunk_size in encrypt_data_to_file
 
     # E-mail notifications
     NOTIFICATION_MAIL_UPDATED: dict = {

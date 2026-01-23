@@ -100,8 +100,8 @@ def custom_openapi():
         return app.openapi_schema
 
     openapi_schema = get_openapi(
-        title="FastAPI application",
-        version="1.0.0",
+        title=settings.API_TITLE,
+        version=settings.API_VERSION,
         description="JWT Authentication and Authorization",
         routes=app.routes,
     )
