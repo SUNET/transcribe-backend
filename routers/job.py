@@ -79,13 +79,11 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
-        # Check if the user exists or if the user_id is in the dn list (used
-        # by integrations)
         if not user_update(
-            username,
+            user_id,
             transcribed_seconds=item.transcribed_seconds,
             active=None,
-        ) and not dn_in_list(user_id):
+        ):
             return JSONResponse(
                 content={"result": {"error": "User not found"}}, status_code=404
             )
