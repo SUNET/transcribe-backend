@@ -51,7 +51,7 @@ from utils.validators import (
 )
 
 log = get_logger()
-router = APIRouter(tags=["user"])
+router = APIRouter(tags=["admin"])
 settings = get_settings()
 
 
@@ -223,7 +223,7 @@ async def create_group(
         name=item.name,
         realm=admin_user["realm"],
         description=item.description,
-        quota_seconds=item.quota,
+        quota_seconds=item.quota_seconds,
         owner_user_id=admin_user["user_id"],
     )
 
@@ -417,7 +417,7 @@ async def group_stats(
     )
 
 
-@router.get("/admin/customers")
+@router.get("/admin/customers", include_in_schema=False)
 async def list_customers(
     request: Request,
     admin_user: dict = Depends(get_current_admin_user),
@@ -445,7 +445,7 @@ async def list_customers(
     return JSONResponse(content={"result": result})
 
 
-@router.post("/admin/customers")
+@router.post("/admin/customers", include_in_schema=False)
 async def create_customer(
     request: Request,
     item: CreateCustomerRequest,
@@ -485,7 +485,7 @@ async def create_customer(
     return JSONResponse(content={"result": customer})
 
 
-@router.get("/admin/customers/{customer_id}")
+@router.get("/admin/customers/{customer_id}", include_in_schema=False)
 async def get_customer(
     request: Request,
     customer_id: str,
@@ -509,7 +509,7 @@ async def get_customer(
     return JSONResponse(content={"result": customer})
 
 
-@router.put("/admin/customers/{customer_id}")
+@router.put("/admin/customers/{customer_id}", include_in_schema=False)
 async def update_customer(
     request: Request,
     item: UpdateCustomerRequest,
@@ -550,7 +550,7 @@ async def update_customer(
     return JSONResponse(content={"result": customer})
 
 
-@router.delete("/admin/customers/{customer_id}")
+@router.delete("/admin/customers/{customer_id}", include_in_schema=False)
 async def delete_customer(
     request: Request,
     customer_id: int,
@@ -577,7 +577,7 @@ async def delete_customer(
     return JSONResponse(content={"result": {"status": "OK"}})
 
 
-@router.get("/admin/realms")
+@router.get("/admin/realms", include_in_schema=False)
 async def list_realms(
     request: Request,
     admin_user: dict = Depends(get_current_admin_user),
@@ -599,7 +599,7 @@ async def list_realms(
     return JSONResponse(content={"result": get_all_realms()})
 
 
-@router.get("/admin/customers/{customer_id}/stats")
+@router.get("/admin/customers/{customer_id}/stats", include_in_schema=False)
 async def customer_stats(
     request: Request,
     customer_id: str,

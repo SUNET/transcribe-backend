@@ -8,7 +8,7 @@ router = APIRouter(tags=["healthcheck"])
 health = HealthStatus()
 
 
-@router.post("/healthcheck")
+@router.post("/healthcheck", include_in_schema=False)
 async def healthcheck(
     request: Request,
     client_dn: str = Depends(verify_client_dn),
@@ -30,7 +30,7 @@ async def healthcheck(
     return JSONResponse(content={"result": "ok"})
 
 
-@router.get("/healthcheck")
+@router.get("/healthcheck", include_in_schema=False)
 async def get_healthcheck(
     request: Request,
     admin_user: dict = Depends(get_current_admin_user),

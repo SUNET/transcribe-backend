@@ -4,10 +4,7 @@ from typing import Optional
 
 class TranscriptionStatusPut(BaseModel):
     language: Optional[str] = None
-    model: Optional[str] = None
     speakers: Optional[int] = 0
-    status: Optional[str] = None
-    error: Optional[str] = None
     output_format: Optional[str] = None
 
 
@@ -61,13 +58,13 @@ class UpdateCustomerRequest(BaseModel):
 
 
 class TranscribeExternalPost(BaseModel):
-    external_id: Optional[str]
-    external_user_id: Optional[str]
     language: Optional[str]
     model: Optional[str]
     output_format: Optional[str]
     user_id: Optional[str]
-    url: Optional[str]
+    file_url: Optional[str]
+    id: Optional[str]
+    service_id: Optional[str]
 
 
 class VideoStreamRequestBody(BaseModel):

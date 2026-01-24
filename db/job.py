@@ -275,12 +275,24 @@ def job_remove(uuid: str) -> bool:
         file_path_mp4 = (
             Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.mp4"
         )
+        file_path_mp4_enc = (
+            Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.mp4.enc"
+        )
+        file_path_enc = (
+            Path(settings.API_FILE_STORAGE_DIR) / job.user_id / f"{job.uuid}.enc"
+        )
 
         if file_path.exists():
             file_path.unlink()
 
         if file_path_mp4.exists():
             file_path_mp4.unlink()
+
+        if file_path_enc.exists():
+            file_path_enc.unlink()
+
+        if file_path_mp4_enc.exists():
+            file_path_mp4_enc.unlink()
 
         # Anonymize job data instead of deleting the record.
         # We keep the record for auditing and billing purposes.
@@ -381,6 +393,7 @@ def job_cleanup() -> None:
         jobs_to_notify = (
             session.query(Job)
             .filter(Job.deletion_date <= datetime.now() + timedelta(days=1))
+            .filter(Job.status != JobStatusEnum.DELETED)
             .all()
         )
 
@@ -393,7 +406,7 @@ def job_cleanup() -> None:
             if "deletion" not in user.notifications.split(","):
                 continue
 
-            if user.email != "":
+            if user.email == "":
                 continue
 
             if notifications.notification_sent_record_exists(
@@ -508,7 +521,7 @@ def job_result_save(
 
         if job_result:
             if result:
-                job_result.result = json.dumps(result)
+                job_result.result = result
             if result_srt:
                 job_result.result_srt = result_srt
         else:

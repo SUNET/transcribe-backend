@@ -23,6 +23,7 @@ from auth.oidc import get_current_user
 from utils.crypto import (
     deserialize_public_key_from_pem,
     deserialize_private_key_from_pem,
+    encrypt_string,
     decrypt_string,
     encrypt_data_to_file,
 )
@@ -113,6 +114,7 @@ async def transcribe_file(
             public_key,
             file_bytes,
             dest_path,
+            chunk_size=settings.CRYPTO_CHUNK_SIZE,
         )
 
         job = job_update(job["uuid"], status=JobStatusEnum.UPLOADED)
@@ -164,10 +166,14 @@ async def delete_transcription_job(
     job_remove(job_id)
 
     # Remove the video file if it exists
-    file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4.enc"
+    file_path = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4"
+    file_path_enc = Path(api_file_storage_dir) / user["user_id"] / f"{job_id}.mp4.enc"
 
     if file_path.exists():
         file_path.unlink()
+
+    if file_path_enc.exists():
+        file_path_enc.unlink()
 
     return JSONResponse(content={"result": {"status": "OK"}})
 
@@ -210,11 +216,11 @@ async def update_transcription_status(
             job_id,
             user_id=user["user_id"],
             language=item.language,
-            model_type=item.model,
+            model_type="Slower transcription (higher accuracy)",
             speakers=item.speakers,
-            status=item.status,
+            status="pending",
             output_format=item.output_format,
-            error=item.error,
+            error=None,
         )
     ):
         return JSONResponse(
@@ -261,20 +267,24 @@ async def put_transcription_result(
                 content={"result": {"error": "Job not found"}}, status_code=404
             )
 
+        public_key = user_get_public_key(user["user_id"])
+        public_key = deserialize_public_key_from_pem(public_key)
+
         match item.format:
             case "srt":
                 job_result_save(
                     job_id,
                     user["user_id"],
-                    result_srt=item.data,
+                    result_srt=encrypt_string(public_key, item.data),
                 )
             case "json":
                 job_result_save(
                     job_id,
                     user["user_id"],
-                    result=item.format,
+                    result=encrypt_string(public_key, item.data),
                 )
     except Exception as e:
+        print(e)
         return JSONResponse(content={"result": {"error": str(e)}}, status_code=500)
 
     return JSONResponse(content={"result": {"status": "OK"}}, status_code=200)

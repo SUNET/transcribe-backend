@@ -39,7 +39,7 @@ router = APIRouter(tags=["job"])
 settings = get_settings()
 
 
-@router.put("/job/{job_id}")
+@router.put("/job/{job_id}", include_in_schema=False)
 async def update_transcription_status(
     request: Request,
     item: TranscriptionJobUpdateRequest,
@@ -79,13 +79,11 @@ async def update_transcription_status(
         )
 
     if job["status"] == JobStatusEnum.COMPLETED:
-        # Check if the user exists or if the user_id is in the dn list (used
-        # by integrations)
         if not user_update(
-            username,
+            user_id,
             transcribed_seconds=item.transcribed_seconds,
             active=None,
-        ) and not dn_in_list(user_id):
+        ):
             return JSONResponse(
                 content={"result": {"error": "User not found"}}, status_code=404
             )
@@ -108,7 +106,7 @@ async def update_transcription_status(
     return JSONResponse(content={"result": job})
 
 
-@router.get("/job/next")
+@router.get("/job/next", include_in_schema=False)
 async def get_transcription_job(
     request: Request,
     client_dn: str = Depends(verify_client_dn),
@@ -126,7 +124,7 @@ async def get_transcription_job(
     return JSONResponse(content={"result": jsonable_encoder(job_get_next())})
 
 
-@router.get("/job/{user_id}/{job_id}/file")
+@router.get("/job/{user_id}/{job_id}/file", include_in_schema=False)
 async def get_transcription_file(
     request: Request,
     user_id: str,
@@ -181,7 +179,7 @@ async def get_transcription_file(
     )
 
 
-@router.put("/job/{user_id}/{job_id}/file")
+@router.put("/job/{user_id}/{job_id}/file", include_in_schema=False)
 async def put_video_file(
     request: Request,
     user_id: str,
@@ -215,6 +213,10 @@ async def put_video_file(
         file_path.mkdir(parents=True, exist_ok=True)
 
     file_bytes = await file.read()
+
+    if user_id.isnumeric():
+        user_id = user_get(username="api_user")["user_id"]
+
     public_key = user_get_public_key(user_id)
     public_key = deserialize_public_key_from_pem(public_key)
 
@@ -222,6 +224,7 @@ async def put_video_file(
         public_key,
         file_bytes,
         str(file_path / filename),
+        chunk_size=settings.CRYPTO_CHUNK_SIZE,
     )
 
     return JSONResponse(
@@ -236,7 +239,7 @@ async def put_video_file(
     )
 
 
-@router.put("/job/{user_id}/{job_id}/result")
+@router.put("/job/{user_id}/{job_id}/result", include_in_schema=False)
 async def put_transcription_result(
     request: Request,
     item: TranscriptionResultRequest,
@@ -261,8 +264,12 @@ async def put_transcription_result(
             content={"result": {"error": "Job not found"}}, status_code=404
         )
 
-    # Encrypt the data with the users public key
-    public_key = user_get_public_key(user_id)
+    if user_id.isnumeric():
+        api_user = user_get(username="api_user")["user_id"]
+        public_key = user_get_public_key(api_user)
+    else:
+        public_key = user_get_public_key(user_id)
+
     public_key = deserialize_public_key_from_pem(public_key)
 
     match item.format:
