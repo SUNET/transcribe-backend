@@ -22,6 +22,7 @@ from fastapi.openapi.utils import get_openapi
 from routers.admin import router as admin_router
 from routers.external import router as external_router
 from routers.healthcheck import router as healthcheck_router
+from routers.inference import router as inference_router
 from routers.job import router as job_router
 from routers.transcriber import router as transcriber_router
 from routers.user import router as user_router
@@ -86,6 +87,7 @@ app.include_router(videostream_router, prefix=settings.API_PREFIX, tags=["video"
 app.include_router(external_router, prefix=settings.API_PREFIX, tags=["external"])
 app.include_router(healthcheck_router, prefix=settings.API_PREFIX, tags=["healthcheck"])
 app.include_router(admin_router, prefix=settings.API_PREFIX, tags=["admin"])
+app.include_router(inference_router, prefix=settings.API_PREFIX, tags=["inference"])
 
 
 def custom_openapi():

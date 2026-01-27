@@ -1,7 +1,14 @@
 import json
 
 from auth.client import dn_in_list, verify_client_dn
-from fastapi import APIRouter, UploadFile, Request, Depends
+from fastapi import (
+    APIRouter,
+    UploadFile,
+    Request,
+    Depends,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse, JSONResponse
 from db.job import (
@@ -23,6 +30,7 @@ from db.models import JobStatusEnum
 from pathlib import Path
 from utils.log import get_logger
 from utils.settings import get_settings
+from utils.inference_ws_manager import inference_ws_manager
 
 from utils.crypto import (
     decrypt_data_from_file,
@@ -309,3 +317,35 @@ async def put_transcription_result(
             }
         }
     )
+
+
+@router.websocket("/job/inference")
+async def inference_worker_websocket(websocket: WebSocket):
+    """
+    WebSocket endpoint for inference workers to connect and receive requests.
+
+    Workers connect here to receive inference requests from clients and send
+    responses back. Authentication is done via client certificates.
+    """
+    # Verify client certificate
+    log.info("Inference worker attempting to connect via websocket")
+    client_dn = websocket.headers.get("x-client-dn", "")
+    if not dn_in_list(client_dn):
+        log.error(f"Invalid client certificate DN: {client_dn}")
+        await websocket.close(code=4003, reason="Invalid client certificate")
+        return
+
+    await websocket.accept()
+    await inference_ws_manager.connect_worker(websocket)
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            request_id = data.get("request_id")
+            if request_id:
+                inference_ws_manager.handle_response(request_id, data)
+    except WebSocketDisconnect:
+        inference_ws_manager.disconnect_worker(websocket)
+    except Exception as e:
+        log.error(f"Inference worker websocket error: {e}")
+        inference_ws_manager.disconnect_worker(websocket)
