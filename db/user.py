@@ -766,6 +766,8 @@ def users_admin_domains_from_realm(realm: str) -> list:
     """
 
     with get_session() as session:
-        users = session.query(User).filter(User.admin_domains.ilike(f"%{realm}%")).all()
+        users = (
+            session.query(User).filter(User.admin_domains.ilike(f"%@{realm}%")).all()
+        )
 
         return [user.as_dict() for user in users]
